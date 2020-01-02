@@ -2,11 +2,11 @@ import configparser
 import logging
 
 from discord.ext import commands
-from BiasOfTheWeek import BiasOfTheWeek
 
 config = configparser.ConfigParser()
 config.read('conf.ini')
 client = commands.Bot(command_prefix=config['discord']['command_prefix'])
+client.config = config
 logger = logging.getLogger('discord')
 logger.setLevel(logging.DEBUG)
 handler = logging.FileHandler(filename='botw-bot.log', encoding='utf-8', mode='w')
@@ -19,5 +19,11 @@ async def on_ready():
     print(f'Logged in as {client.user}')
 
 
-client.add_cog(BiasOfTheWeek(client, config['biasoftheweek']))
+@client.check
+async def globally_block_dms(ctx):
+    return ctx.guild is not None
+
+
+client.load_extension('BiasOfTheWeek')
+client.load_extension('Utilities')
 client.run(config['discord']['token'])
