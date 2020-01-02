@@ -1,7 +1,9 @@
-from discord.ext import commands
-import discord
-import random
 import asyncio
+import random
+
+import discord
+import pendulum
+from discord.ext import commands
 
 CHECK_EMOTE = '✅'
 CROSS_EMOTE = '❌'
@@ -22,14 +24,20 @@ class Idol:
 
 
 class BiasOfTheWeek(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, config):
         self.bot = bot
         self.nominations = {}
+        self.config = config
 
     @staticmethod
     def reaction_check(reaction, user, author, prompt_msg):
         return user == author and str(reaction.emoji) in [CHECK_EMOTE, CROSS_EMOTE] and \
                reaction.message.id == prompt_msg.id
+
+    async def assign_winner_role(self, guild, winner):
+        print('assigning')
+        botw_winner_role = discord.utils.get(guild.roles, name=self.config['winner_role_name'])
+        await winner.add_roles(botw_winner_role)
 
     @commands.command()
     async def nominate(self, ctx, group: str, name: str):
@@ -77,6 +85,24 @@ class BiasOfTheWeek(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(name='pickwinner')
-    async def pick_winner(self, ctx):
+    @commands.has_permissions(administrator=True)
+    async def pick_winner(self, ctx, silent: bool = False, fast_assign: bool = False):
         member, pick = random.choice(list(self.nominations.items()))
-        await ctx.send(f'Bias of the Week: {member.mention}\'s pick: **{pick}**')
+        # self.winning_member = member
+
+        # Assign BotW winner role on next wednesday at 00:00 UTC
+        now = pendulum.now('Europe/London')
+        assign_date = now.add(seconds=30) if fast_assign else now.next(pendulum.WEDNESDAY)
+
+        period = assign_date - now
+
+        await ctx.send(f"""Bias of the Week: {member if silent else member.mention}\'s pick: **{pick}**. 
+You will be assigned the role *{self.config['winner_role_name']}* at {assign_date.to_cookie_string()}.""")
+        await asyncio.sleep(period.in_seconds(), loop=self.bot.loop)
+        await self.assign_winner_role(ctx.guild, member)
+
+    @pick_winner.error
+    async def pick_winner_error(self, ctx, error):
+        if isinstance(error, commands.errors.MissingPermissions):
+            await ctx.send('You need to be an administrator to use this command.')
+        print(error)

@@ -1,4 +1,3 @@
-import discord
 import configparser
 import logging
 
@@ -20,5 +19,5 @@ async def on_ready():
     print(f'Logged in as {client.user}')
 
 
-client.add_cog(BiasOfTheWeek(client))
+client.add_cog(BiasOfTheWeek(client, config['biasoftheweek']))
 client.run(config['discord']['token'])
