@@ -1,2 +1,6 @@
 [discord]
 token=XXXXXXXXXXXXXXXXXXXXXXXX.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX
+command_prefix=.
+
+[biasoftheweek]
+winner_role_name=BotW-Winner
