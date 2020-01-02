@@ -9,6 +9,10 @@ CHECK_EMOTE = '✅'
 CROSS_EMOTE = '❌'
 
 
+def setup(bot):
+    bot.add_cog(BiasOfTheWeek(bot))
+
+
 class Idol:
     def __init__(self, group, name):
         self.group = group
@@ -24,10 +28,9 @@ class Idol:
 
 
 class BiasOfTheWeek(commands.Cog):
-    def __init__(self, bot, config):
+    def __init__(self, bot):
         self.bot = bot
         self.nominations = {}
-        self.config = config
 
     @staticmethod
     def reaction_check(reaction, user, author, prompt_msg):
@@ -36,7 +39,7 @@ class BiasOfTheWeek(commands.Cog):
 
     async def assign_winner_role(self, guild, winner):
         print('assigning')
-        botw_winner_role = discord.utils.get(guild.roles, name=self.config['winner_role_name'])
+        botw_winner_role = discord.utils.get(guild.roles, name=self.bot.config['biasoftheweek']['winner_role_name'])
         await winner.add_roles(botw_winner_role)
 
     @commands.command()
@@ -97,12 +100,12 @@ class BiasOfTheWeek(commands.Cog):
         period = assign_date - now
 
         await ctx.send(f"""Bias of the Week: {member if silent else member.mention}\'s pick: **{pick}**. 
-You will be assigned the role *{self.config['winner_role_name']}* at {assign_date.to_cookie_string()}.""")
+You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_name']}* at {assign_date.to_cookie_string()}.""")
         await asyncio.sleep(period.in_seconds(), loop=self.bot.loop)
         await self.assign_winner_role(ctx.guild, member)
 
     @pick_winner.error
     async def pick_winner_error(self, ctx, error):
         if isinstance(error, commands.errors.MissingPermissions):
-            await ctx.send('You need to be an administrator to use this command.')
+            await ctx.send(error)
         print(error)
