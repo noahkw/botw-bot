@@ -133,3 +133,9 @@ dmypy.json
 
 # Config
 conf.ini
+
+# vscode
+.vscode/
+
+# venv
+venv/
