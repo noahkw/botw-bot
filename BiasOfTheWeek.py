@@ -4,6 +4,7 @@ import random
 import discord
 import pendulum
 from discord.ext import commands
+from Scheduler import Job
 
 CHECK_EMOTE = '✅'
 CROSS_EMOTE = '❌'
@@ -35,12 +36,7 @@ class BiasOfTheWeek(commands.Cog):
     @staticmethod
     def reaction_check(reaction, user, author, prompt_msg):
         return user == author and str(reaction.emoji) in [CHECK_EMOTE, CROSS_EMOTE] and \
-               reaction.message.id == prompt_msg.id
-
-    async def assign_winner_role(self, guild, winner):
-        print('assigning')
-        botw_winner_role = discord.utils.get(guild.roles, name=self.bot.config['biasoftheweek']['winner_role_name'])
-        await winner.add_roles(botw_winner_role)
+            reaction.message.id == prompt_msg.id
 
     @commands.command()
     async def nominate(self, ctx, group: str, name: str):
@@ -91,18 +87,18 @@ class BiasOfTheWeek(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def pick_winner(self, ctx, silent: bool = False, fast_assign: bool = False):
         member, pick = random.choice(list(self.nominations.items()))
-        # self.winning_member = member
 
         # Assign BotW winner role on next wednesday at 00:00 UTC
         now = pendulum.now('Europe/London')
-        assign_date = now.add(seconds=30) if fast_assign else now.next(pendulum.WEDNESDAY)
-
-        period = assign_date - now
+        assign_date = now.add(seconds=120) if fast_assign else now.next(
+            pendulum.WEDNESDAY)
 
         await ctx.send(f"""Bias of the Week: {member if silent else member.mention}\'s pick: **{pick}**. 
 You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_name']}* at {assign_date.to_cookie_string()}.""")
-        await asyncio.sleep(period.in_seconds(), loop=self.bot.loop)
-        await self.assign_winner_role(ctx.guild, member)
+
+        scheduler = self.bot.get_cog('Scheduler')
+        if scheduler is not None:
+            await scheduler.add_job(Job('assign_winner_role', [ctx.guild.id, member.id], assign_date.float_timestamp))
 
     @pick_winner.error
     async def pick_winner_error(self, ctx, error):

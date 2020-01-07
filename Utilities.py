@@ -14,6 +14,7 @@ class Utilities(commands.Cog):
     async def reload(self, ctx):
         self.bot.reload_extension('BiasOfTheWeek')
         self.bot.reload_extension('Utilities')
+        self.bot.reload_extension('Scheduler')
 
     @reload.error
     async def reload_error(self, ctx, error):

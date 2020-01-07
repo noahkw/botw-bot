@@ -26,4 +26,5 @@ async def globally_block_dms(ctx):
 
 client.load_extension('BiasOfTheWeek')
 client.load_extension('Utilities')
+client.load_extension('Scheduler')
 client.run(config['discord']['token'])
