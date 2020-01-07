@@ -39,7 +39,7 @@ class BiasOfTheWeek(commands.Cog):
             reaction.message.id == prompt_msg.id
 
     @commands.command()
-    async def nominate(self, ctx, group: str, name: str):
+    async def nominate(self, ctx, group: commands.clean_content, name: commands.clean_content):
         idol = Idol(group, name)
 
         if idol in self.nominations.values():
@@ -68,12 +68,7 @@ class BiasOfTheWeek(commands.Cog):
 
     @nominate.error
     async def nominate_error(self, ctx, error):
-        if isinstance(error, commands.TooManyArguments):
-            await ctx.send('Too many arguments! Please enclose the group idol name in quotes if they'
-                           'consist of multiple words.')
-        print(error)
-        await ctx.send('Please use the following format: `.nominate GROUP IDOL`. '
-                       '\nEnclose in quotation marks if either contains spaces.')
+        await ctx.send(error)
 
     @commands.command()
     async def nominations(self, ctx):
