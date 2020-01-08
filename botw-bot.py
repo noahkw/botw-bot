@@ -1,5 +1,6 @@
 import configparser
 import logging
+import cogs
 
 from discord.ext import commands
 
@@ -24,7 +25,7 @@ async def globally_block_dms(ctx):
     return ctx.guild is not None
 
 
-client.load_extension('BiasOfTheWeek')
-client.load_extension('Utilities')
-client.load_extension('Scheduler')
+client.load_extension('cogs.BiasOfTheWeek')
+client.load_extension('cogs.Utilities')
+client.load_extension('cogs.Scheduler')
 client.run(config['discord']['token'])
