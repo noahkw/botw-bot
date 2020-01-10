@@ -139,3 +139,6 @@ conf.ini
 
 # venv
 venv/
+
+# firebase private key
+*firebase-adminsdk*.json

@@ -4,3 +4,7 @@ command_prefix=.
 
 [biasoftheweek]
 winner_role_name=BotW-Winner
+
+[firebase]
+key_file=xxx-firebase-adminsdk-xxx-xxx.json
+db_name=xxx
