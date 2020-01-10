@@ -1,6 +1,7 @@
 import configparser
 import logging
 import cogs
+import discord
 
 from discord.ext import commands
 from DataStore import FirebaseDataStore
@@ -22,7 +23,8 @@ logger.addHandler(handler)
 
 @client.event
 async def on_ready():
-    print(f'Logged in as {client.user}')
+    await client.change_presence(activity=discord.Game('with Bini'))
+    print(f"Logged in as {client.user}. Whitelisted servers: {config.items('whitelisted_servers')}")
 
 
 @client.event
@@ -35,7 +37,15 @@ async def globally_block_dms(ctx):
     return ctx.guild is not None
 
 
+@client.check
+async def whitelisted_server(ctx):
+    server_ids = [int(server) for key, server in config.items('whitelisted_servers')]
+    return ctx.guild.id in server_ids
+
+
 client.load_extension('cogs.BiasOfTheWeek')
 client.load_extension('cogs.Utilities')
 client.load_extension('cogs.Scheduler')
 client.run(config['discord']['token'])
+
+print('Cleaning up')

@@ -2,6 +2,10 @@
 token=XXXXXXXXXXXXXXXXXXXXXXXX.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX
 command_prefix=.
 
+[whitelisted_servers]
+name1=XXXXXXXXXXXXXXXXXX
+name2=XXXXXXXXXXXXXXXXXX
+
 [biasoftheweek]
 winner_role_name=BotW-Winner
 

@@ -30,7 +30,7 @@ class Scheduler(commands.Cog):
 
     @run_jobs.before_loop
     async def before_run_jobs(self):
-        print('waiting...')
+        print('Waiting until bot ready...')
         await self.bot.wait_until_ready()
 
     async def add_job(self, job):
