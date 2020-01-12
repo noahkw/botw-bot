@@ -29,7 +29,7 @@ async def on_ready():
 
 @client.event
 async def on_disconnect():
-    prtint('disconnected')
+    print('disconnected')
 
 
 @client.check

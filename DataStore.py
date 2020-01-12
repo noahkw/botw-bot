@@ -1,6 +1,6 @@
-import firebase_admin
-
 from abc import ABC, abstractmethod
+
+import firebase_admin
 from firebase_admin import credentials, firestore
 
 
@@ -40,7 +40,6 @@ class FirebaseDataStore(DataStore):
 
         self.db = firestore.client()
 
-
     def set(self, collection, document, val):
         self._get_doc_ref(collection, document).set(val)
 
@@ -51,7 +50,8 @@ class FirebaseDataStore(DataStore):
         self._get_collection(collection).add(val)
 
     def get(self, collection, document=None):
-        return self._get_collection(collection).stream() if document is None else self._get_doc_ref(collection, document).get()
+        return self._get_collection(collection).stream() if document is None else self._get_doc_ref(collection,
+                                                                                                    document).get()
 
     def delete(self, collection, document):
         self._get_doc_ref(collection, document).delete()
@@ -65,6 +65,7 @@ class FirebaseDataStore(DataStore):
 
 if __name__ == '__main__':
     import configparser
+
     config = configparser.ConfigParser()
     config.read('conf.ini')
 
