@@ -56,6 +56,9 @@ class FirebaseDataStore(DataStore):
     def delete(self, collection, document):
         self._get_doc_ref(collection, document).delete()
 
+    def query(self, collection, *query):
+        return self._get_collection(collection).where(*query).stream()
+
     def _get_doc_ref(self, collection, document):
         return self._get_collection(collection).document(document)
 

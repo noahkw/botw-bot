@@ -8,6 +8,10 @@ name2=XXXXXXXXXXXXXXXXXX
 
 [biasoftheweek]
 winner_role_name=BotW-Winner
+nominations_collection=botw_nominations
+
+[scheduler]
+jobs_collection=jobs
 
 [firebase]
 key_file=xxx-firebase-adminsdk-xxx-xxx.json
