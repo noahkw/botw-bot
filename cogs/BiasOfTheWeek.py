@@ -1,9 +1,10 @@
-import asyncio
 import random
 
+import asyncio
 import discord
 import pendulum
 from discord.ext import commands
+
 from cogs.Scheduler import Job
 
 CHECK_EMOTE = '✅'
@@ -27,16 +28,33 @@ class Idol:
             return NotImplemented
         return str.lower(self.group) == str.lower(other.group) and str.lower(self.name) == str.lower(other.name)
 
+    def to_dict(self):
+        return {
+            'group': self.group,
+            'name': self.name
+        }
+
+    @staticmethod
+    def from_dict(source):
+        return Idol(source['group'], source['name'])
+
 
 class BiasOfTheWeek(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.nominations = {}
+        self.nominations_collection = self.bot.config['biasoftheweek']['nominations_collection']
+
+        _nominations = self.bot.database.get(self.nominations_collection)
+        for nomination in _nominations:
+            self.nominations[self.bot.get_user(int(nomination.id))] = Idol.from_dict(nomination.to_dict())
+
+        print(f'Initial nominations from database: {self.nominations}')
 
     @staticmethod
     def reaction_check(reaction, user, author, prompt_msg):
         return user == author and str(reaction.emoji) in [CHECK_EMOTE, CROSS_EMOTE] and \
-            reaction.message.id == prompt_msg.id
+               reaction.message.id == prompt_msg.id
 
     @commands.command()
     async def nominate(self, ctx, group: commands.clean_content, name: commands.clean_content):
@@ -61,22 +79,34 @@ class BiasOfTheWeek(commands.Cog):
                 await prompt_msg.delete()
                 if reaction.emoji == CHECK_EMOTE:
                     self.nominations[ctx.author] = idol
+                    self.bot.database.set(self.nominations_collection, str(ctx.author.id), idol.to_dict())
                     await ctx.send(f'{ctx.author} nominates **{idol}** instead of **{old_idol}**.')
         else:
             self.nominations[ctx.author] = idol
+            self.bot.database.set(self.nominations_collection, str(ctx.author.id), idol.to_dict())
             await ctx.send(f'{ctx.author} nominates **{idol}**.')
 
     @nominate.error
     async def nominate_error(self, ctx, error):
         await ctx.send(error)
 
+    @commands.command(name='clearnominations')
+    @commands.has_permissions(administrator=True)
+    async def clear_nominations(self, ctx):
+        self.nominations = {}
+        self.bot.database.delete(self.nominations_collection)
+        await ctx.message.add_reaction(CHECK_EMOTE)
+
     @commands.command()
     async def nominations(self, ctx):
-        embed = discord.Embed(title='Bias of the Week nominations')
-        for key, value in self.nominations.items():
-            embed.add_field(name=key, value=value)
+        if len(self.nominations) > 0:
+            embed = discord.Embed(title='Bias of the Week nominations')
+            for key, value in self.nominations.items():
+                embed.add_field(name=key, value=value)
 
-        await ctx.send(embed=embed)
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send('So far, no idols have been nominated.')
 
     @commands.command(name='pickwinner')
     @commands.has_permissions(administrator=True)
@@ -88,7 +118,8 @@ class BiasOfTheWeek(commands.Cog):
         assign_date = now.add(seconds=120) if fast_assign else now.next(
             pendulum.WEDNESDAY)
 
-        await ctx.send(f"""Bias of the Week: {member if silent else member.mention}\'s pick: **{pick}**. 
+        await ctx.send(
+            f"""Bias of the Week ({now.week_of_year}-{now.year}): {member if silent else member.mention}\'s pick **{pick}**. 
 You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_name']}* at {assign_date.to_cookie_string()}.""")
 
         scheduler = self.bot.get_cog('Scheduler')

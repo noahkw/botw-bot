@@ -1,9 +1,9 @@
 import configparser
 import logging
-import cogs
-import discord
 
+import discord
 from discord.ext import commands
+
 from DataStore import FirebaseDataStore
 
 config = configparser.ConfigParser()
@@ -26,6 +26,10 @@ async def on_ready():
     await client.change_presence(activity=discord.Game('with Bini'))
     print(f"Logged in as {client.user}. Whitelisted servers: {config.items('whitelisted_servers')}")
 
+    client.load_extension('cogs.BiasOfTheWeek')
+    client.load_extension('cogs.Utilities')
+    client.load_extension('cogs.Scheduler')
+
 
 @client.event
 async def on_disconnect():
@@ -43,9 +47,6 @@ async def whitelisted_server(ctx):
     return ctx.guild.id in server_ids
 
 
-client.load_extension('cogs.BiasOfTheWeek')
-client.load_extension('cogs.Utilities')
-client.load_extension('cogs.Scheduler')
 client.run(config['discord']['token'])
 
 print('Cleaning up')

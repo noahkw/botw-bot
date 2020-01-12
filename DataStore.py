@@ -53,8 +53,14 @@ class FirebaseDataStore(DataStore):
         return self._get_collection(collection).stream() if document is None else self._get_doc_ref(collection,
                                                                                                     document).get()
 
-    def delete(self, collection, document):
-        self._get_doc_ref(collection, document).delete()
+    def delete(self, collection, document=None):
+        if document is not None:
+            self._get_doc_ref(collection, document).delete()
+        else:
+            # implement batching later
+            docs = self._get_collection(collection).stream()
+            for doc in docs:
+                doc.reference.delete()
 
     def query(self, collection, *query):
         return self._get_collection(collection).where(*query).stream()
