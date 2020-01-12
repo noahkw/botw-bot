@@ -1,6 +1,7 @@
+import asyncio
+import logging
 import random
 
-import asyncio
 import discord
 import pendulum
 from discord.ext import commands
@@ -9,6 +10,8 @@ from cogs.Scheduler import Job
 
 CHECK_EMOTE = '✅'
 CROSS_EMOTE = '❌'
+
+logger = logging.getLogger('discord')
 
 
 def setup(bot):
@@ -49,7 +52,7 @@ class BiasOfTheWeek(commands.Cog):
         for nomination in _nominations:
             self.nominations[self.bot.get_user(int(nomination.id))] = Idol.from_dict(nomination.to_dict())
 
-        print(f'Initial nominations from database: {self.nominations}')
+        logger.info(f'Initial nominations from database: {self.nominations}')
 
     @staticmethod
     def reaction_check(reaction, user, author, prompt_msg):
@@ -130,4 +133,4 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
     async def pick_winner_error(self, ctx, error):
         if isinstance(error, commands.errors.MissingPermissions):
             await ctx.send(error)
-        print(error)
+        logger.error(error)

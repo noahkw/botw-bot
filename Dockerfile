@@ -1,4 +1,4 @@
-FROM gorialis/discord.py
+FROM gorialis/discord.py:3.7.4-buster-master-minimal
 
 WORKDIR /app
 

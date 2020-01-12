@@ -1,7 +1,11 @@
 import time
+import logging
 
 import discord
 from discord.ext import commands, tasks
+
+
+logger = logging.getLogger('discord')
 
 
 def setup(bot):
@@ -20,7 +24,7 @@ class Scheduler(commands.Cog):
         self.active_jobs = [Job.from_dict(job.to_dict()) for job in
                             self.bot.database.query(self.jobs_collection, 'exec_time', '>', time.time())]
 
-        print(f'# Initial jobs from database: {len(self.active_jobs)}')
+        logger.info(f'# Initial jobs from database: {len(self.active_jobs)}')
 
     def cog_unload(self):
         self.run_jobs.cancel()
@@ -35,7 +39,7 @@ class Scheduler(commands.Cog):
 
     @run_jobs.before_loop
     async def before_run_jobs(self):
-        print('Waiting until bot ready...')
+        logger.info('Waiting until bot ready...')
         await self.bot.wait_until_ready()
 
     async def add_job(self, job):
@@ -43,7 +47,7 @@ class Scheduler(commands.Cog):
         self.bot.database.add(self.jobs_collection, job.to_dict())
 
     async def assign_winner_role(self, guild_id, winner_id):
-        print('assigning')
+        logger.info('Assigning winner role.')
         guild = self.bot.get_guild(guild_id)
         winner = guild.get_member(winner_id)
         botw_winner_role = discord.utils.get(

@@ -24,7 +24,7 @@ logger.addHandler(handler)
 @client.event
 async def on_ready():
     await client.change_presence(activity=discord.Game('with Bini'))
-    print(f"Logged in as {client.user}. Whitelisted servers: {config.items('whitelisted_servers')}")
+    logger.info(f"Logged in as {client.user}. Whitelisted servers: {config.items('whitelisted_servers')}")
 
     client.load_extension('cogs.BiasOfTheWeek')
     client.load_extension('cogs.Utilities')
@@ -33,7 +33,7 @@ async def on_ready():
 
 @client.event
 async def on_disconnect():
-    print('disconnected')
+    logger.info('disconnected')
 
 
 @client.check
@@ -49,4 +49,4 @@ async def whitelisted_server(ctx):
 
 client.run(config['discord']['token'])
 
-print('Cleaning up')
+logger.info('Cleaning up')

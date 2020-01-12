@@ -1,5 +1,8 @@
+import logging
+
 from discord.ext import commands
 
+logger = logging.getLogger('discord')
 
 def setup(bot):
     bot.add_cog(Utilities(bot))
@@ -20,4 +23,4 @@ class Utilities(commands.Cog):
     async def reload_error(self, ctx, error):
         if isinstance(error, commands.errors.MissingPermissions):
             await ctx.send(error)
-        print(error)
+        logger.error(error)
