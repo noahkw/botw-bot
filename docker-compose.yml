@@ -1,0 +1,7 @@
+version: "2.1"
+services:
+  botw-bot:
+    image: botw-bot
+    volumes:
+      - {CLONE_DIR}:/app
+    restart: always
