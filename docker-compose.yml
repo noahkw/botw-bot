@@ -5,3 +5,5 @@ services:
     volumes:
       - {CLONE_DIR}:/app
     restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
