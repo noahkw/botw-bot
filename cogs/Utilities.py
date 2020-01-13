@@ -15,9 +15,10 @@ class Utilities(commands.Cog):
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def reload(self, ctx):
-        self.bot.reload_extension('BiasOfTheWeek')
-        self.bot.reload_extension('Utilities')
-        self.bot.reload_extension('Scheduler')
+        self.bot.reload_extension('cogs.BiasOfTheWeek')
+        self.bot.reload_extension('cogs.Utilities')
+        self.bot.reload_extension('cogs.Scheduler')
+        self.bot.reload_extension('cogs.EmojiUtils')
 
     @reload.error
     async def reload_error(self, ctx, error):

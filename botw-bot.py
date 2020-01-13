@@ -13,7 +13,7 @@ client.config = config
 client.database = FirebaseDataStore(
     config['firebase']['key_file'], config['firebase']['db_name'])
 logger = logging.getLogger('discord')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 handler = logging.FileHandler(
     filename='botw-bot.log', encoding='utf-8', mode='w')
 handler.setFormatter(logging.Formatter(
@@ -29,6 +29,7 @@ async def on_ready():
     client.load_extension('cogs.BiasOfTheWeek')
     client.load_extension('cogs.Utilities')
     client.load_extension('cogs.Scheduler')
+    client.load_extension('cogs.EmojiUtils')
 
 
 @client.event
