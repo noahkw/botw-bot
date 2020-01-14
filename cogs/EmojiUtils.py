@@ -18,9 +18,10 @@ def setup(bot):
 
 
 class EmojiUtils(commands.Cog):
+    SPLIT_MSG_AFTER = 15
+
     def __init__(self, bot):
         self.bot = bot
-        self.split_msg_after = 15
 
     @commands.group(name='emoji')
     @commands.has_permissions(administrator=True)
@@ -30,7 +31,7 @@ class EmojiUtils(commands.Cog):
     @emoji.command(name='list')
     async def emoji_list(self, ctx, channel: discord.TextChannel):
         emoji_sorted = sorted(ctx.guild.emojis, key=lambda e: e.name)
-        for emoji_chunk in grouper(emoji_sorted, self.split_msg_after):
+        for emoji_chunk in grouper(emoji_sorted, EmojiUtils.SPLIT_MSG_AFTER):
             await channel.send(' '.join(str(e) for e in emoji_chunk))
 
     @emoji_list.error
