@@ -11,7 +11,7 @@ from cogs.Scheduler import Job
 CHECK_EMOTE = '✅'
 CROSS_EMOTE = '❌'
 
-logger = logging.getLogger('discord')
+logger = logging.getLogger(__name__)
 
 
 def setup(bot):

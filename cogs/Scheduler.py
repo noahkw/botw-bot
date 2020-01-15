@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands, tasks
 
 
-logger = logging.getLogger('discord')
+logger = logging.getLogger(__name__)
 
 
 def setup(bot):

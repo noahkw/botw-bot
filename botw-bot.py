@@ -20,16 +20,24 @@ handler.setFormatter(logging.Formatter(
     '%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 logger.addHandler(handler)
 
+INITIAL_EXTENSIONS = [
+    'cogs.BiasOfTheWeek',
+    'cogs.Utilities',
+    'cogs.Scheduler',
+    'cogs.EmojiUtils'
+]
+
 
 @client.event
 async def on_ready():
     await client.change_presence(activity=discord.Game('with Bini'))
     logger.info(f"Logged in as {client.user}. Whitelisted servers: {config.items('whitelisted_servers')}")
 
-    client.load_extension('cogs.BiasOfTheWeek')
-    client.load_extension('cogs.Utilities')
-    client.load_extension('cogs.Scheduler')
-    client.load_extension('cogs.EmojiUtils')
+    for ext in INITIAL_EXTENSIONS:
+        ext_logger = logging.getLogger(ext)
+        ext_logger.setLevel(logging.INFO)
+        ext_logger.addHandler(handler)
+        client.load_extension(ext)
 
 
 @client.event
