@@ -13,6 +13,10 @@ class Utilities(commands.Cog):
         self.bot = bot
 
     @commands.command()
+    async def ping(self, ctx):
+        await ctx.send(f'.pong: Discord WebSocket: `{self.bot.latency * 1000:0.2f}` ms')
+
+    @commands.command()
     @commands.has_permissions(administrator=True)
     async def reload(self, ctx):
         self.bot.reload_extension('cogs.BiasOfTheWeek')
