@@ -8,8 +8,8 @@ from discord.ext import commands
 
 from cogs.Scheduler import Job
 
-CHECK_EMOTE = '✅'
-CROSS_EMOTE = '❌'
+CHECK_EMOTE = '\N{White Heavy Check Mark}'
+CROSS_EMOTE = '\N{Cross Mark}'
 
 logger = logging.getLogger(__name__)
 
