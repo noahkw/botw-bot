@@ -24,7 +24,8 @@ INITIAL_EXTENSIONS = [
     'cogs.BiasOfTheWeek',
     'cogs.Utilities',
     'cogs.Scheduler',
-    'cogs.EmojiUtils'
+    'cogs.EmojiUtils',
+    'cogs.Tags'
 ]
 
 

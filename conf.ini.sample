@@ -13,6 +13,9 @@ nominations_collection=botw_nominations
 [scheduler]
 jobs_collection=jobs
 
+[tags]
+tags_collection=tags
+
 [firebase]
 key_file=xxx-firebase-adminsdk-xxx-xxx.json
 db_name=xxx
