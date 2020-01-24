@@ -1,8 +1,12 @@
 import logging
 import time
+import random
 
 import discord
 from discord.ext import commands
+
+
+CHECK_EMOTE = '\N{White Heavy Check Mark}'
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +16,8 @@ def setup(bot):
 
 
 class Tag:
-    def __init__(self, trigger, reaction, creator, in_msg_trigger=False, use_count=0, creation_date=None):
+    def __init__(self, id_, trigger, reaction, creator, in_msg_trigger=False, use_count=0, creation_date=None):
+        self.id = id_
         self.trigger = trigger
         self.reaction = reaction
         self.creator = creator
@@ -21,12 +26,15 @@ class Tag:
         self.creation_date = time.time() if creation_date is None else creation_date
 
     def __str__(self):
-        return f'{self.trigger} -> {self.reaction} (creator: {self.creator})'
+        return f'({self.id}) {self.trigger} -> {self.reaction} (creator: {self.creator})'
+
+    def to_list_element(self):
+        return f'`{self.id}`: *{self.trigger}* by {self.creator}'
 
     def __eq__(self, other):
         if not isinstance(other, Tag):
             return NotImplemented
-        return str.lower(self.trigger) == str.lower(other.trigger)
+        return str.lower(self.trigger) == str.lower(other.trigger) and str.lower(self.reaction) == str.lower(other.reaction)
 
     def to_dict(self):
         return {
@@ -39,8 +47,8 @@ class Tag:
         }
 
     @staticmethod
-    def from_dict(source, bot):
-        return Tag(source['trigger'], source['reaction'], bot.get_user(source['creator']),
+    def from_dict(source, bot, id=None):
+        return Tag(id, source['trigger'], source['reaction'], bot.get_user(source['creator']),
                    in_msg_trigger=source['in_msg_trigger'], use_count=source['use_count'],
                    creation_date=source['creation_date'])
 
@@ -50,7 +58,7 @@ class Tags(commands.Cog):
         self.bot = bot
         self.bot.add_listener(self.on_message, 'on_message')
         self.tags_collection = self.bot.config['tags']['tags_collection']
-        self.tags = [Tag.from_dict(tag.to_dict(), self.bot) for tag in self.bot.database.get(self.tags_collection)]
+        self.tags = [Tag.from_dict(tag.to_dict(), self.bot, tag.id) for tag in self.bot.database.get(self.tags_collection)]
 
         logger.info(f'Initial tags from database: {self.tags}')
 
@@ -61,12 +69,20 @@ class Tags(commands.Cog):
     @tag.command()
     async def add(self, ctx, trigger: commands.clean_content, reaction: commands.clean_content,
                   in_msg_trigger: bool = False):
-        if trigger in [tag.trigger for tag in self.tags]:
-            raise discord.InvalidArgument('This command exists already.')
+        tag = Tag(None, trigger, reaction, ctx.author, in_msg_trigger=in_msg_trigger)
+        if tag in self.tags:
+            raise discord.InvalidArgument('This tag exists already.')
         else:
-            tag = Tag(trigger, reaction, ctx.author, in_msg_trigger=in_msg_trigger)
+            id_ = self.bot.database.set_get_id(self.tags_collection, tag.to_dict())
+            tag.id = id_
             self.tags.append(tag)
-            self.bot.database.add(self.tags_collection, tag.to_dict())
+            await ctx.message.add_reaction(CHECK_EMOTE)
+
+    @tag.command()
+    async def list(self, ctx):
+        embed = discord.Embed(title='Tags')
+        embed.add_field(name='Reactions', value='\n'.join([Tag.to_list_element(tag) for tag in self.tags]))
+        await ctx.send(embed=embed)
 
     @add.error
     async def add_error(self, ctx, error):
@@ -76,7 +92,7 @@ class Tags(commands.Cog):
         """Scan messages for tags to execute. As of now, the runtime is at worst O(words_in_message * number_tags),
         which scales poorly. Probably need to implement a more efficient matching algorithm down the line.
 
-        If multiple tags are found in one message, it currently chooses the tag that was added last."""
+        If multiple tags are found in one message, it chooses one at random."""
         if message.author.bot:
             return
 
@@ -85,7 +101,10 @@ class Tags(commands.Cog):
         if ctx.valid:
             return
 
+        found_tags = []
         for tag in self.tags:
             if message.content.startswith(tag.trigger) or (tag.in_msg_trigger and tag.trigger in message.content):
-                await message.channel.send(tag.reaction)
-                return
+                found_tags.append(tag.reaction)
+
+        if len(found_tags) >= 1:
+            await message.channel.send(random.choice(found_tags))

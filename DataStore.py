@@ -43,6 +43,11 @@ class FirebaseDataStore(DataStore):
     def set(self, collection, document, val):
         self._get_doc_ref(collection, document).set(val)
 
+    def set_get_id(self, collection, val):
+        doc = self._get_doc_ref(collection, None)
+        doc.set(val)
+        return doc.id
+
     def update(self, collection, document, val):
         self._get_doc_ref(collection, document).update(val)
 
