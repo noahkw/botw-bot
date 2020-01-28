@@ -1,12 +1,16 @@
 import logging
 import time
 import random
+import asyncio
+import typing
 
 import discord
 from discord.ext import commands
+from util import chunker
 
 
 CHECK_EMOTE = '\N{White Heavy Check Mark}'
+CROSS_EMOTE = '\N{Cross Mark}'
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +20,8 @@ def setup(bot):
 
 
 class Tag:
+    SPLIT_EMBED_AFTER = 15
+
     def __init__(self, id_, trigger, reaction, creator, in_msg_trigger=False, use_count=0, creation_date=None):
         self.id = id_
         self.trigger = trigger
@@ -67,8 +73,8 @@ class Tags(commands.Cog):
         pass
 
     @tag.command()
-    async def add(self, ctx, trigger: commands.clean_content, reaction: commands.clean_content,
-                  in_msg_trigger: bool = False):
+    async def add(self, ctx, in_msg_trigger: typing.Optional[bool] = False,
+                  trigger: commands.clean_content = '', *, reaction: commands.clean_content):
         tag = Tag(None, trigger, reaction, ctx.author, in_msg_trigger=in_msg_trigger)
         if tag in self.tags:
             raise discord.InvalidArgument('This tag exists already.')
@@ -78,15 +84,53 @@ class Tags(commands.Cog):
             self.tags.append(tag)
             await ctx.message.add_reaction(CHECK_EMOTE)
 
-    @tag.command()
-    async def list(self, ctx):
-        embed = discord.Embed(title='Tags')
-        embed.add_field(name='Reactions', value='\n'.join([Tag.to_list_element(tag) for tag in self.tags]))
-        await ctx.send(embed=embed)
-
     @add.error
     async def add_error(self, ctx, error):
         await ctx.send(error.original.args[0])
+
+    @staticmethod
+    def reaction_check(reaction, user, author, prompt_msg):
+        return user == author and str(reaction.emoji) in [CHECK_EMOTE, CROSS_EMOTE] and \
+               reaction.message.id == prompt_msg.id
+
+    @tag.command(aliases=['remove'])
+    async def delete(self, ctx, id_):
+        try:
+            tag = [tag for tag in self.tags if tag.id == id_].pop()
+            # allow deletion of tags only for owners and admins
+            if tag.creator != ctx.author and not ctx.author.guild_permissions.administrator:
+                await ctx.send('You can only remove tags that you added.')
+            else:
+                prompt_msg = await ctx.send(f'Are you sure you want to delete the tag with ID {tag.id}, '
+                                            f'trigger `{tag.trigger}` and reaction {tag.reaction}?')
+                await prompt_msg.add_reaction(CHECK_EMOTE)
+                await prompt_msg.add_reaction(CROSS_EMOTE)
+                try:
+                    reaction, user = await self.bot.wait_for('reaction_add', timeout=60.0,
+                                                             check=lambda reaction, user: self.reaction_check(reaction,
+                                                                                                              user,
+                                                                                                              ctx.author,
+                                                                                                              prompt_msg))
+                except asyncio.TimeoutError:
+                    pass
+                else:
+                    await prompt_msg.delete()
+                    if reaction.emoji == CHECK_EMOTE:
+                        self.tags.remove(tag)
+                        self.bot.database.delete(self.tags_collection, tag.id)
+                        await ctx.send(f'Tag `{tag.id}` was deleted.')
+        except IndexError:
+            await ctx.send(f'No tag with ID `{id_}` was found.')
+
+    @tag.command()
+    async def list(self, ctx):
+        if len(self.tags) > 0:
+            for i, tag_chunk in chunker(self.tags, Tag.SPLIT_EMBED_AFTER, return_index=True):
+                embed = discord.Embed(title='Tags')
+                embed.add_field(name=f'Reaction {i + 1}+', value='\n'.join([Tag.to_list_element(tag) for tag in tag_chunk]))
+                await ctx.send(embed=embed)
+        else:
+            await ctx.send('Try adding a few tags first!')
 
     async def on_message(self, message):
         """Scan messages for tags to execute. As of now, the runtime is at worst O(words_in_message * number_tags),
@@ -104,7 +148,10 @@ class Tags(commands.Cog):
         found_tags = []
         for tag in self.tags:
             if message.content.startswith(tag.trigger) or (tag.in_msg_trigger and tag.trigger in message.content):
-                found_tags.append(tag.reaction)
+                found_tags.append(tag)
 
         if len(found_tags) >= 1:
-            await message.channel.send(random.choice(found_tags))
+            chosen_tag = random.choice(found_tags)
+            chosen_tag.use_count += 1
+            self.bot.database.update(self.tags_collection, chosen_tag.id, {'use_count': chosen_tag.use_count})
+            await message.channel.send(chosen_tag.reaction)
