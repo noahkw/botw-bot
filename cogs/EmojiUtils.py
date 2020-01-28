@@ -2,19 +2,9 @@ import logging
 
 import discord
 from discord.ext import commands
+from util import chunker
 
 logger = logging.getLogger(__name__)
-
-
-def chunker(iterable, n):
-    """
-    Produces a generator that yields chunks of given size from an iterator.
-    :param iterable: iterable to generate chunks from
-    :param n: number of items in each chunk
-    :return: the individual chunks
-    """
-    for i in range(0, len(iterable), n):
-        yield iterable[i:i + n]
 
 
 def setup(bot):
