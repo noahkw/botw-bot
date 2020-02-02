@@ -1,4 +1,5 @@
 import logging
+import random
 
 from discord.ext import commands
 
@@ -30,3 +31,10 @@ class Utilities(commands.Cog):
         if isinstance(error, commands.errors.MissingPermissions):
             await ctx.send(error)
         logger.error(error)
+
+    @commands.command()
+    async def choose(self, ctx, *args: commands.clean_content):
+        if len(args) < 2:
+            await ctx.send('I want at least two things to choose from!')
+        else:
+            await ctx.send(f'I choose: `{random.choice(args)}`')
