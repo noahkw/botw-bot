@@ -149,6 +149,13 @@ class Tags(commands.Cog):
         except IndexError:
             await ctx.send(f'No tag with ID `{id_}` was found.')
 
+    @tag.command()
+    async def random(self, ctx):
+        if len(self.tags) < 1:
+            await ctx.send('Try adding a few tags first!')
+        else:
+            await self.invoke_tag(ctx, random.choice(self.tags))
+
     async def on_message(self, message):
         """Scan messages for tags to execute. As of now, the runtime is at worst O(words_in_message * number_tags),
         which scales poorly. Probably need to implement a more efficient matching algorithm down the line.
@@ -170,6 +177,9 @@ class Tags(commands.Cog):
 
         if len(found_tags) >= 1:
             chosen_tag = random.choice(found_tags)
-            chosen_tag.use_count += 1
-            self.bot.database.update(self.tags_collection, chosen_tag.id, {'use_count': chosen_tag.use_count})
-            await message.channel.send(chosen_tag.reaction)
+            await self.invoke_tag(message.channel, chosen_tag)
+
+    async def invoke_tag(self, channel, tag):
+        tag.use_count += 1
+        self.bot.database.update(self.tags_collection, tag.id, {'use_count': tag.use_count})
+        await channel.send(tag.reaction)
