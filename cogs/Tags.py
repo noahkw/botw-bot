@@ -7,10 +7,8 @@ import typing
 import discord
 from discord.ext import commands
 from util import chunker
+from const import CHECK_EMOJI, CROSS_EMOJI
 
-
-CHECK_EMOTE = '\N{White Heavy Check Mark}'
-CROSS_EMOTE = '\N{Cross Mark}'
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +80,7 @@ class Tags(commands.Cog):
             id_ = self.bot.database.set_get_id(self.tags_collection, tag.to_dict())
             tag.id = id_
             self.tags.append(tag)
-            await ctx.message.add_reaction(CHECK_EMOTE)
+            await ctx.message.add_reaction(CHECK_EMOJI)
 
     @add.error
     async def add_error(self, ctx, error):
@@ -90,7 +88,7 @@ class Tags(commands.Cog):
 
     @staticmethod
     def reaction_check(reaction, user, author, prompt_msg):
-        return user == author and str(reaction.emoji) in [CHECK_EMOTE, CROSS_EMOTE] and \
+        return user == author and str(reaction.emoji) in [CHECK_EMOJI, CROSS_EMOJI] and \
                reaction.message.id == prompt_msg.id
 
     @tag.command(aliases=['remove'])
@@ -103,8 +101,8 @@ class Tags(commands.Cog):
             else:
                 prompt_msg = await ctx.send(f'Are you sure you want to delete the tag with ID {tag.id}, '
                                             f'trigger `{tag.trigger}` and reaction {tag.reaction}?')
-                await prompt_msg.add_reaction(CHECK_EMOTE)
-                await prompt_msg.add_reaction(CROSS_EMOTE)
+                await prompt_msg.add_reaction(CHECK_EMOJI)
+                await prompt_msg.add_reaction(CROSS_EMOJI)
                 try:
                     reaction, user = await self.bot.wait_for('reaction_add', timeout=60.0,
                                                              check=lambda reaction, user: self.reaction_check(reaction,
@@ -115,7 +113,7 @@ class Tags(commands.Cog):
                     pass
                 else:
                     await prompt_msg.delete()
-                    if reaction.emoji == CHECK_EMOTE:
+                    if reaction.emoji == CHECK_EMOJI:
                         self.tags.remove(tag)
                         self.bot.database.delete(self.tags_collection, tag.id)
                         await ctx.send(f'Tag `{tag.id}` was deleted.')
@@ -141,7 +139,7 @@ class Tags(commands.Cog):
             return
 
         ctx = await self.bot.get_context(message)
-        # check if the message invoked a command. mainly to stop tags from triggering on creation.
+        # check if the message invoked is a command. mainly to stop tags from triggering on creation.
         if ctx.valid:
             return
 

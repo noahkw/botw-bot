@@ -5,11 +5,10 @@ import random
 import discord
 import pendulum
 from discord.ext import commands
+from const import CROSS_EMOJI, CHECK_EMOJI
 
 from cogs.Scheduler import Job
 
-CHECK_EMOTE = '\N{White Heavy Check Mark}'
-CROSS_EMOTE = '\N{Cross Mark}'
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ class BiasOfTheWeek(commands.Cog):
 
     @staticmethod
     def reaction_check(reaction, user, author, prompt_msg):
-        return user == author and str(reaction.emoji) in [CHECK_EMOTE, CROSS_EMOTE] and \
+        return user == author and str(reaction.emoji) in [CHECK_EMOJI, CROSS_EMOJI] and \
                reaction.message.id == prompt_msg.id
 
     @commands.command()
@@ -68,8 +67,8 @@ class BiasOfTheWeek(commands.Cog):
         elif ctx.author in self.nominations.keys():
             old_idol = self.nominations[ctx.author]
             prompt_msg = await ctx.send(f'Your current nomination is **{old_idol}**. Do you want to override it?')
-            await prompt_msg.add_reaction(CHECK_EMOTE)
-            await prompt_msg.add_reaction(CROSS_EMOTE)
+            await prompt_msg.add_reaction(CHECK_EMOJI)
+            await prompt_msg.add_reaction(CROSS_EMOJI)
             try:
                 reaction, user = await self.bot.wait_for('reaction_add', timeout=60.0,
                                                          check=lambda reaction, user: self.reaction_check(reaction,
@@ -80,7 +79,7 @@ class BiasOfTheWeek(commands.Cog):
                 pass
             else:
                 await prompt_msg.delete()
-                if reaction.emoji == CHECK_EMOTE:
+                if reaction.emoji == CHECK_EMOJI:
                     self.nominations[ctx.author] = idol
                     self.bot.database.set(self.nominations_collection, str(ctx.author.id), idol.to_dict())
                     await ctx.send(f'{ctx.author} nominates **{idol}** instead of **{old_idol}**.')
@@ -98,7 +97,7 @@ class BiasOfTheWeek(commands.Cog):
     async def clear_nominations(self, ctx):
         self.nominations = {}
         self.bot.database.delete(self.nominations_collection)
-        await ctx.message.add_reaction(CHECK_EMOTE)
+        await ctx.message.add_reaction(CHECK_EMOJI)
 
     @commands.command()
     async def nominations(self, ctx):
