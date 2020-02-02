@@ -3,6 +3,7 @@ import time
 import random
 import asyncio
 import typing
+import pendulum
 
 import discord
 from discord.ext import commands
@@ -49,6 +50,16 @@ class Tag:
             'use_count': self.use_count,
             'creation_date': self.creation_date
         }
+
+    def info_embed(self):
+        embed = discord.Embed(title=f'Tag `{self.id}`')
+        embed.add_field(name='Trigger', value=self.trigger)
+        embed.add_field(name='Reaction', value=self.reaction)
+        embed.add_field(name='Creator', value=self.creator.mention)
+        embed.add_field(name='Triggers in message', value=str(self.in_msg_trigger))
+        embed.add_field(name='Use Count', value=str(self.use_count))
+        embed.set_footer(text=f'Created on {pendulum.from_timestamp(self.creation_date).to_formatted_date_string()}')
+        return embed
 
     @staticmethod
     def from_dict(source, bot, id=None):
@@ -129,6 +140,14 @@ class Tags(commands.Cog):
                 await ctx.send(embed=embed)
         else:
             await ctx.send('Try adding a few tags first!')
+
+    @tag.command()
+    async def info(self, ctx, id_):
+        try:
+            tag = [tag for tag in self.tags if tag.id == id_].pop()
+            await ctx.send(embed=tag.info_embed())
+        except IndexError:
+            await ctx.send(f'No tag with ID `{id_}` was found.')
 
     async def on_message(self, message):
         """Scan messages for tags to execute. As of now, the runtime is at worst O(words_in_message * number_tags),
