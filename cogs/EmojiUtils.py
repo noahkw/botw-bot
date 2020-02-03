@@ -52,5 +52,5 @@ class EmojiUtils(commands.Cog):
         for emoji_chunk in chunker(emoji_sorted, EmojiUtils.SPLIT_MSG_AFTER):
             await self.emoji_channel.send(''.join(str(e) for e in emoji_chunk))
 
-        if len(recent_emoji) > 1:
+        if len(recent_emoji) > 0:
             await self.emoji_channel.send(f"Newly added: {''.join(str(e) for e in recent_emoji)}")
