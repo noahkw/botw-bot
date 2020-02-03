@@ -171,8 +171,8 @@ class Tags(commands.Cog):
 
         found_tags = []
         for tag in self.tags:
-            if message.content.lower().startswith(tag.trigger.lower()) or \
-                    (tag.in_msg_trigger and tag.trigger.lower() in message.content.lower()):
+            tokens = message.content.lower().split(' ')
+            if tag.trigger.lower() == message.content.lower() or (tag.in_msg_trigger and tag.trigger.lower() in tokens):
                 found_tags.append(tag)
 
         if len(found_tags) >= 1:
