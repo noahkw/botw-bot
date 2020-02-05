@@ -25,7 +25,8 @@ INITIAL_EXTENSIONS = [
     'cogs.Utilities',
     'cogs.Scheduler',
     'cogs.EmojiUtils',
-    'cogs.Tags'
+    'cogs.Tags',
+    'jishaku'
 ]
 
 
