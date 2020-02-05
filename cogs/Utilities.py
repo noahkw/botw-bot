@@ -1,5 +1,6 @@
 import logging
 import random
+import subprocess
 
 from discord.ext import commands
 
@@ -38,3 +39,8 @@ class Utilities(commands.Cog):
             await ctx.send('I want at least two things to choose from!')
         else:
             await ctx.send(f'I choose: `{random.choice(args)}`')
+
+    @commands.command(aliases=['v'])
+    async def version(self, ctx):
+        label = subprocess.check_output(['git', 'describe', '--tags', '--long']).decode('ascii').strip()
+        await ctx.send(f'Running version `{label}`.')
