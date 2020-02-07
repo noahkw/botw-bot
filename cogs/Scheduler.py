@@ -19,6 +19,7 @@ class Scheduler(commands.Cog):
         # self.active_jobs = [Job('assign_winner_role', [
         #                        661348382740054036, 207955387909931009], time.time() + 5)]
         self.jobs_collection = self.bot.config['scheduler']['jobs_collection']
+        self.active_jobs = []
 
         # self.bot.db.add(self.jobs_collection, Job('test', ['p1', 'p2'], time.time() + 0).to_dict())
         if self.bot.loop.is_running():
