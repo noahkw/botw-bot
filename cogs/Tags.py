@@ -10,7 +10,6 @@ from discord.ext import commands
 from util import chunker
 from const import CHECK_EMOJI, CROSS_EMOJI
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -21,14 +20,22 @@ def setup(bot):
 class Tag:
     SPLIT_EMBED_AFTER = 15
 
-    def __init__(self, id_, trigger, reaction, creator, in_msg_trigger=False, use_count=0, creation_date=None):
+    def __init__(self,
+                 id_,
+                 trigger,
+                 reaction,
+                 creator,
+                 in_msg_trigger=False,
+                 use_count=0,
+                 creation_date=None):
         self.id = id_
         self.trigger = trigger
         self.reaction = reaction
         self.creator = creator
         self.in_msg_trigger = in_msg_trigger
         self.use_count = use_count
-        self.creation_date = time.time() if creation_date is None else creation_date
+        self.creation_date = time.time(
+        ) if creation_date is None else creation_date
 
     def __str__(self):
         return f'({self.id}) {self.trigger} -> {self.reaction} (creator: {self.creator})'
@@ -39,7 +46,9 @@ class Tag:
     def __eq__(self, other):
         if not isinstance(other, Tag):
             return NotImplemented
-        return str.lower(self.trigger) == str.lower(other.trigger) and str.lower(self.reaction) == str.lower(other.reaction)
+        return str.lower(self.trigger) == str.lower(
+            other.trigger) and str.lower(self.reaction) == str.lower(
+                other.reaction)
 
     def to_dict(self):
         return {
@@ -56,15 +65,23 @@ class Tag:
         embed.add_field(name='Trigger', value=self.trigger)
         embed.add_field(name='Reaction', value=self.reaction)
         embed.add_field(name='Creator', value=self.creator.mention)
-        embed.add_field(name='Triggers in message', value=str(self.in_msg_trigger))
+        embed.add_field(name='Triggers in message',
+                        value=str(self.in_msg_trigger))
         embed.add_field(name='Use Count', value=str(self.use_count))
-        embed.set_footer(text=f'Created on {pendulum.from_timestamp(self.creation_date).to_formatted_date_string()}')
+        embed.set_footer(
+            text=
+            f'Created on {pendulum.from_timestamp(self.creation_date).to_formatted_date_string()}'
+        )
         return embed
 
     @staticmethod
     def from_dict(source, bot, id=None):
-        return Tag(id, source['trigger'], source['reaction'], bot.get_user(source['creator']),
-                   in_msg_trigger=source['in_msg_trigger'], use_count=source['use_count'],
+        return Tag(id,
+                   source['trigger'],
+                   source['reaction'],
+                   bot.get_user(source['creator']),
+                   in_msg_trigger=source['in_msg_trigger'],
+                   use_count=source['use_count'],
                    creation_date=source['creation_date'])
 
 
@@ -73,22 +90,41 @@ class Tags(commands.Cog):
         self.bot = bot
         self.bot.add_listener(self.on_message, 'on_message')
         self.tags_collection = self.bot.config['tags']['tags_collection']
-        self.tags = [Tag.from_dict(tag.to_dict(), self.bot, tag.id) for tag in self.bot.database.get(self.tags_collection)]
 
-        logger.info(f'Initial tags from database: {self.tags}')
+        if self.bot.loop.is_running():
+            asyncio.create_task(self._ainit())
+        else:
+            self.bot.loop.run_until_complete(self._ainit())
+
+    async def _ainit(self):
+        self.tags = [
+            Tag.from_dict(tag.to_dict(), self.bot, tag.id)
+            for tag in await self.bot.db.get(self.tags_collection)
+        ]
+
+        logger.info(f'Initial tags from db: {self.tags}')
 
     @commands.group()
     async def tag(self, ctx):
         pass
 
     @tag.command()
-    async def add(self, ctx, in_msg_trigger: typing.Optional[bool] = False,
-                  trigger: commands.clean_content = '', *, reaction: commands.clean_content):
-        tag = Tag(None, trigger, reaction, ctx.author, in_msg_trigger=in_msg_trigger)
+    async def add(self,
+                  ctx,
+                  in_msg_trigger: typing.Optional[bool] = False,
+                  trigger: commands.clean_content = '',
+                  *,
+                  reaction: commands.clean_content):
+        tag = Tag(None,
+                  trigger,
+                  reaction,
+                  ctx.author,
+                  in_msg_trigger=in_msg_trigger)
         if tag in self.tags:
             raise discord.InvalidArgument('This tag exists already.')
         else:
-            id_ = self.bot.database.set_get_id(self.tags_collection, tag.to_dict())
+            id_ = await self.bot.db.set_get_id(self.tags_collection,
+                                               tag.to_dict())
             tag.id = id_
             self.tags.append(tag)
             await ctx.message.add_reaction(CHECK_EMOJI)
@@ -110,23 +146,24 @@ class Tags(commands.Cog):
             if tag.creator != ctx.author and not ctx.author.guild_permissions.administrator:
                 await ctx.send('You can only remove tags that you added.')
             else:
-                prompt_msg = await ctx.send(f'Are you sure you want to delete the tag with ID {tag.id}, '
-                                            f'trigger `{tag.trigger}` and reaction {tag.reaction}?')
+                prompt_msg = await ctx.send(
+                    f'Are you sure you want to delete the tag with ID {tag.id}, '
+                    f'trigger `{tag.trigger}` and reaction {tag.reaction}?')
                 await prompt_msg.add_reaction(CHECK_EMOJI)
                 await prompt_msg.add_reaction(CROSS_EMOJI)
                 try:
-                    reaction, user = await self.bot.wait_for('reaction_add', timeout=60.0,
-                                                             check=lambda reaction, user: self.reaction_check(reaction,
-                                                                                                              user,
-                                                                                                              ctx.author,
-                                                                                                              prompt_msg))
+                    reaction, user = await self.bot.wait_for(
+                        'reaction_add',
+                        timeout=60.0,
+                        check=lambda reaction, user: self.reaction_check(
+                            reaction, user, ctx.author, prompt_msg))
                 except asyncio.TimeoutError:
                     pass
                 else:
                     await prompt_msg.delete()
                     if reaction.emoji == CHECK_EMOJI:
                         self.tags.remove(tag)
-                        self.bot.database.delete(self.tags_collection, tag.id)
+                        await self.bot.db.delete(self.tags_collection, tag.id)
                         await ctx.send(f'Tag `{tag.id}` was deleted.')
         except IndexError:
             await ctx.send(f'No tag with ID `{id_}` was found.')
@@ -134,9 +171,15 @@ class Tags(commands.Cog):
     @tag.command()
     async def list(self, ctx):
         if len(self.tags) > 0:
-            for i, tag_chunk in chunker(self.tags, Tag.SPLIT_EMBED_AFTER, return_index=True):
+            for i, tag_chunk in chunker(self.tags,
+                                        Tag.SPLIT_EMBED_AFTER,
+                                        return_index=True):
                 embed = discord.Embed(title='Tags')
-                embed.add_field(name=f'Reaction {i + 1}+', value='\n'.join([Tag.to_list_element(tag) for tag in tag_chunk]))
+                embed.add_field(name=f'Reaction {i + 1}+',
+                                value='\n'.join([
+                                    Tag.to_list_element(tag)
+                                    for tag in tag_chunk
+                                ]))
                 await ctx.send(embed=embed)
         else:
             await ctx.send('Try adding a few tags first!')
@@ -172,7 +215,8 @@ class Tags(commands.Cog):
         found_tags = []
         for tag in self.tags:
             tokens = message.content.lower().split(' ')
-            if tag.trigger.lower() == message.content.lower() or (tag.in_msg_trigger and tag.trigger.lower() in tokens):
+            if tag.trigger.lower() == message.content.lower() or (
+                    tag.in_msg_trigger and tag.trigger.lower() in tokens):
                 found_tags.append(tag)
 
         if len(found_tags) >= 1:
@@ -181,5 +225,6 @@ class Tags(commands.Cog):
 
     async def invoke_tag(self, channel, tag):
         tag.use_count += 1
-        self.bot.database.update(self.tags_collection, tag.id, {'use_count': tag.use_count})
+        await self.bot.db.update(self.tags_collection, tag.id,
+                                 {'use_count': tag.use_count})
         await channel.send(tag.reaction)

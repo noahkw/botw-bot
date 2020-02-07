@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
+from functools import partial
+from firebase_admin import credentials, firestore
 
 import firebase_admin
-from firebase_admin import credentials, firestore
+import concurrent
+import asyncio
 
 
 class DataStore(ABC):
@@ -9,66 +12,82 @@ class DataStore(ABC):
         pass
 
     @abstractmethod
-    def set(self, collection, document, val):
+    async def set(self, collection, document, val):
         pass
 
     @abstractmethod
-    def update(self, collection, document, val):
+    async def set_get_id(self, collection, val):
         pass
 
     @abstractmethod
-    def add(self, collection, val):
+    async def update(self, collection, document, val):
         pass
 
     @abstractmethod
-    def get(self, collection, document):
+    async def add(self, collection, val):
         pass
 
     @abstractmethod
-    def delete(self, collection, document):
+    async def get(self, collection, document):
+        pass
+
+    @abstractmethod
+    async def delete(self, collection, document):
         pass
 
 
 class FirebaseDataStore(DataStore):
-    def __init__(self, key_file, db_name):
+    def __init__(self, key_file, db_name, loop):
         super().__init__()
         cred = credentials.Certificate(key_file)
 
-        firebase_admin.initialize_app(cred, {
-            'databaseURL': f'https://{db_name}.firebaseio.com'
-        })
+        firebase_admin.initialize_app(
+            cred, {'databaseURL': f'https://{db_name}.firebaseio.com'})
 
         self.db = firestore.client()
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+        self.loop = loop
 
-    def set(self, collection, document, val):
-        self._get_doc_ref(collection, document).set(val)
+    async def set(self, collection, document, val):
+        ref = self._get_doc_ref(collection, document)
+        await self.loop.run_in_executor(self.executor, partial(ref.set, val))
 
-    def set_get_id(self, collection, val):
-        doc = self._get_doc_ref(collection, None)
-        doc.set(val)
-        return doc.id
+    async def set_get_id(self, collection, val):
+        ref = self._get_doc_ref(collection, None)
+        await self.loop.run_in_executor(self.executor, partial(ref.set, val))
+        return ref.id
 
-    def update(self, collection, document, val):
-        self._get_doc_ref(collection, document).update(val)
+    async def update(self, collection, document, val):
+        ref = self._get_doc_ref(collection, document)
+        await self.loop.run_in_executor(self.executor,
+                                        partial(ref.update, val))
 
-    def add(self, collection, val):
-        self._get_collection(collection).add(val)
+    async def add(self, collection, val):
+        ref = self._get_collection(collection)
+        await self.loop.run_in_executor(self.executor, partial(ref.add, val))
 
-    def get(self, collection, document=None):
-        return self._get_collection(collection).stream() if document is None else self._get_doc_ref(collection,
-                                                                                                    document).get()
+    async def get(self, collection, document=None):
+        if document is None:
+            ref = self._get_collection(collection)
+            return await self.loop.run_in_executor(self.executor, ref.stream)
+        else:
+            ref = self._get_doc_ref(collection, document)
+            return await self.loop.run_in_executor(self.executor, ref.get)
 
-    def delete(self, collection, document=None):
+    async def delete(self, collection, document=None):
         if document is not None:
-            self._get_doc_ref(collection, document).delete()
+            ref = self._get_doc_ref(collection, document)
+            await self.loop.run_in_executor(self.executor, ref.delete)
         else:
             # implement batching later
             docs = self._get_collection(collection).stream()
             for doc in docs:
-                doc.reference.delete()
+                await self.loop.run_in_executor(self.executor,
+                                                doc.reference.delete)
 
-    def query(self, collection, *query):
-        return self._get_collection(collection).where(*query).stream()
+    async def query(self, collection, *query):
+        ref = self._get_collection(collection).where(*query)
+        return await self.loop.run_in_executor(self.executor, ref.stream)
 
     def _get_doc_ref(self, collection, document):
         return self._get_collection(collection).document(document)
@@ -83,6 +102,10 @@ if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read('conf.ini')
 
-    firebase_ds = FirebaseDataStore(
-        config['firebase']['key_file'], config['firebase']['db_name'])
-    firebase_ds.add('jobs', {'func': 'somefunc', 'time': 234903284, 'args': ['arg1', 'arg2']})
+    firebase_ds = FirebaseDataStore(config['firebase']['key_file'],
+                                    config['firebase']['db_name'])
+    firebase_ds.add('jobs', {
+        'func': 'somefunc',
+        'time': 234903284,
+        'args': ['arg1', 'arg2']
+    })

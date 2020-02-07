@@ -6,6 +6,7 @@ from discord.ext import commands
 
 logger = logging.getLogger(__name__)
 
+
 def setup(bot):
     bot.add_cog(Utilities(bot))
 
@@ -16,7 +17,8 @@ class Utilities(commands.Cog):
 
     @commands.command()
     async def ping(self, ctx):
-        await ctx.send(f'.pong: Discord WebSocket: `{self.bot.latency * 1000:0.2f}` ms')
+        await ctx.send(
+            f'.pong: Discord WebSocket: `{self.bot.latency * 1000:0.2f}` ms')
 
     @commands.command()
     @commands.has_permissions(administrator=True)
@@ -42,5 +44,6 @@ class Utilities(commands.Cog):
 
     @commands.command(aliases=['v'])
     async def version(self, ctx):
-        label = subprocess.check_output(['git', 'describe', '--tags', '--long']).decode('ascii').strip()
+        label = subprocess.check_output(
+            ['git', 'describe', '--tags', '--long']).decode('ascii').strip()
         await ctx.send(f'Running version `{label}`.')
