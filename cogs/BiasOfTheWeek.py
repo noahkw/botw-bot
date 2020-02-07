@@ -154,9 +154,15 @@ class BiasOfTheWeek(commands.Cog):
 
     @biasoftheweek.command(name='clearnominations')
     @commands.has_permissions(administrator=True)
-    async def clear_nominations(self, ctx):
-        self.nominations = {}
-        await self.bot.db.delete(self.nominations_collection)
+    async def clear_nominations(self, ctx, member: discord.Member = None):
+        if member is None:
+            self.nominations = {}
+            await self.bot.db.delete(self.nominations_collection)
+        else:
+            self.nominations.pop(member)
+            await self.bot.db.delete(self.nominations_collection,
+                                     document=str(member.id))
+
         await ctx.message.add_reaction(CHECK_EMOJI)
 
     @biasoftheweek.command()
