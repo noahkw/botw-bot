@@ -197,7 +197,7 @@ class Tags(commands.Cog):
         if len(self.tags) < 1:
             await ctx.send('Try adding a few tags first!')
         else:
-            await self.invoke_tag(ctx, random.choice(self.tags))
+            await self.invoke_tag(ctx, random.choice(self.tags), info=True)
 
     async def on_message(self, message):
         """Scan messages for tags to execute. As of now, the runtime is at worst O(words_in_message * number_tags),
@@ -228,8 +228,13 @@ class Tags(commands.Cog):
             chosen_tag = random.choice(found_tags)
             await self.invoke_tag(message.channel, chosen_tag)
 
-    async def invoke_tag(self, channel, tag):
+    async def invoke_tag(self, channel, tag, info=False):
         tag.use_count += 1
         await self.bot.db.update(self.tags_collection, tag.id,
                                  {'use_count': tag.use_count})
-        await channel.send(tag.reaction)
+        if info:
+            await channel.send(
+                f'**{tag.trigger}** (*{tag.id}*) by {tag.creator}\n{tag.reaction}'
+            )
+        else:
+            await channel.send(tag.reaction)
