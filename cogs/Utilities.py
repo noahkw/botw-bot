@@ -53,7 +53,7 @@ class Utilities(commands.Cog):
         await ctx.send(f'Running version `{label}`.')
 
     @commands.command()
-    async def shout(self, ctx, *, msg):
+    async def shout(self, ctx, *, msg: commands.clean_content):
         await ctx.send(f'{self.shout_emoji} {msg.upper()}!')
 
     @shout.error
