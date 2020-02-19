@@ -1,3 +1,4 @@
+from itertools import combinations
 
 
 def chunker(iterable, n, return_index=False):
@@ -13,3 +14,14 @@ def chunker(iterable, n, return_index=False):
             yield i, iterable[i:i + n]
         else:
             yield iterable[i:i + n]
+
+
+def ordered_sublists(superlist, n):
+    """
+    Produces a generator that yields all ordered sublists of length n
+    :param superlist: The list to generate sublists from
+    :param n: Length of the sublists
+    :return: the individual sublists
+    """
+    for i in range(0, len(superlist) - n + 1):
+        yield superlist[i:i + n]

@@ -7,7 +7,7 @@ import pendulum
 
 import discord
 from discord.ext import commands
-from util import chunker
+from util import chunker, ordered_sublists
 from const import CHECK_EMOJI, CROSS_EMOJI
 
 logger = logging.getLogger(__name__)
@@ -212,12 +212,17 @@ class Tags(commands.Cog):
         if ctx.valid:
             return
 
+        # no arg defaults to splitting on whitespace
+        tokens = message.content.lower().split()
         found_tags = []
         for tag in self.tags:
-            tokens = message.content.lower().split(' ')
-            if tag.trigger.lower() == message.content.lower() or (
-                    tag.in_msg_trigger and tag.trigger.lower() in tokens):
+            if tag.trigger.lower() == message.content.lower():
                 found_tags.append(tag)
+            elif tag.in_msg_trigger:
+                tag_tokens = tag.trigger.lower().split()
+                sublists = ordered_sublists(tokens, len(tag_tokens))
+                if tag_tokens in sublists:
+                    found_tags.append(tag)
 
         if len(found_tags) >= 1:
             chosen_tag = random.choice(found_tags)
