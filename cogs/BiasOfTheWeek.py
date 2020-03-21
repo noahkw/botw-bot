@@ -229,3 +229,21 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
             await ctx.send(embed=embed)
         else:
             await ctx.send('There have been no winners yet.')
+
+    @biasoftheweek.command()
+    async def icon(self, ctx):
+        if self.bot.config['biasoftheweek']['winner_role_name'] in [
+                role.name for role in ctx.message.author.roles
+        ]:
+            try:
+                file = await ctx.message.attachments[0].read()
+                await ctx.guild.edit(icon=file)
+            except IndexError:
+                await ctx.send('Attach the icon to your message.')
+        else:
+            await ctx.send(
+                'Only the current BotW winner may change the server icon.')
+
+    @icon.error
+    async def icon_error(self, ctx, error):
+        logger.error(error)
