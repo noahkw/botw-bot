@@ -21,6 +21,9 @@ tags_collection=tags
 [emojiutils]
 emoji_channel=XXXXXXXXXXXXXXXXXX
 
+[wolframalpha]
+app_id=XXXXXX-XXXXXXXXXX
+
 [firebase]
 key_file=xxx-firebase-adminsdk-xxx-xxx.json
 db_name=xxx

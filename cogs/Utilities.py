@@ -32,6 +32,7 @@ class Utilities(commands.Cog):
         self.bot.reload_extension('cogs.Scheduler')
         self.bot.reload_extension('cogs.EmojiUtils')
         self.bot.reload_extension('cogs.Tags')
+        self.bot.reload_extension('cogs.WolframAlpha')
 
     @reload.error
     async def reload_error(self, ctx, error):
