@@ -142,7 +142,7 @@ class Tags(commands.Cog):
     async def delete(self, ctx, id_):
         try:
             tag = [tag for tag in self.tags if tag.id == id_].pop()
-            # allow deletion of tags only for owners and admins
+            # only allow tag owner and admins to delete tags
             if tag.creator != ctx.author and not ctx.author.guild_permissions.administrator:
                 await ctx.send('You can only remove tags that you added.')
             else:
@@ -165,6 +165,24 @@ class Tags(commands.Cog):
                         self.tags.remove(tag)
                         await self.bot.db.delete(self.tags_collection, tag.id)
                         await ctx.send(f'Tag `{tag.id}` was deleted.')
+        except IndexError:
+            await ctx.send(f'No tag with ID `{id_}` was found.')
+
+    @tag.command(aliases=['change'])
+    async def edit(self, ctx, id_, new_reaction: commands.clean_content):
+        try:
+            tag = [tag for tag in self.tags if tag.id == id_].pop()
+            # only allow tag owner and admins to edit tags
+            if tag.creator != ctx.author and not ctx.author.guild_permissions.administrator:
+                await ctx.send('You can only edit tags that you added.')
+            else:
+                old_reaction = tag.reaction
+                tag.reaction = new_reaction
+                await self.bot.db.update(self.tags_collection, tag.id,
+                                         {'reaction': tag.reaction})
+                await ctx.send(
+                    f'Tag `{tag.id}` was edited. Old reaction:\n{old_reaction}'
+                )
         except IndexError:
             await ctx.send(f'No tag with ID `{id_}` was found.')
 
