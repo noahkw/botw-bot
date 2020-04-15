@@ -70,8 +70,9 @@ class BiasOfTheWeek(commands.Cog):
             'nominations_collection']
         self.past_winners_collection = self.bot.config['biasoftheweek'][
             'past_winners_collection']
-        self.past_winners_time = self.bot.config['biasoftheweek'][
-            'past_winners_time']
+        self.past_winners_time = int(self.bot.config['biasoftheweek'][
+            'past_winners_time'])
+        self.winner_day = int(self.bot.config['biasoftheweek']['winner_day'])
 
         if self.bot.loop.is_running():
             asyncio.create_task(self._ainit())
@@ -113,7 +114,7 @@ class BiasOfTheWeek(commands.Cog):
         elif idol in [
                 winner.idol for winner in self.past_winners
                 if winner.timestamp > pendulum.now().subtract(
-                    days=int(self.past_winners_time)).timestamp()
+                    days=self.past_winners_time).timestamp()
         ]:  # check whether idol has won in the past
             await ctx.send(
                 f'**{idol}** has already won in the past `{self.past_winners_time}` days. Please nominate someone else.'
@@ -185,9 +186,9 @@ class BiasOfTheWeek(commands.Cog):
         member, pick = random.choice(list(self.nominations.items()))
 
         # Assign BotW winner role on next wednesday at 00:00 UTC
-        now = pendulum.now('Europe/London')
+        now = pendulum.now('UTC')
         assign_date = now.add(
-            seconds=120) if fast_assign else now.next(pendulum.WEDNESDAY)
+            seconds=120) if fast_assign else now.next(self.winner_day)
 
         await ctx.send(
             f"""Bias of the Week ({now.week_of_year}-{now.year}): {member if silent else member.mention}\'s pick **{pick}**. 
@@ -219,7 +220,8 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
                                       key=lambda w: w.timestamp,
                                       reverse=True)[:number]:
                 time = pendulum.from_timestamp(past_winner.timestamp)
-                week = time.week_of_year
+                week = time.week_of_year if time.day_of_week < self.winner_day and time.day_of_week != 0 \
+                    else time.week_of_year + 1
                 year = time.year
                 embed.add_field(
                     name=f'{year}-{week}',
