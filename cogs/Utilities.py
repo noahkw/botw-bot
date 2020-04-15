@@ -2,9 +2,12 @@ import logging
 import random
 import subprocess
 
+from discord import Message
 from discord.ext import commands
-from discord.utils import find
-from const import SHOUT_EMOJI
+from discord.utils import find, escape_mentions
+
+from const import SHOUT_EMOJI, CROSS_EMOJI
+from util import mock_case, remove_broken_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +17,8 @@ def setup(bot):
 
 
 class Utilities(commands.Cog):
+    MOCK_HISTORY_LOOKBACK = 10
+
     def __init__(self, bot):
         self.bot = bot
         self.shout_emoji = find(lambda e: e.name == SHOUT_EMOJI,
@@ -61,3 +66,19 @@ class Utilities(commands.Cog):
     async def shout_error(self, ctx, error):
         if isinstance(error, commands.errors.MissingRequiredArgument):
             await ctx.send('Give me something to shout!')
+
+    @commands.command()
+    async def mock(self, ctx, message: Message = None):
+        if message:
+            await ctx.send(mock_case(remove_broken_emoji(message.clean_content)))
+        else:
+            valid_msg = None
+            async for msg in ctx.message.channel.history(limit=Utilities.MOCK_HISTORY_LOOKBACK):
+                msg_ctx = await self.bot.get_context(msg)
+                if msg.author != self.bot.user and not msg_ctx.valid:
+                    valid_msg = msg
+                    break
+            if valid_msg is not None:
+                await ctx.send(mock_case(remove_broken_emoji(valid_msg.clean_content)))
+            else:
+                await ctx.message.add_reaction(CROSS_EMOJI)

@@ -1,5 +1,5 @@
-from itertools import combinations
-
+from random import getrandbits
+import re
 
 def chunker(iterable, n, return_index=False):
     """
@@ -25,3 +25,15 @@ def ordered_sublists(superlist, n):
     """
     for i in range(0, len(superlist) - n + 1):
         yield superlist[i:i + n]
+
+
+def random_bool():
+    return bool(getrandbits(1))
+
+
+def mock_case(msg):
+    return ''.join([c.swapcase() if random_bool() else c for c in msg])
+
+
+def remove_broken_emoji(msg):
+    return re.sub(r'<(a)*:[\w]+:([0-9]+)>( )*', '', msg)
