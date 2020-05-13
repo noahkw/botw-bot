@@ -1,5 +1,6 @@
 import logging
 
+import discord
 from discord import Message
 from discord.ext import commands
 
@@ -18,6 +19,8 @@ class Trolling(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.bot.add_listener(self.on_message, 'on_message')
+        self.poop_role_name = self.bot.config['trolling']['poop_role_name']
 
     @commands.command()
     async def mock(self, ctx, message: Message = None):
@@ -43,3 +46,13 @@ class Trolling(commands.Cog):
     async def mock_error(self, ctx, error):
         if isinstance(error, commands.errors.BadArgument):
             await ctx.send("Can't find message with that ID. It's probably ancient.")
+
+    async def on_message(self, message):
+        if message.author.bot:
+            return
+
+        if self.poop_role_name in [
+            role.name for role in message.author.roles
+        ]:
+            await message.delete()
+            await message.channel.send(f"{message.author.name}: {mock_case(remove_broken_emoji(message.clean_content))}")

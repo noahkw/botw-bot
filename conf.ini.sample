@@ -20,6 +20,9 @@ jobs_collection=jobs
 [tags]
 tags_collection=tags
 
+[trolling]
+poop_role_name=Poop
+
 [emojiutils]
 emoji_channel=XXXXXXXXXXXXXXXXXX
 
