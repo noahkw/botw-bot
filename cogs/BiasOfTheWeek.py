@@ -62,6 +62,14 @@ class BotwWinner:
                           Idol.from_dict(source['idol']), source['timestamp'])
 
 
+def has_winner_role():
+    def predicate(ctx):
+        return ctx.bot.config['biasoftheweek']['winner_role_name'] in [
+            role.name for role in ctx.message.author.roles]
+
+    return commands.check(predicate)
+
+
 class BiasOfTheWeek(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -71,7 +79,7 @@ class BiasOfTheWeek(commands.Cog):
         self.past_winners_collection = self.bot.config['biasoftheweek'][
             'past_winners_collection']
         self.past_winners_time = int(self.bot.config['biasoftheweek'][
-            'past_winners_time'])
+                                         'past_winners_time'])
         self.winner_day = int(self.bot.config['biasoftheweek']['winner_day'])
 
         if self.bot.loop.is_running():
@@ -112,9 +120,9 @@ class BiasOfTheWeek(commands.Cog):
                 f'**{idol}** has already been nominated. Please nominate someone else.'
             )
         elif idol in [
-                winner.idol for winner in self.past_winners
-                if winner.timestamp > pendulum.now().subtract(
-                    days=self.past_winners_time).timestamp()
+            winner.idol for winner in self.past_winners
+            if winner.timestamp > pendulum.now().subtract(
+                days=self.past_winners_time).timestamp()
         ]:  # check whether idol has won in the past
             await ctx.send(
                 f'**{idol}** has already won in the past `{self.past_winners_time}` days. Please nominate someone else.'
@@ -233,19 +241,22 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
             await ctx.send('There have been no winners yet.')
 
     @biasoftheweek.command()
+    @has_winner_role()
     async def icon(self, ctx):
-        if self.bot.config['biasoftheweek']['winner_role_name'] in [
-                role.name for role in ctx.message.author.roles
-        ]:
-            try:
-                file = await ctx.message.attachments[0].read()
-                await ctx.guild.edit(icon=file)
-            except IndexError:
-                await ctx.send('Attach the icon to your message.')
-        else:
-            await ctx.send(
-                'Only the current BotW winner may change the server icon.')
+        try:
+            file = await ctx.message.attachments[0].read()
+            await ctx.guild.edit(icon=file)
+            await ctx.message.add_reaction(CHECK_EMOJI)
+        except IndexError:
+            raise commands.BadArgument('Icon missing.')
+        await ctx.message.add_reaction(CHECK_EMOJI)
 
     @icon.error
     async def icon_error(self, ctx, error):
-        logger.error(error)
+        if isinstance(error, commands.CheckFailure):
+            await ctx.send('Only the current BotW winner may change the server icon.')
+        elif isinstance(error, commands.BadArgument):
+            await ctx.send('Attach the icon to your message.')
+        else:
+            await ctx.message.add_reaction(CROSS_EMOJI)
+            logger.error(error)
