@@ -1,4 +1,4 @@
-# botw-bot
+# botw-bot  ![Docker](https://github.com/noahkw/botw-bot/workflows/Docker/badge.svg?branch=master)
 Originally a Discord bot for organizing * of the week challenges, now more of a general purpose bot.
 
 Current modules:
