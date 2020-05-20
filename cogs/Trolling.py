@@ -14,6 +14,24 @@ def setup(bot):
     bot.add_cog(Trolling(bot))
 
 
+class MessageOrStringConverter(commands.IDConverter):
+    def __init__(self):
+        self.message_converter = commands.MessageConverter()
+        self.id_converter = commands.IDConverter()
+        super().__init__()
+
+    async def convert(self, ctx, argument):
+        try:
+            return await self.message_converter.convert(ctx, argument)
+        except commands.BadArgument:
+            match = self._get_id_match(argument)
+            if match is None:
+                return str(argument)
+            else:
+                # argument contains an invalid ID
+                raise commands.BadArgument()
+
+
 class Trolling(commands.Cog):
     MOCK_HISTORY_LOOKBACK = 10
 
@@ -23,12 +41,11 @@ class Trolling(commands.Cog):
         self.poop_role_name = self.bot.config['trolling']['poop_role_name']
 
     @commands.command()
-    async def mock(self, ctx, message: Message = None):
-        if message:
-            if message.channel == ctx.channel:
-                await ctx.send(mock_case(remove_broken_emoji(message.clean_content)))
-            else:
-                await ctx.message.add_reaction(CROSS_EMOJI)
+    async def mock(self, ctx, *, message: MessageOrStringConverter = None):
+        if isinstance(message, str):
+            await ctx.send(mock_case(remove_broken_emoji(message)))
+        elif message and message.channel == ctx.channel:
+            await ctx.send(mock_case(remove_broken_emoji(message.clean_content)))
         else:
             valid_msg_content = None
             async for msg in ctx.message.channel.history(limit=Trolling.MOCK_HISTORY_LOOKBACK):
@@ -46,6 +63,8 @@ class Trolling(commands.Cog):
     async def mock_error(self, ctx, error):
         if isinstance(error, commands.errors.BadArgument):
             await ctx.send("Can't find message with that ID. It's probably ancient.")
+        else:
+            logger.error(error)
 
     async def on_message(self, message):
         if message.author.bot:
