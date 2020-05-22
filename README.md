@@ -19,4 +19,6 @@ Pull the docker image: `docker pull docker.pkg.github.com/noahkw/botw-bot/botw-b
 Rename `conf.ini.sample` to `conf.ini` and change it according to your use case.
 Most of the defaults should be fine, but make sure to enter your **token**, **server id** for the whitelist, **Wolfram Alpha app id**, and the path to your **firebase key file**.
 
+Replace `{CLONE_DIR}` with the absolute path of the cloned repo in `docker-compose.yml`.
+
 Start the bot as a daemon: `docker-compose up -d`
