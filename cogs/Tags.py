@@ -1,15 +1,15 @@
 import asyncio
 import logging
 import random
-import time
 import typing
 
 import discord
-import pendulum
 from discord.ext import commands
+from discord.ext.menus import MenuPages
 
-from const import CHECK_EMOJI, CROSS_EMOJI
-from menus import Confirm
+from const import CHECK_EMOJI
+from menu import Confirm, TagListSource
+from models import Tag
 from util import chunker, ordered_sublists
 
 logger = logging.getLogger(__name__)
@@ -17,74 +17,6 @@ logger = logging.getLogger(__name__)
 
 def setup(bot):
     bot.add_cog(Tags(bot))
-
-
-class Tag:
-    SPLIT_EMBED_AFTER = 15
-
-    def __init__(self,
-                 id_,
-                 trigger,
-                 reaction,
-                 creator,
-                 in_msg_trigger=False,
-                 use_count=0,
-                 creation_date=None):
-        self.id = id_
-        self.trigger = trigger
-        self.reaction = reaction
-        self.creator = creator
-        self.in_msg_trigger = in_msg_trigger
-        self.use_count = use_count
-        self.creation_date = time.time(
-        ) if creation_date is None else creation_date
-
-    def __str__(self):
-        return f'({self.id}) {self.trigger} -> {self.reaction} (creator: {self.creator})'
-
-    def to_list_element(self):
-        return f'`{self.id}`: *{self.trigger}* by {self.creator}'
-
-    def __eq__(self, other):
-        if not isinstance(other, Tag):
-            return NotImplemented
-        return str.lower(self.trigger) == str.lower(
-            other.trigger) and str.lower(self.reaction) == str.lower(
-            other.reaction)
-
-    def to_dict(self):
-        return {
-            'trigger': self.trigger,
-            'reaction': self.reaction,
-            'creator': self.creator.id,
-            'in_msg_trigger': self.in_msg_trigger,
-            'use_count': self.use_count,
-            'creation_date': self.creation_date
-        }
-
-    def info_embed(self):
-        embed = discord.Embed(title=f'Tag `{self.id}`')
-        embed.add_field(name='Trigger', value=self.trigger)
-        embed.add_field(name='Reaction', value=self.reaction)
-        embed.add_field(name='Creator', value=self.creator.mention)
-        embed.add_field(name='Triggers in message',
-                        value=str(self.in_msg_trigger))
-        embed.add_field(name='Use Count', value=str(self.use_count))
-        embed.set_footer(
-            text=
-            f'Created on {pendulum.from_timestamp(self.creation_date).to_formatted_date_string()}'
-        )
-        return embed
-
-    @staticmethod
-    def from_dict(source, bot, id=None):
-        return Tag(id,
-                   source['trigger'],
-                   source['reaction'],
-                   bot.get_user(source['creator']),
-                   in_msg_trigger=source['in_msg_trigger'],
-                   use_count=source['use_count'],
-                   creation_date=source['creation_date'])
 
 
 class Tags(commands.Cog):
@@ -178,16 +110,8 @@ class Tags(commands.Cog):
     @tag.command()
     async def list(self, ctx):
         if len(self.tags) > 0:
-            for i, tag_chunk in chunker(self.tags,
-                                        Tag.SPLIT_EMBED_AFTER,
-                                        return_index=True):
-                embed = discord.Embed(title='Tags')
-                embed.add_field(name=f'Reaction {i + 1}+',
-                                value='\n'.join([
-                                    Tag.to_list_element(tag)
-                                    for tag in tag_chunk
-                                ]))
-                await ctx.send(embed=embed)
+            pages = MenuPages(source=TagListSource(self.tags), clear_reactions_after=True)
+            await pages.start(ctx)
         else:
             await ctx.send('Try adding a few tags first!')
 
@@ -209,16 +133,11 @@ class Tags(commands.Cog):
     @tag.command()
     async def search(self, ctx, *, trigger):
         matches = await self.get_tags_by_trigger(trigger)
-        for i, tag_chunk in chunker(matches,
-                                    Tag.SPLIT_EMBED_AFTER,
-                                    return_index=True):
-            embed = discord.Embed(title='Tags')
-            embed.add_field(name=f'Reaction {i + 1}+',
-                            value='\n'.join([
-                                Tag.to_list_element(tag)
-                                for tag in tag_chunk
-                            ]))
-            await ctx.send(embed=embed)
+        if len(matches) > 0:
+            pages = MenuPages(source=TagListSource(matches), clear_reactions_after=True)
+            await pages.start(ctx)
+        else:
+            await ctx.send('0 matches.')
 
     async def on_message(self, message):
         """Scan messages for tags to execute. As of now, the runtime is at worst O(words_in_message * number_tags),

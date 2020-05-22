@@ -8,59 +8,14 @@ from discord.ext import commands
 
 from cogs.Scheduler import Job
 from const import CROSS_EMOJI, CHECK_EMOJI
-from menus import Confirm
+from menu import Confirm
+from models import BotwWinner, Idol
 
 logger = logging.getLogger(__name__)
 
 
 def setup(bot):
     bot.add_cog(BiasOfTheWeek(bot))
-
-
-class Idol:
-    def __init__(self, group, name):
-        self.group = group
-        self.name = name
-
-    def __str__(self):
-        return f'{self.group} {self.name}'
-
-    def __eq__(self, other):
-        if not isinstance(other, Idol):
-            return NotImplemented
-        return str.lower(self.group) == str.lower(other.group) and str.lower(
-            self.name) == str.lower(other.name)
-
-    def to_dict(self):
-        return {'group': self.group, 'name': self.name}
-
-    @staticmethod
-    def from_dict(source):
-        return Idol(source['group'], source['name'])
-
-
-class BotwWinner:
-    def __init__(self, member, idol, timestamp):
-        self.member = member
-        self.idol = idol
-        self.timestamp = timestamp
-
-    def __eq__(self, other):
-        if not isinstance(other, BotwWinner):
-            return NotImplemented
-        return self.member == other.member and self.idol == other.idol and self.timestamp == other.timestamp
-
-    def to_dict(self):
-        return {
-            'member': self.member.id,
-            'idol': self.idol.to_dict(),
-            'timestamp': self.timestamp
-        }
-
-    @staticmethod
-    def from_dict(source, bot):
-        return BotwWinner(bot.get_user(source['member']),
-                          Idol.from_dict(source['idol']), source['timestamp'])
 
 
 def has_winner_role():
