@@ -8,6 +8,7 @@ from discord.ext import commands
 
 from cogs.Scheduler import Job
 from const import CROSS_EMOJI, CHECK_EMOJI
+from menus import Confirm
 
 logger = logging.getLogger(__name__)
 
@@ -102,11 +103,6 @@ class BiasOfTheWeek(commands.Cog):
             for winner in await self.bot.db.get(self.past_winners_collection)
         ]
 
-    @staticmethod
-    def reaction_check(reaction, user, author, prompt_msg):
-        return user == author and str(reaction.emoji) in [CHECK_EMOJI, CROSS_EMOJI] and \
-               reaction.message.id == prompt_msg.id
-
     @commands.group(name='biasoftheweek', aliases=['botw'])
     async def biasoftheweek(self, ctx):
         pass
@@ -121,41 +117,26 @@ class BiasOfTheWeek(commands.Cog):
                 f'**{idol}** has already been nominated. Please nominate someone else.'
             )
         elif idol in [
-                winner.idol for winner in self.past_winners
-                if winner.timestamp > pendulum.now().subtract(
-                    days=self.past_winners_time).timestamp()
+            winner.idol for winner in self.past_winners
+            if winner.timestamp > pendulum.now().subtract(
+                days=self.past_winners_time).timestamp()
         ]:  # check whether idol has won in the past
             await ctx.send(
                 f'**{idol}** has already won in the past `{self.past_winners_time}` days. Please nominate someone else.'
             )
         elif ctx.author in self.nominations.keys():
             old_idol = self.nominations[ctx.author]
-            prompt_msg = await ctx.send(
-                f'Your current nomination is **{old_idol}**. Do you want to override it?'
-            )
-            await prompt_msg.add_reaction(CHECK_EMOJI)
-            await prompt_msg.add_reaction(CROSS_EMOJI)
-            try:
-                reaction, user = await self.bot.wait_for(
-                    'reaction_add',
-                    timeout=60.0,
-                    check=lambda reaction, user: self.reaction_check(
-                        reaction, user, ctx.author, prompt_msg))
-            except asyncio.TimeoutError:
-                pass
-            else:
-                await prompt_msg.delete()
-                if reaction.emoji == CHECK_EMOJI:
-                    self.nominations[ctx.author] = idol
-                    await self.bot.db.set(self.nominations_collection,
-                                          str(ctx.author.id), idol.to_dict())
-                    await ctx.send(
-                        f'{ctx.author} nominates **{idol}** instead of **{old_idol}**.'
-                    )
+
+            confirm = await Confirm(f'Your current nomination is **{old_idol}**. Do you want to override it?').prompt(
+                ctx)
+
+            if confirm:
+                self.nominations[ctx.author] = idol
+                await self.bot.db.set(self.nominations_collection, str(ctx.author.id), idol.to_dict())
+                await ctx.send(f'{ctx.author} nominates **{idol}** instead of **{old_idol}**.')
         else:
             self.nominations[ctx.author] = idol
-            await self.bot.db.set(self.nominations_collection,
-                                  str(ctx.author.id), idol.to_dict())
+            await self.bot.db.set(self.nominations_collection, str(ctx.author.id), idol.to_dict())
             await ctx.send(f'{ctx.author} nominates **{idol}**.')
 
     @nominate.error
