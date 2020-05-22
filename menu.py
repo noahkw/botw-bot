@@ -4,7 +4,7 @@ from discord import Embed
 from discord.ext import menus
 
 from const import CROSS_EMOJI, CHECK_EMOJI
-from models import Tag
+from models.Tag import Tag
 
 
 class Confirm(menus.Menu):

@@ -9,7 +9,7 @@ from discord.ext.menus import MenuPages
 
 from const import CHECK_EMOJI
 from menu import Confirm, TagListSource
-from models import Tag
+from models.Tag import Tag
 from util import chunker, ordered_sublists
 
 logger = logging.getLogger(__name__)

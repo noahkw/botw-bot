@@ -1,11 +1,10 @@
+import time
+
 import discord
 import pendulum
-import time
 
 
 class Tag:
-    SPLIT_EMBED_AFTER = 15
-
     def __init__(self,
                  id_,
                  trigger,
@@ -69,75 +68,3 @@ class Tag:
                    in_msg_trigger=source['in_msg_trigger'],
                    use_count=source['use_count'],
                    creation_date=source['creation_date'])
-
-
-class Idol:
-    def __init__(self, group, name):
-        self.group = group
-        self.name = name
-
-    def __str__(self):
-        return f'{self.group} {self.name}'
-
-    def __eq__(self, other):
-        if not isinstance(other, Idol):
-            return NotImplemented
-        return str.lower(self.group) == str.lower(other.group) and str.lower(
-            self.name) == str.lower(other.name)
-
-    def to_dict(self):
-        return {'group': self.group, 'name': self.name}
-
-    @staticmethod
-    def from_dict(source):
-        return Idol(source['group'], source['name'])
-
-
-class BotwWinner:
-    def __init__(self, member, idol, timestamp):
-        self.member = member
-        self.idol = idol
-        self.timestamp = timestamp
-
-    def __eq__(self, other):
-        if not isinstance(other, BotwWinner):
-            return NotImplemented
-        return self.member == other.member and self.idol == other.idol and self.timestamp == other.timestamp
-
-    def to_dict(self):
-        return {
-            'member': self.member.id,
-            'idol': self.idol.to_dict(),
-            'timestamp': self.timestamp
-        }
-
-    @staticmethod
-    def from_dict(source, bot):
-        return BotwWinner(bot.get_user(source['member']),
-                          Idol.from_dict(source['idol']), source['timestamp'])
-
-
-class Job:
-    def __init__(self, func, args, exec_time):
-        self.func = func
-        self.args = args
-        self.exec_time = exec_time
-
-    def __eq__(self, other):
-        if not isinstance(other, Job):
-            return NotImplemented
-        return self.func == other.func and self.args == other.args and self.exec_time == other.exec_time
-
-    def to_dict(self):
-        return {
-            'func': self.func,
-            'args': self.args,
-            'exec_time': self.exec_time
-        }
-
-    @staticmethod
-    def from_dict(source):
-        return Job(source['func'], source['args'], source['exec_time'])
-
-    def __str__(self):
-        return f'Job: {self.func} with arguments {self.args} at {self.exec_time}'

@@ -6,10 +6,11 @@ import discord
 import pendulum
 from discord.ext import commands
 
-from cogs.Scheduler import Job
+from models.Job import Job
 from const import CROSS_EMOJI, CHECK_EMOJI
 from menu import Confirm
-from models import BotwWinner, Idol
+from models.BotwWinner import BotwWinner
+from models.Idol import Idol
 
 logger = logging.getLogger(__name__)
 
