@@ -54,8 +54,8 @@ class WolframAlpha(commands.Cog):
                 await ctx.send(WolframAlpha.MSG_REQUEST_FAILED)
             else:
                 content = await response.read()
-                file = File(BytesIO(content), filename='wolfram.gif')
                 if content is not None:
+                    file = File(BytesIO(content), filename='wolfram.gif')
                     await ctx.send(file=file)
                 else:
                     await ctx.send(WolframAlpha.MSG_EMPTY_RESPONSE)
