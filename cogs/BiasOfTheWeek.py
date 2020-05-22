@@ -65,7 +65,8 @@ class BotwWinner:
 def has_winner_role():
     def predicate(ctx):
         return ctx.bot.config['biasoftheweek']['winner_role_name'] in [
-            role.name for role in ctx.message.author.roles]
+            role.name for role in ctx.message.author.roles
+        ]
 
     return commands.check(predicate)
 
@@ -78,8 +79,8 @@ class BiasOfTheWeek(commands.Cog):
             'nominations_collection']
         self.past_winners_collection = self.bot.config['biasoftheweek'][
             'past_winners_collection']
-        self.past_winners_time = int(self.bot.config['biasoftheweek'][
-                                         'past_winners_time'])
+        self.past_winners_time = int(
+            self.bot.config['biasoftheweek']['past_winners_time'])
         self.winner_day = int(self.bot.config['biasoftheweek']['winner_day'])
 
         if self.bot.loop.is_running():
@@ -120,9 +121,9 @@ class BiasOfTheWeek(commands.Cog):
                 f'**{idol}** has already been nominated. Please nominate someone else.'
             )
         elif idol in [
-            winner.idol for winner in self.past_winners
-            if winner.timestamp > pendulum.now().subtract(
-                days=self.past_winners_time).timestamp()
+                winner.idol for winner in self.past_winners
+                if winner.timestamp > pendulum.now().subtract(
+                    days=self.past_winners_time).timestamp()
         ]:  # check whether idol has won in the past
             await ctx.send(
                 f'**{idol}** has already won in the past `{self.past_winners_time}` days. Please nominate someone else.'
@@ -200,7 +201,7 @@ class BiasOfTheWeek(commands.Cog):
 
         await ctx.send(
             f"""Bias of the Week ({now.week_of_year}-{now.year}): {member if silent else member.mention}\'s pick **{pick}**. 
-You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_name']}* at {assign_date.to_cookie_string()}."""
+You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_name']}* on {assign_date.to_cookie_string()}."""
         )
 
         botw_winner = BotwWinner(member, pick, now.timestamp())
@@ -254,7 +255,8 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
     @icon.error
     async def icon_error(self, ctx, error):
         if isinstance(error, commands.CheckFailure):
-            await ctx.send('Only the current BotW winner may change the server icon.')
+            await ctx.send(
+                'Only the current BotW winner may change the server icon.')
         elif isinstance(error, commands.BadArgument):
             await ctx.send('Attach the icon to your message.')
         else:
