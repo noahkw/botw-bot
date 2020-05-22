@@ -2,12 +2,10 @@ import logging
 import random
 import subprocess
 
-from discord import Message
 from discord.ext import commands
-from discord.utils import find, escape_mentions
+from discord.utils import find
 
-from const import SHOUT_EMOJI, CROSS_EMOJI
-from util import mock_case, remove_broken_emoji
+from const import SHOUT_EMOJI, CHECK_EMOJI
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +37,7 @@ class Utilities(commands.Cog):
         self.bot.reload_extension('cogs.Tags')
         self.bot.reload_extension('cogs.Trolling')
         self.bot.reload_extension('cogs.WolframAlpha')
+        await ctx.message.add_reaction(CHECK_EMOJI)
 
     @reload.error
     async def reload_error(self, ctx, error):
