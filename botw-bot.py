@@ -19,7 +19,8 @@ logger.addHandler(handler)
 
 INITIAL_EXTENSIONS = [
     'cogs.BiasOfTheWeek', 'cogs.Utilities', 'cogs.Scheduler',
-    'cogs.EmojiUtils', 'cogs.Tags', 'cogs.Trolling', 'cogs.WolframAlpha', 'jishaku'
+    'cogs.EmojiUtils', 'cogs.Tags', 'cogs.Trolling', 'cogs.WolframAlpha',
+    'cogs.Reminders', 'jishaku'
 ]
 
 

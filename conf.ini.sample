@@ -17,6 +17,9 @@ winner_day=3
 [scheduler]
 jobs_collection=jobs
 
+[reminders]
+reminders_collection=reminders
+
 [tags]
 tags_collection=tags
 
