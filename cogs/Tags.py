@@ -22,7 +22,6 @@ def setup(bot):
 class Tags(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.bot.add_listener(self.on_message, 'on_message')
         self.tags_collection = self.bot.config['tags']['tags_collection']
 
         if self.bot.loop.is_running():
@@ -139,6 +138,7 @@ class Tags(commands.Cog):
         else:
             await ctx.send('0 matches.')
 
+    @commands.Cog.listener('on_message')
     async def on_message(self, message):
         """Scan messages for tags to execute. As of now, the runtime is at worst O(words_in_message * number_tags),
         which scales poorly. Probably need to implement a more efficient matching algorithm down the line.
