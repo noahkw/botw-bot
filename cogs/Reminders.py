@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 
 from discord.ext import commands
 from dateparser import parse
@@ -11,6 +12,25 @@ logger = logging.getLogger(__name__)
 
 def setup(bot):
     bot.add_cog(Reminders(bot))
+
+
+class ReminderConverter(commands.Converter):
+    async def convert(self, ctx, argument):
+        # match strings like 'in 1 hour to do the laundry'
+        r_to = re.search(r'(.*) to (.*)', argument)
+        if r_to:
+            return r_to.group(1), r_to.group(2)
+
+        # match strings like '"28-05-20 at 18:00 KST" "Red Velvet comeback"'
+        # may be improved to also parse the forms '"longer string" singleword'
+        # and 'singleword "longer string"'
+        r_quotes = re.search(r'"(.*)" *"(.*)"', argument)
+        if r_quotes:
+            return r_quotes.group(1), r_quotes.group(2)
+
+        # match strings like 'tomorrow football'
+        tokens = argument.split()
+        return tokens[0], tokens[1]
 
 
 class Reminders(commands.Cog):
@@ -30,14 +50,14 @@ class Reminders(commands.Cog):
         logger.info(f'# Initial reminders from db: {len(self.reminders)}')
 
     @commands.group(name='reminders', aliases=['remindme', 'remind'], invoke_without_command=True)
-    async def reminders_(self, ctx, when: str = None, what: commands.clean_content = None):
-        if when and what:
-            await ctx.invoke(self.add, when, what)
+    async def reminders_(self, ctx, *, args: ReminderConverter):
+        if args:
+            await ctx.invoke(self.add, args=args)
         else:
             await ctx.send_help(self.reminders_)
 
     @reminders_.command()
-    async def add(self, ctx, when: str, what: commands.clean_content):
+    async def add(self, ctx, *, args: ReminderConverter):
         """
         Adds a new reminder
         Example usage:
@@ -45,6 +65,7 @@ class Reminders(commands.Cog):
         .remind 15-06-20 at 6pm KST to Irene & Seulgi debut
         .remind in 6 minutes 30 seconds to eggs
         """
+        when, what = args
         parsed_date = parse(when)
         if parsed_date is None:
             raise commands.BadArgument('Couldn\'t parse the date.')
