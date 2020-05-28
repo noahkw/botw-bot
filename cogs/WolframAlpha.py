@@ -1,10 +1,9 @@
 import logging
-import aiohttp
-import asyncio
-
-from discord.ext import commands
-from discord import File
 from io import BytesIO
+
+import aiohttp
+from discord import File
+from discord.ext import commands
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +32,7 @@ class WolframAlpha(commands.Cog):
 
     @wolfram_alpha.command(aliases=['s'])
     async def simple(self, ctx, *, query):
-        async with self.session.get(
-                f'{WolframAlpha.RESULT_API_URL}?appid={self.app_id}&i={query}'
-        ) as response:
+        async with self.session.get(f'{WolframAlpha.RESULT_API_URL}?appid={self.app_id}&i={query}') as response:
             if response.status != 200:
                 await ctx.send(WolframAlpha.MSG_REQUEST_FAILED)
             else:
@@ -47,9 +44,7 @@ class WolframAlpha(commands.Cog):
 
     @wolfram_alpha.command(aliases=['i'])
     async def image(self, ctx, *, query):
-        async with self.session.get(
-                f'{WolframAlpha.SIMPLE_API_URL}?appid={self.app_id}&i={query}'
-        ) as response:
+        async with self.session.get(f'{WolframAlpha.SIMPLE_API_URL}?appid={self.app_id}&i={query}') as response:
             if response.status != 200:
                 await ctx.send(WolframAlpha.MSG_REQUEST_FAILED)
             else:

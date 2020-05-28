@@ -21,5 +21,4 @@ class BotwWinner:
 
     @staticmethod
     def from_dict(source, bot):
-        return BotwWinner(bot.get_user(source['member']),
-                          Idol.from_dict(source['idol']), source['timestamp'])
+        return BotwWinner(bot.get_user(source['member']), Idol.from_dict(source['idol']), source['timestamp'])

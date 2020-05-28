@@ -9,8 +9,8 @@ from discord.ext.menus import MenuPages
 
 from const import CHECK_EMOJI
 from menu import Confirm, TagListSource
-from models.Tag import Tag
-from util import chunker, ordered_sublists
+from models import Tag
+from util import ordered_sublists
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +30,8 @@ class Tags(commands.Cog):
             self.bot.loop.run_until_complete(self._ainit())
 
     async def _ainit(self):
-        self.tags = [
-            Tag.from_dict(tag.to_dict(), self.bot, tag.id)
-            for tag in await self.bot.db.get(self.tags_collection)
-        ]
+        self.tags = [Tag.from_dict(tag.to_dict(), self.bot, tag.id) for tag in
+                     await self.bot.db.get(self.tags_collection)]
 
         logger.info(f'Initial tags from db: {self.tags}')
 
@@ -46,22 +44,13 @@ class Tags(commands.Cog):
         pass
 
     @tag.command()
-    async def add(self,
-                  ctx,
-                  in_msg_trigger: typing.Optional[bool] = False,
-                  trigger: commands.clean_content = '',
-                  *,
+    async def add(self, ctx, in_msg_trigger: typing.Optional[bool] = False, trigger: commands.clean_content = '', *,
                   reaction: commands.clean_content):
-        tag = Tag(None,
-                  trigger,
-                  reaction,
-                  ctx.author,
-                  in_msg_trigger=in_msg_trigger)
+        tag = Tag(None, trigger, reaction, ctx.author, in_msg_trigger=in_msg_trigger)
         if tag in self.tags:
             raise discord.InvalidArgument('This tag exists already.')
         else:
-            id_ = await self.bot.db.set_get_id(self.tags_collection,
-                                               tag.to_dict())
+            id_ = await self.bot.db.set_get_id(self.tags_collection, tag.to_dict())
             tag.id = id_
             self.tags.append(tag)
             await ctx.message.add_reaction(CHECK_EMOJI)
@@ -98,11 +87,8 @@ class Tags(commands.Cog):
             else:
                 old_reaction = tag.reaction
                 tag.reaction = new_reaction
-                await self.bot.db.update(self.tags_collection, tag.id,
-                                         {'reaction': tag.reaction})
-                await ctx.send(
-                    f'Tag `{tag.id}` was edited. Old reaction:\n{old_reaction}'
-                )
+                await self.bot.db.update(self.tags_collection, tag.id, {'reaction': tag.reaction})
+                await ctx.send(f'Tag `{tag.id}` was edited. Old reaction:\n{old_reaction}')
         except IndexError:
             await ctx.send(f'No tag with ID `{id_}` was found.')
 
@@ -170,11 +156,8 @@ class Tags(commands.Cog):
 
     async def invoke_tag(self, channel, tag, info=False):
         tag.use_count += 1
-        await self.bot.db.update(self.tags_collection, tag.id,
-                                 {'use_count': tag.use_count})
+        await self.bot.db.update(self.tags_collection, tag.id, {'use_count': tag.use_count})
         if info:
-            await channel.send(
-                f'**{tag.trigger}** (*{tag.id}*) by {tag.creator}\n{tag.reaction}'
-            )
+            await channel.send(f'**{tag.trigger}** (*{tag.id}*) by {tag.creator}\n{tag.reaction}')
         else:
             await channel.send(tag.reaction)

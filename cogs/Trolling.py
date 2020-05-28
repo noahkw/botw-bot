@@ -1,7 +1,5 @@
 import logging
 
-import discord
-from discord import Message
 from discord.ext import commands
 
 from const import CROSS_EMOJI
@@ -74,4 +72,5 @@ class Trolling(commands.Cog):
             role.name for role in message.author.roles
         ]:
             await message.delete()
-            await message.channel.send(f"{message.author.name}: {mock_case(remove_broken_emoji(message.clean_content))}")
+            await message.channel.send(
+                f"{message.author.name}: {mock_case(remove_broken_emoji(message.clean_content))}")

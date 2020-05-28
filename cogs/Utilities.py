@@ -19,8 +19,7 @@ class Utilities(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.shout_emoji = find(lambda e: e.name == SHOUT_EMOJI,
-                                self.bot.emojis)
+        self.shout_emoji = find(lambda e: e.name == SHOUT_EMOJI, self.bot.emojis)
 
     @commands.command()
     async def ping(self, ctx):
@@ -54,8 +53,7 @@ class Utilities(commands.Cog):
 
     @commands.command(aliases=['v'])
     async def version(self, ctx):
-        label = subprocess.check_output(
-            ['git', 'describe', '--tags', '--long']).decode('ascii').strip()
+        label = subprocess.check_output(['git', 'describe', '--tags', '--long']).decode('ascii').strip()
         await ctx.send(f'Running version `{label}`.')
 
     @commands.command()
@@ -66,4 +64,3 @@ class Utilities(commands.Cog):
     async def shout_error(self, ctx, error):
         if isinstance(error, commands.errors.MissingRequiredArgument):
             await ctx.send('Give me something to shout!')
-

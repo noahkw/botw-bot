@@ -1,10 +1,9 @@
+import concurrent
 from abc import ABC, abstractmethod
 from functools import partial
-from firebase_admin import credentials, firestore
 
 import firebase_admin
-import concurrent
-import asyncio
+from firebase_admin import credentials, firestore
 
 
 class DataStore(ABC):

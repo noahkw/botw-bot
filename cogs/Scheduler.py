@@ -31,9 +31,8 @@ class Scheduler(commands.Cog):
 
     async def _ainit(self):
         self.active_jobs = [
-            Job.from_dict(job.to_dict()) for job in await self.bot.db.query(
-                self.jobs_collection, 'exec_time', '>', time.time())
-        ]
+            Job.from_dict(job.to_dict()) for job in
+            await self.bot.db.query(self.jobs_collection, 'exec_time', '>', time.time())]
 
         logger.info(f'# Initial jobs from db: {len(self.active_jobs)}')
 
@@ -46,9 +45,7 @@ class Scheduler(commands.Cog):
             # print(f'job.exec_time: {job.exec_time}   time.time(): {time.time()}')
             if job.exec_time < time.time():
                 await getattr(self, job.func)(*job.args)
-                self.active_jobs = [
-                    x for x in self.active_jobs if x is not job
-                ]
+                self.active_jobs = [x for x in self.active_jobs if x is not job]
 
     @run_jobs.before_loop
     async def before_run_jobs(self):
@@ -63,7 +60,5 @@ class Scheduler(commands.Cog):
         logger.info('Assigning winner role.')
         guild = self.bot.get_guild(guild_id)
         winner = guild.get_member(winner_id)
-        botw_winner_role = discord.utils.get(
-            guild.roles,
-            name=self.bot.config['biasoftheweek']['winner_role_name'])
+        botw_winner_role = discord.utils.get(guild.roles, name=self.bot.config['biasoftheweek']['winner_role_name'])
         await winner.add_roles(botw_winner_role)

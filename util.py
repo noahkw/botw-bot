@@ -1,5 +1,6 @@
-from random import getrandbits
 import re
+from random import getrandbits
+
 
 def chunker(iterable, n, return_index=False):
     """
