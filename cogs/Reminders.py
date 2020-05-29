@@ -67,7 +67,7 @@ class Reminders(commands.Cog):
         logger.info(f'# Initial reminders from db: {len(self.reminders)}')
 
     @commands.group(name='reminders', aliases=['remindme', 'remind'], invoke_without_command=True)
-    async def reminders_(self, ctx, *, args: ReminderConverter):
+    async def reminders_(self, ctx, *, args: ReminderConverter = None):
         if args:
             await ctx.invoke(self.add, args=args)
         else:
@@ -91,6 +91,10 @@ class Reminders(commands.Cog):
 
         now = pendulum.now('UTC')
         parsed_date = pendulum.parse(str(parsed_date))
+
+        if has_passed(parsed_date):
+            raise commands.BadArgument(f'`{parsed_date.to_cookie_string()}` is in the past.')
+
         diff = parsed_date.diff_for_humans(now, True)
 
         reminder = Reminder(None, ctx.author, parsed_date, now, what)
@@ -114,7 +118,7 @@ class Reminders(commands.Cog):
         """
         Lists your reminders
         """
-        user_reminders = [reminder for reminder in self.reminders if reminder.user == ctx.author]
+        user_reminders = [reminder for reminder in self.reminders if reminder.user == ctx.author and not reminder.done]
         if len(user_reminders) > 0:
             pages = MenuPages(source=ReminderListSource(user_reminders), clear_reactions_after=True)
             await pages.start(ctx)
