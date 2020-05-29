@@ -1,10 +1,15 @@
 import asyncio
 import logging
 import re
+from datetime import timezone
 
-from discord.ext import commands
+import pendulum
+from aioscheduler import TimedScheduler
 from dateparser import parse
+from discord.ext import commands
+from discord.utils import find
 
+from const import SHOUT_EMOJI
 from models import Reminder
 
 logger = logging.getLogger(__name__)
@@ -37,6 +42,9 @@ class Reminders(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.reminders_collection = self.bot.config['reminders']['reminders_collection']
+        self.scheduler = TimedScheduler(prefer_utc=True)
+        self.scheduler.start()
+        self.shout_emoji = find(lambda e: e.name == SHOUT_EMOJI, self.bot.emojis)
 
         if self.bot.loop.is_running():
             asyncio.create_task(self._ainit())
@@ -69,8 +77,20 @@ class Reminders(commands.Cog):
         parsed_date = parse(when)
         if parsed_date is None:
             raise commands.BadArgument('Couldn\'t parse the date.')
+        if parsed_date.tzinfo is None:
+            parsed_date = parsed_date.astimezone(timezone.utc)
 
-        await ctx.send(f'I\'ll remind you at {parsed_date} to {what}.')
+        now = pendulum.now('UTC')
+        parsed_date = pendulum.parse(str(parsed_date))
+        diff = parsed_date.diff_for_humans(pendulum.now('UTC'), True)
+
+        reminder = Reminder(None, ctx.author, parsed_date, now, what)
+        id_ = await self.bot.db.set_get_id(self.reminders_collection, reminder.to_dict())
+        reminder.id = id_
+        self.reminders.append(reminder)
+        self.scheduler.schedule(self.remind_user(reminder), parsed_date)
+
+        await ctx.send(f'I\'ll remind you at `{parsed_date.to_cookie_string()}` (in {diff}): `{what}`.')
 
     @add.error
     @reminders_.error
@@ -78,7 +98,7 @@ class Reminders(commands.Cog):
         if isinstance(error, commands.BadArgument) or isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(error)
         else:
-            logger.error(error)
+            logger.exception(error)
 
     @reminders_.command()
     async def list(self, ctx):
@@ -86,3 +106,7 @@ class Reminders(commands.Cog):
         Lists your reminders
         """
         await ctx.send('Your reminders:')
+
+    async def remind_user(self, reminder):
+        diff = reminder.created.diff_for_humans(reminder.due, True)
+        await reminder.user.send(f'{self.shout_emoji} You told me to remind you {diff} ago:\n{reminder.content}')

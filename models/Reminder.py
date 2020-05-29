@@ -1,8 +1,9 @@
 class Reminder:
-    def __init__(self, id_, user, time, content, done=False):
+    def __init__(self, id_, user, due, created, content, done=False):
         self.id = id_
         self.user = user
-        self.time = time
+        self.due = due
+        self.created = created
         self.content = content
         self.done = done
 
@@ -13,16 +14,18 @@ class Reminder:
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'user': self.user,
-            'time': self.time,
+            'user': self.user.id,
+            'due': self.due.timestamp(),
+            'created': self.created.timestamp(),
             'content': self.content,
             'done': self.done
         }
 
     @staticmethod
     def from_dict(source, bot, id_=None):
-        return Reminder(id_, bot.get_user(source['user']), source['time'], source['content'], source['done'])
+        return Reminder(id_, bot.get_user(source['user']), source['due'], source['created'], source['content'],
+                        source['done'])
 
     def __str__(self):
-        return f"Reminder {self.id}: {self.user} at {self.time} to {self.content} ({'not ' if not self.done else ''}done)"
+        return f"Reminder {self.id} created {self.created}: {self.user} at {self.due} to {self.content} " \
+               f"({'not ' if not self.done else ''}done)"
