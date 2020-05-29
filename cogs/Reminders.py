@@ -7,10 +7,13 @@ import pendulum
 from aioscheduler import TimedScheduler
 from dateparser import parse
 from discord.ext import commands
+from discord.ext.menus import MenuPages
 from discord.utils import find
 
 from const import SHOUT_EMOJI
+from menu import ReminderListSource
 from models import Reminder
+from util import has_passed
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +57,12 @@ class Reminders(commands.Cog):
     async def _ainit(self):
         self.reminders = [Reminder.from_dict(reminder.to_dict(), self.bot, reminder.id) for reminder in
                           await self.bot.db.get(self.reminders_collection)]
+        self.reminders = [reminder for reminder in self.reminders if not reminder.done]
+        for reminder in self.reminders:
+            if has_passed(reminder.due):
+                await self.remind_user(reminder, late=True)
+            else:
+                self.scheduler.schedule(self.remind_user(reminder), reminder.due)
 
         logger.info(f'# Initial reminders from db: {len(self.reminders)}')
 
@@ -82,7 +91,7 @@ class Reminders(commands.Cog):
 
         now = pendulum.now('UTC')
         parsed_date = pendulum.parse(str(parsed_date))
-        diff = parsed_date.diff_for_humans(pendulum.now('UTC'), True)
+        diff = parsed_date.diff_for_humans(now, True)
 
         reminder = Reminder(None, ctx.author, parsed_date, now, what)
         id_ = await self.bot.db.set_get_id(self.reminders_collection, reminder.to_dict())
@@ -105,8 +114,19 @@ class Reminders(commands.Cog):
         """
         Lists your reminders
         """
-        await ctx.send('Your reminders:')
+        user_reminders = [reminder for reminder in self.reminders if reminder.user == ctx.author]
+        if len(user_reminders) > 0:
+            pages = MenuPages(source=ReminderListSource(user_reminders), clear_reactions_after=True)
+            await pages.start(ctx)
+        else:
+            await ctx.send('You have 0 pending reminders!')
 
-    async def remind_user(self, reminder):
+    async def remind_user(self, reminder, late=False):
         diff = reminder.created.diff_for_humans(reminder.due, True)
-        await reminder.user.send(f'{self.shout_emoji} You told me to remind you {diff} ago:\n{reminder.content}')
+        reminder.done = True
+        await self.bot.db.update(self.reminders_collection, reminder.id, {'done': True})
+        if late:
+            await reminder.user.send(f'{self.shout_emoji} You told me to remind you some time ago. '
+                                     f'Sorry for being late:\n{reminder.content}')
+        else:
+            await reminder.user.send(f'{self.shout_emoji} You told me to remind you {diff} ago:\n{reminder.content}')
