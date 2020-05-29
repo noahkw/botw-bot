@@ -38,3 +38,8 @@ def mock_case(msg):
 
 def remove_broken_emoji(msg):
     return re.sub(r'<(a)*:[\w]+:([0-9]+)>( )*', '', msg)
+
+
+def has_passed(date):
+    import pendulum
+    return date.timestamp() < pendulum.now('UTC').timestamp()
