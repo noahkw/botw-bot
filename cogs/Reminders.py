@@ -66,6 +66,9 @@ class Reminders(commands.Cog):
 
         logger.info(f'# Initial reminders from db: {len(self.reminders)}')
 
+    def cog_unload(self):
+        self.scheduler._task.cancel()
+
     @commands.group(name='reminders', aliases=['remindme', 'remind'], invoke_without_command=True)
     async def reminders_(self, ctx, *, args: ReminderConverter = None):
         if args:
@@ -127,6 +130,7 @@ class Reminders(commands.Cog):
 
     async def remind_user(self, reminder, late=False):
         diff = reminder.created.diff_for_humans(reminder.due, True)
+        assert not reminder.done
         reminder.done = True
         await self.bot.db.update(self.reminders_collection, reminder.id, {'done': True})
         if late:
