@@ -38,15 +38,12 @@ class TagListSource(menus.ListPageSource):
     async def format_page(self, menu, entries):
         embed = Embed(title='Tags')
         embed.add_field(
-            name=f'Reactions - Page {menu.current_page + 1} / {self.number_pages(menu)}',
+            name=f'Reactions - Page {menu.current_page + 1} / {self.get_max_pages()}',
             value='\n'.join([
                 Tag.to_list_element(tag)
                 for tag in entries
             ]))
         return embed
-
-    def number_pages(self, menu):
-        return math.ceil(len(menu.source.entries) / self.per_page)
 
 
 class ReminderListSource(menus.ListPageSource):
@@ -54,10 +51,7 @@ class ReminderListSource(menus.ListPageSource):
         super().__init__(data, per_page=5)
 
     async def format_page(self, menu, entries):
-        embed = Embed(title=f'Reminders - Page {menu.current_page + 1} / {self.number_pages(menu)}')
+        embed = Embed(title=f'Reminders - Page {menu.current_page + 1} / {self.get_max_pages()}')
         for reminder in entries:
             embed.add_field(**reminder.to_field())
         return embed
-
-    def number_pages(self, menu):
-        return math.ceil(len(menu.source.entries) / self.per_page)
