@@ -1,3 +1,5 @@
+import pendulum
+
 from models.Idol import Idol
 
 
@@ -22,3 +24,13 @@ class BotwWinner:
     @staticmethod
     def from_dict(source, bot):
         return BotwWinner(bot.get_user(source['member']), Idol.from_dict(source['idol']), source['timestamp'])
+
+    def to_field(self, winner_day):
+        time = pendulum.from_timestamp(self.timestamp)
+        week = time.week_of_year if time.day_of_week < winner_day and time.day_of_week != 0 \
+            else time.week_of_year + 1
+        year = time.year
+        return {
+            'name': f'{year}-{week}',
+            'value': f'{self.idol} by {self.member.mention}'
+        }

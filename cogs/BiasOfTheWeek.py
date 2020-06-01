@@ -5,9 +5,10 @@ import random
 import discord
 import pendulum
 from discord.ext import commands
+from discord.ext.menus import MenuPages
 
 from const import CROSS_EMOJI, CHECK_EMOJI
-from menu import Confirm
+from menu import Confirm, BotwWinnerListSource
 from models import BotwWinner
 from models import Idol
 from models import Job
@@ -136,17 +137,11 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         logger.error(error)
 
     @biasoftheweek.command()
-    async def history(self, ctx, number: int = 5):
+    async def history(self, ctx):
         if len(self.past_winners) > 0:
-            embed = discord.Embed(title='Past Bias of the Week winners')
-            for past_winner in sorted(self.past_winners, key=lambda w: w.timestamp, reverse=True)[:number]:
-                time = pendulum.from_timestamp(past_winner.timestamp)
-                week = time.week_of_year if time.day_of_week < self.winner_day and time.day_of_week != 0 \
-                    else time.week_of_year + 1
-                year = time.year
-                embed.add_field(name=f'{year}-{week}', value=f'{past_winner.idol} by {past_winner.member.mention}')
-
-            await ctx.send(embed=embed)
+            past_winners = sorted(self.past_winners, key=lambda w: w.timestamp, reverse=True)
+            pages = MenuPages(source=BotwWinnerListSource(past_winners, self.winner_day), clear_reactions_after=True)
+            await pages.start(ctx)
         else:
             await ctx.send('There have been no winners yet.')
 

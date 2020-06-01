@@ -15,7 +15,6 @@ def setup(bot):
 class MessageOrStringConverter(commands.IDConverter):
     def __init__(self):
         self.message_converter = commands.MessageConverter()
-        self.id_converter = commands.IDConverter()
         super().__init__()
 
     async def convert(self, ctx, argument):
