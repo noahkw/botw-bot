@@ -35,6 +35,7 @@ class BiasOfTheWeek(commands.Cog):
         self.past_winners_time = int(self.bot.config['biasoftheweek']['past_winners_time'])
         self.winner_day = int(self.bot.config['biasoftheweek']['winner_day'])
         self.announcement_day = divmod((self.winner_day - 3), 7)[1]
+        self.botw_channel = self.bot.get_channel(int(self.bot.config['biasoftheweek']['botw_channel']))
         self.nominations_channel = self.bot.get_channel(int(self.bot.config['biasoftheweek']['nominations_channel']))
 
         if self.bot.loop.is_running():
@@ -145,6 +146,10 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         winner = guild.get_member(winner.id)
         botw_winner_role = discord.utils.get(guild.roles, name=self.bot.config['biasoftheweek']['winner_role_name'])
         await winner.add_roles(botw_winner_role)
+        await winner.send(f'Hi, your pick won this week\'s BotW. Congratulations!\n'
+                          f'You may now post your pics and gfys in {self.botw_channel.mention}.\n'
+                          f'Don\'t forget to change the server icon using `.botw icon`'
+                          f' in {self.nominations_channel.mention}.')
 
     async def _remove_winner_role(self, winner):
         guild = self.nominations_channel.guild
@@ -161,7 +166,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
             await self._pick_winner()
 
         # assign role on winner day
-        elif now.day_of_week == 4 and now.hour == 0:
+        elif now.day_of_week == self.winner_day and now.hour == 0:
             winner, previous_winner = sorted(self.past_winners, key=lambda w: w.timestamp, reverse=True)[0:2]
             logger.info(f'Removing winner role from {previous_winner.member}')
             await self._remove_winner_role(previous_winner.member)
