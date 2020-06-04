@@ -13,6 +13,7 @@ past_winners_collection=botw_winners
 past_winners_time=180
 # [1, 7], 0=sunday, 6=saturday
 winner_day=3
+nominations_channel=botw-nominations
 
 [scheduler]
 jobs_collection=jobs

@@ -4,14 +4,13 @@ import random
 
 import discord
 import pendulum
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ext.menus import MenuPages
 
 from const import CROSS_EMOJI, CHECK_EMOJI
 from menu import Confirm, BotwWinnerListSource
 from models import BotwWinner
 from models import Idol
-from models import Job
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +34,8 @@ class BiasOfTheWeek(commands.Cog):
         self.past_winners_collection = self.bot.config['biasoftheweek']['past_winners_collection']
         self.past_winners_time = int(self.bot.config['biasoftheweek']['past_winners_time'])
         self.winner_day = int(self.bot.config['biasoftheweek']['winner_day'])
+        self.announcement_day = divmod((self.winner_day - 3), 7)[1]
+        self.nominations_channel = self.bot.get_channel(int(self.bot.config['biasoftheweek']['nominations_channel']))
 
         if self.bot.loop.is_running():
             asyncio.create_task(self._ainit())
@@ -51,6 +52,8 @@ class BiasOfTheWeek(commands.Cog):
 
         self.past_winners = [BotwWinner.from_dict(winner.to_dict(), self.bot) for winner in
                              await self.bot.db.get(self.past_winners_collection)]
+
+        self._loop.start()
 
     @commands.group(name='biasoftheweek', aliases=['botw'])
     async def biasoftheweek(self, ctx):
@@ -85,9 +88,7 @@ class BiasOfTheWeek(commands.Cog):
     async def nominate_error(self, ctx, error):
         await ctx.send(error)
 
-    @biasoftheweek.command(name='clearnominations')
-    @commands.has_permissions(administrator=True)
-    async def clear_nominations(self, ctx, member: discord.Member = None):
+    async def _clear_nominations(self, member=None):
         if member is None:
             self.nominations = {}
             await self.bot.db.delete(self.nominations_collection)
@@ -95,6 +96,10 @@ class BiasOfTheWeek(commands.Cog):
             self.nominations.pop(member)
             await self.bot.db.delete(self.nominations_collection, document=str(member.id))
 
+    @biasoftheweek.command(name='clearnominations')
+    @commands.has_permissions(administrator=True)
+    async def clear_nominations(self, ctx, member: discord.Member = None):
+        await self._clear_nominations(member)
         await ctx.message.add_reaction(CHECK_EMOJI)
 
     @biasoftheweek.command()
@@ -110,31 +115,58 @@ class BiasOfTheWeek(commands.Cog):
 
     @biasoftheweek.command()
     @commands.has_permissions(administrator=True)
-    async def winner(self, ctx, silent: bool = False, fast_assign: bool = False):
-        member, pick = random.choice(list(self.nominations.items()))
-
-        # Assign BotW winner role on next wednesday at 00:00 UTC
-        now = pendulum.now('UTC')
-        assign_date = now.add(seconds=120) if fast_assign else now.next(self.winner_day)
-
-        await ctx.send(
-            f"""Bias of the Week ({now.week_of_year}-{now.year}): {member if silent else member.mention}\'s pick **{pick}**. 
-You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_name']}* on {assign_date.to_cookie_string()}.""")
-
-        botw_winner = BotwWinner(member, pick, now.timestamp())
-        self.past_winners.append(botw_winner)
-        await self.bot.db.add(self.past_winners_collection, botw_winner.to_dict())
-
-        scheduler = self.bot.get_cog('Scheduler')
-        if scheduler is not None:
-            await scheduler.add_job(
-                Job('assign_winner_role', [ctx.guild.id, member.id], assign_date.float_timestamp))
+    async def winner(self, ctx, silent: bool = False):
+        await self._pick_winner(silent=silent)
 
     @winner.error
     async def winner_error(self, ctx, error):
         if isinstance(error, commands.errors.MissingPermissions):
             await ctx.send(error)
         logger.error(error)
+
+    async def _pick_winner(self, silent=False):
+        member, pick = random.choice(list(self.nominations.items()))
+
+        # Assign BotW winner role on next wednesday at 00:00 UTC
+        now = pendulum.now('UTC')
+        assign_date = now.next(self.winner_day)
+
+        await self.nominations_channel.send(
+            f"""Bias of the Week ({now.week_of_year}-{now.year}): {member if silent else member.mention}\'s pick **{pick}**. 
+You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_name']}* on {assign_date.to_cookie_string()}.""")
+
+        botw_winner = BotwWinner(member, pick, now.timestamp())
+        self.past_winners.append(botw_winner)
+        await self.bot.db.add(self.past_winners_collection, botw_winner.to_dict())
+        await self._clear_nominations(member)
+
+    async def _assign_winner_role(self, winner):
+        guild = self.nominations_channel.guild
+        winner = guild.get_member(winner.id)
+        botw_winner_role = discord.utils.get(guild.roles, name=self.bot.config['biasoftheweek']['winner_role_name'])
+        await winner.add_roles(botw_winner_role)
+
+    async def _remove_winner_role(self, winner):
+        guild = self.nominations_channel.guild
+        winner = guild.get_member(winner.id)
+        botw_winner_role = discord.utils.get(guild.roles, name=self.bot.config['biasoftheweek']['winner_role_name'])
+        await winner.remove_roles(botw_winner_role)
+
+    @tasks.loop(hours=1.0)
+    async def _loop(self):
+        logger.info('Hourly loop running')
+        now = pendulum.now('UTC')
+        # pick winner on announcement day
+        if now.day_of_week == self.announcement_day and now.hour == 0:
+            await self._pick_winner()
+
+        # assign role on winner day
+        elif now.day_of_week == 4 and now.hour == 0:
+            winner, previous_winner = sorted(self.past_winners, key=lambda w: w.timestamp, reverse=True)[0:2]
+            logger.info(f'Removing winner role from {previous_winner.member}')
+            await self._remove_winner_role(previous_winner.member)
+            logger.info(f'Assigning winner role to {winner.member}')
+            await self._assign_winner_role(winner.member)
 
     @biasoftheweek.command()
     async def history(self, ctx):
