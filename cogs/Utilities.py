@@ -36,6 +36,7 @@ class Utilities(commands.Cog):
         self.bot.reload_extension('cogs.Reminders')
         self.bot.reload_extension('cogs.Tags')
         self.bot.reload_extension('cogs.Trolling')
+        self.bot.reload_extension('cogs.Weather')
         self.bot.reload_extension('cogs.WolframAlpha')
         await ctx.message.add_reaction(CHECK_EMOJI)
 

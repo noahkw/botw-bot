@@ -34,6 +34,9 @@ emoji_channel=XXXXXXXXXXXXXXXXXX
 [wolframalpha]
 app_id=XXXXXX-XXXXXXXXXX
 
+[openweathermap]
+app_id=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
 [firebase]
 key_file=xxx-firebase-adminsdk-xxx-xxx.json
 db_name=xxx
