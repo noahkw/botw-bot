@@ -20,6 +20,13 @@ def temp_string(temp):
     return f"{round(temp, 1)}°C ({round(celsius_to_fahrenheit(temp), 1)}°F)"
 
 
+def visibility_string(visibility):
+    if visibility is not None:
+        return f"{round(visibility / 1000, 3)} km  ({round(meters_to_miles(visibility), 3)} mi)"
+    else:
+        return 'N/A'
+
+
 def icon_to_emoji(icon_string):
     icon = icon_string[:2]
     return WEATHER_EMOJI[icon]
@@ -83,7 +90,7 @@ class Weather(commands.Cog):
             'temp_min': min([hourly['temp'] for hourly in response_onecall['hourly']]),
             'temp_max': max([hourly['temp'] for hourly in response_onecall['hourly']]),
             'feels_like': current['feels_like'],
-            'visibility': current['visibility'],
+            'visibility': current['visibility'] if 'visibility' in current else None,
             'wind_deg': current['wind_deg'],
             'wind_speed': current['wind_speed'],
             'clouds': current['clouds'],
@@ -101,9 +108,7 @@ class Weather(commands.Cog):
         embed.add_field(name='Temperature Low', value=temp_string(content['temp_min']))
         embed.add_field(name='Temperature', value=temp_string(content['temp']))
         embed.add_field(name='Temperature High', value=temp_string(content['temp_max']))
-        embed.add_field(name='Visibility',
-                        value=f"{round(content['visibility'] / 1000, 3)} km "
-                              f"({round(meters_to_miles(content['visibility']), 3)} mi)")
+        embed.add_field(name='Visibility', value=visibility_string(content['visibility']))
         embed.add_field(name='Wind Direction', value=f"{content['wind_deg']}°")
         embed.add_field(name='Wind Speed', value=f"{content['wind_speed']} m/s")
         embed.add_field(name='Clouds', value=f"{content['clouds']}%")
