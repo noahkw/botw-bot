@@ -2,6 +2,7 @@ import logging
 from io import BytesIO
 
 import aiohttp
+import asyncio
 from discord import File
 from discord.ext import commands
 
@@ -24,11 +25,17 @@ class WolframAlpha(commands.Cog):
         self.app_id = self.bot.config['wolframalpha']['app_id']
         self.session = aiohttp.ClientSession()
 
+    def cog_unload(self):
+        asyncio.create_task(self.session.close())
+
     @commands.group(name='wolframalpha',
                     aliases=['wa'],
                     invoke_without_command=True)
-    async def wolfram_alpha(self, ctx):
-        await ctx.send_help(self.wolfram_alpha)
+    async def wolfram_alpha(self, ctx, *, args=None):
+        if args:
+            await ctx.invoke(self.simple, query=args)
+        else:
+            await ctx.send_help(self.wolfram_alpha)
 
     @wolfram_alpha.command(aliases=['s'])
     async def simple(self, ctx, *, query):
