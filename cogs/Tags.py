@@ -8,7 +8,7 @@ from discord.ext import commands
 from discord.ext.menus import MenuPages
 
 from const import CHECK_EMOJI
-from menu import Confirm, TagListSource
+from menu import Confirm, TagListSource, PseudoMenu
 from models import Tag
 from util import ordered_sublists
 
@@ -93,10 +93,18 @@ class Tags(commands.Cog):
             await ctx.send(f'No tag with ID `{id_}` was found.')
 
     @tag.command()
-    async def list(self, ctx):
+    async def list(self, ctx, dm=False):
+        """
+        Sends a list of all tags in the server to the channel.
+        .tag list true for the entire list via DM.
+        """
         if len(self.tags) > 0:
-            pages = MenuPages(source=TagListSource(self.tags), clear_reactions_after=True)
-            await pages.start(ctx)
+            if dm:
+                menu = PseudoMenu(TagListSource(self.tags), ctx.author)
+                await menu.start()
+            else:
+                pages = MenuPages(source=TagListSource(self.tags), clear_reactions_after=True)
+                await pages.start(ctx)
         else:
             await ctx.send('Try adding a few tags first!')
 

@@ -1,3 +1,4 @@
+import discord
 from discord import Embed
 from discord.ext import menus
 
@@ -30,8 +31,8 @@ class Confirm(menus.Menu):
 
 
 class TagListSource(menus.ListPageSource):
-    def __init__(self, data):
-        super().__init__(data, per_page=10)
+    def __init__(self, data, per_page=10):
+        super().__init__(data, per_page=per_page)
 
     async def format_page(self, menu, entries):
         embed = Embed(title='Tags')
@@ -65,3 +66,34 @@ class BotwWinnerListSource(menus.ListPageSource):
         for winner in entries:
             embed.add_field(**winner.to_field(self.winner_day))
         return embed
+
+
+class PseudoMenu:
+    """
+    Exhausts the source without user interaction and sends each page to the specified channel instantly.
+    """
+
+    def __init__(self, source, channel):
+        self.current_page = 1
+        self._source = source
+        self._channel = channel
+
+    async def show_page(self, page_number):
+        page = await self._source.get_page(page_number)
+        self.current_page = page_number
+        kwargs = await self._get_kwargs_from_page(page)
+        await self._channel.send(**kwargs)
+
+    async def _get_kwargs_from_page(self, page):
+        value = await discord.utils.maybe_coroutine(self._source.format_page, self, page)
+        if isinstance(value, dict):
+            return value
+        elif isinstance(value, str):
+            return {'content': value, 'embed': None}
+        elif isinstance(value, Embed):
+            return {'embed': value, 'content': None}
+
+    async def start(self):
+        await self._source._prepare_once()
+        for i in range(self._source.get_max_pages()):
+            await self.show_page(i)
