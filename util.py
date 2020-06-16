@@ -45,14 +45,6 @@ def has_passed(date):
     return date.timestamp() < pendulum.now('UTC').timestamp()
 
 
-def kelvin_to_celsius(temp):
-    return temp - 273.15
-
-
-def kelvin_to_fahrenheit(temp):
-    return kelvin_to_celsius(temp) * (9 / 5) + 32
-
-
 def celsius_to_fahrenheit(temp):
     return temp * (9 / 5) + 32
 
