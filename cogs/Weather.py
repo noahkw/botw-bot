@@ -6,8 +6,8 @@ import pendulum
 from discord import Embed
 from discord.ext import commands
 
-from util import celsius_to_fahrenheit, meters_to_miles
 from const import WEATHER_EMOJI
+from util import celsius_to_fahrenheit, meters_to_miles
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,18 @@ def visibility_string(visibility):
         return f"{round(visibility / 1000, 3)} km  ({round(meters_to_miles(visibility), 3)} mi)"
     else:
         return 'N/A'
+
+
+def precipitation_string(rain, snow):
+    rain_emoji, snow_emoji = (WEATHER_EMOJI['09'], WEATHER_EMOJI['13'])
+    if rain > 0 < snow:
+        return f'{rain_emoji} {rain} mm, {snow_emoji} {snow} mm'
+    elif rain > 0:
+        return f'{rain_emoji} {rain} mm'
+    elif snow > 0:
+        return f'{snow_emoji} {snow} mm'
+
+    return '0 mm'
 
 
 def icon_to_emoji(icon_string):
@@ -71,11 +83,13 @@ class Weather(commands.Cog):
 
     @weather.command()
     async def current(self, ctx, *, location):
-        response = await self._make_request('get', f'{Weather.CURRENT_WEATHER_API_URL}?appid={self.app_id}&q={location}&units=metric')
+        response = await self._make_request('get',
+                                            f'{Weather.CURRENT_WEATHER_API_URL}?appid={self.app_id}&q={location}&units=metric')
         coords = response['coord']
         lon, lat = coords.values()
 
-        response_onecall = await self._make_request('get', f'{Weather.ONECALL_WEATHER_API_URL}?appid={self.app_id}&lon={lon}&lat={lat}&units=metric')
+        response_onecall = await self._make_request('get',
+                                                    f'{Weather.ONECALL_WEATHER_API_URL}?appid={self.app_id}&lon={lon}&lat={lat}&units=metric')
         current = response_onecall['current']
 
         content = {
@@ -95,8 +109,8 @@ class Weather(commands.Cog):
             'wind_speed': current['wind_speed'],
             'clouds': current['clouds'],
             'uvi': current['uvi'],
-            'rain': current['rain'] if 'rain' in current else None,
-            'snow': current['snow'] if 'snow' in current else None,
+            'rain': current['rain']['1h'] if 'rain' in current and '1h' in current['rain'] else 0,
+            'snow': current['snow']['1h'] if 'snow' in current and '1h' in current['snow'] else 0,
             'icon': f"http://openweathermap.org/img/wn/{current['weather'][0]['icon']}.png",
             'emoji': icon_to_emoji(current['weather'][0]['icon'])
         }
@@ -111,7 +125,8 @@ class Weather(commands.Cog):
         embed.add_field(name='Visibility', value=visibility_string(content['visibility']))
         embed.add_field(name='Wind Direction', value=f"{content['wind_deg']}°")
         embed.add_field(name='Wind Speed', value=f"{content['wind_speed']} m/s")
-        embed.add_field(name='Clouds', value=f"{content['clouds']}%")
+        embed.add_field(name='Precipitation (last h)', value=precipitation_string(content['rain'], content['snow']))
+        embed.add_field(name='Cloud cover', value=f"{content['clouds']}%")
         embed.add_field(name='UV Index', value=content['uvi'])
         embed.timestamp = pendulum.now('UTC')
         embed.set_author(name=f"{content['city']}, {content['country']} at openweathermap.org",
