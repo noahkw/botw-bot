@@ -43,3 +43,11 @@ def remove_broken_emoji(msg):
 def has_passed(date):
     import pendulum
     return date.timestamp() < pendulum.now('UTC').timestamp()
+
+
+def celsius_to_fahrenheit(temp):
+    return temp * (9 / 5) + 32
+
+
+def meters_to_miles(meters):
+    return meters * 0.000621371
