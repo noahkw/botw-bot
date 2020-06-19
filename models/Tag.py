@@ -17,8 +17,8 @@ class Tag:
     def __str__(self):
         return f'({self.id}) {self.trigger} -> {self.reaction} (creator: {self.creator})'
 
-    def to_list_element(self):
-        return f'`{self.id}`: *{self.trigger}* by {self.creator}'
+    def to_list_element(self, index):
+        return f'*{index + 1}*. `{self.id}`: *{self.trigger}* by {self.creator}'
 
     def __eq__(self, other):
         if not isinstance(other, Tag):

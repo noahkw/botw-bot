@@ -8,7 +8,7 @@ from discord.ext import commands
 from discord.ext.menus import MenuPages
 
 from const import CHECK_EMOJI
-from menu import Confirm, TagListSource, PseudoMenu
+from menu import Confirm, TagListSource, PseudoMenu, SelectionMenu
 from models import Tag
 from util import ordered_sublists, ratio
 
@@ -17,6 +17,21 @@ logger = logging.getLogger(__name__)
 
 def setup(bot):
     bot.add_cog(Tags(bot))
+
+
+class TagConverter(commands.Converter):
+    async def convert(self, ctx, argument):
+        cog = ctx.bot.get_cog('Tags')
+        try:
+            tag = [tag for tag in cog.tags if tag.id == argument].pop()
+            return [tag]
+        except IndexError:
+            # argument was not an ID, search triggers
+            tags = await cog.get_tags_by_trigger(argument)
+            if len(tags) > 0:
+                return tags
+            else:
+                raise commands.BadArgument(f'Tag {argument} could not be found.')
 
 
 class Tags(commands.Cog):
@@ -35,65 +50,83 @@ class Tags(commands.Cog):
 
         logger.info(f'Initial tags from db: {self.tags}')
 
-    async def get_tags_by_trigger(self, trigger, fuzzy=None):
+    async def get_tags_by_trigger(self, trigger, fuzzy=75):
         if not fuzzy:
             tags = [tag for tag in self.tags if tag.trigger.lower() == trigger.lower()]
         else:
             tags = [tag for tag in self.tags if ratio(tag.trigger.lower(), trigger.lower()) > fuzzy]
         return tags
 
-    @commands.group(aliases=['tags'])
-    async def tag(self, ctx):
-        pass
+    async def prompt_selection(self, ctx, tags):
+        def check(m):
+            return m.channel == ctx.channel and m.author == ctx.author
+
+        prompt_msg = await ctx.send('Type the tag\'s index.')
+        try:
+            msg = await self.bot.wait_for('message', timeout=30.0, check=check)
+        except asyncio.TimeoutError:
+            await prompt_msg.delete()
+        else:
+            await prompt_msg.delete()
+            index = int(msg.content)
+            if 0 < index <= len(tags):
+                return tags[index - 1]
+            else:
+                raise commands.BadArgument(f'Valid selections: 1,..., {len(tags)}')
+
+    @commands.group(aliases=['tags'], invoke_without_command=True)
+    async def tag(self, ctx, *, args=None):
+        await ctx.invoke(self.list, dm=args)
 
     @tag.command()
     async def add(self, ctx, in_msg_trigger: typing.Optional[bool] = False, trigger: commands.clean_content = '', *,
                   reaction: commands.clean_content):
         tag = Tag(None, trigger, reaction, ctx.author, in_msg_trigger=in_msg_trigger)
         if tag in self.tags:
-            raise discord.InvalidArgument('This tag exists already.')
+            raise commands.BadArgument('This tag exists already.')
         else:
             id_ = await self.bot.db.set_get_id(self.tags_collection, tag.to_dict())
             tag.id = id_
             self.tags.append(tag)
             await ctx.message.add_reaction(CHECK_EMOJI)
 
-    @add.error
-    async def add_error(self, ctx, error):
-        await ctx.send(error.original.args[0])
-
     @tag.command(aliases=['remove'])
-    async def delete(self, ctx, id_):
-        try:
-            tag = [tag for tag in self.tags if tag.id == id_].pop()
-            # only allow tag owner and admins to delete tags
-            if tag.creator != ctx.author and not ctx.author.guild_permissions.administrator:
-                await ctx.send('You can only remove tags that you added.')
-            else:
-                confirm = await Confirm(f'Are you sure you want to delete the tag with ID {tag.id}, '
-                                        f'trigger `{tag.trigger}` and reaction {tag.reaction}?').prompt(ctx)
+    async def delete(self, ctx, tag: TagConverter):
+        if len(tag) == 1:
+            selection = tag[0]
+        else:
+            pages = SelectionMenu(source=TagListSource(tag))
+            selection = await pages.prompt(ctx)
 
-                if confirm:
-                    self.tags.remove(tag)
-                    await self.bot.db.delete(self.tags_collection, tag.id)
-                    await ctx.send(f'Tag `{tag.id}` was deleted.')
-        except IndexError:
-            await ctx.send(f'No tag with ID `{id_}` was found.')
+        # only allow tag owner and admins to delete tags
+        if selection.creator != ctx.author and not ctx.author.guild_permissions.administrator:
+            raise commands.BadArgument('You\'re not this tag\'s owner.')
+        else:
+            confirm = await Confirm(f'Are you sure you want to delete the tag with ID {selection.id}, '
+                                    f'trigger `{selection.trigger}` and reaction {selection.reaction}?').prompt(ctx)
+
+            if confirm:
+                self.tags.remove(selection)
+                await self.bot.db.delete(self.tags_collection, selection.id)
+                await ctx.send(f'Tag `{selection.id}` was deleted.')
 
     @tag.command(aliases=['change'])
-    async def edit(self, ctx, id_, new_reaction: commands.clean_content):
-        try:
-            tag = [tag for tag in self.tags if tag.id == id_].pop()
-            # only allow tag owner and admins to edit tags
-            if tag.creator != ctx.author and not ctx.author.guild_permissions.administrator:
-                await ctx.send('You can only edit tags that you added.')
-            else:
-                old_reaction = tag.reaction
-                tag.reaction = new_reaction
-                await self.bot.db.update(self.tags_collection, tag.id, {'reaction': tag.reaction})
-                await ctx.send(f'Tag `{tag.id}` was edited. Old reaction:\n{old_reaction}')
-        except IndexError:
-            await ctx.send(f'No tag with ID `{id_}` was found.')
+    async def edit(self, ctx, tag: TagConverter, new_reaction: commands.clean_content):
+        if len(tag) == 1:
+            selection = tag[0]
+        else:
+            pages = SelectionMenu(source=TagListSource(tag), delete_message_after=True)
+            selection = await pages.prompt(ctx)
+
+        # only allow tag owner and admins to edit tags
+        if selection.creator != ctx.author and not ctx.author.guild_permissions.administrator:
+            # raise commands.BadArgument('You\'re not this tag\'s owner.')
+            await ctx.send('You\'re not this tag\'s owner.')
+        else:
+            old_reaction = selection.reaction
+            selection.reaction = new_reaction
+            await self.bot.db.update(self.tags_collection, selection.id, {'reaction': selection.reaction})
+            await ctx.send(f'Tag `{selection.id}` was edited. Old reaction:\n{old_reaction}')
 
     @tag.command()
     async def list(self, ctx, dm=False):
@@ -103,7 +136,7 @@ class Tags(commands.Cog):
         """
         if len(self.tags) > 0:
             if dm:
-                menu = PseudoMenu(TagListSource(self.tags), ctx.author)
+                menu = PseudoMenu(TagListSource(self.tags, per_page=15), ctx.author)
                 await menu.start()
             else:
                 pages = MenuPages(source=TagListSource(self.tags), clear_reactions_after=True)
@@ -112,28 +145,25 @@ class Tags(commands.Cog):
             await ctx.send('Try adding a few tags first!')
 
     @tag.command()
-    async def info(self, ctx, id_):
-        try:
-            tag = [tag for tag in self.tags if tag.id == id_].pop()
-            await ctx.send(embed=tag.info_embed())
-        except IndexError:
-            await ctx.send(f'No tag with ID `{id_}` was found.')
+    async def info(self, ctx, *, tag: TagConverter):
+        if len(tag) == 1:
+            await ctx.send(embed=tag[0].info_embed())
+        else:
+            pages = SelectionMenu(source=TagListSource(tag), delete_message_after=True)
+            selection = await pages.prompt(ctx)
+            await ctx.send(embed=selection.info_embed())
 
     @tag.command()
     async def random(self, ctx):
         if len(self.tags) < 1:
-            await ctx.send('Try adding a few tags first!')
+            await ctx.send('Try to add a few tags first!')
         else:
             await self.invoke_tag(ctx, random.choice(self.tags), info=True)
 
     @tag.command()
-    async def search(self, ctx, *, trigger):
-        matches = await self.get_tags_by_trigger(trigger, fuzzy=75)
-        if len(matches) > 0:
-            pages = MenuPages(source=TagListSource(matches), clear_reactions_after=True)
-            await pages.start(ctx)
-        else:
-            await ctx.send('0 matches.')
+    async def search(self, ctx, *, tag: TagConverter):
+        pages = MenuPages(source=TagListSource(tag), clear_reactions_after=True)
+        await pages.start(ctx)
 
     @commands.Cog.listener('on_message')
     async def on_message(self, message):
