@@ -51,7 +51,7 @@ class Profiles(commands.Cog):
         await ctx.send(embed=profile.to_embed(lookup))
 
     @profile.command(name='location')
-    async def location(self, ctx, location: commands.clean_content):
+    async def location(self, ctx, *, location: commands.clean_content):
         profile = await self.get_profile(ctx.author)
         profile.location = location
         await self.bot.db.update(self.profiles_collection, str(ctx.author.id), {'location': location})

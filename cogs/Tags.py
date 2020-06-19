@@ -10,7 +10,7 @@ from discord.ext.menus import MenuPages
 from const import CHECK_EMOJI
 from menu import Confirm, TagListSource, PseudoMenu
 from models import Tag
-from util import ordered_sublists
+from util import ordered_sublists, ratio
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +35,11 @@ class Tags(commands.Cog):
 
         logger.info(f'Initial tags from db: {self.tags}')
 
-    async def get_tags_by_trigger(self, trigger):
-        tags = [tag for tag in self.tags if tag.trigger == trigger]
+    async def get_tags_by_trigger(self, trigger, fuzzy=None):
+        if not fuzzy:
+            tags = [tag for tag in self.tags if tag.trigger.lower() == trigger.lower()]
+        else:
+            tags = [tag for tag in self.tags if ratio(tag.trigger.lower(), trigger.lower()) > fuzzy]
         return tags
 
     @commands.group(aliases=['tags'])
@@ -125,7 +128,7 @@ class Tags(commands.Cog):
 
     @tag.command()
     async def search(self, ctx, *, trigger):
-        matches = await self.get_tags_by_trigger(trigger)
+        matches = await self.get_tags_by_trigger(trigger, fuzzy=75)
         if len(matches) > 0:
             pages = MenuPages(source=TagListSource(matches), clear_reactions_after=True)
             await pages.start(ctx)
