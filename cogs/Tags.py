@@ -34,7 +34,20 @@ class TagConverter(commands.Converter):
                 raise commands.BadArgument(f'Tag {argument} could not be found.')
 
 
+class BoolConverter(commands.Converter):
+    async def convert(self, ctx, argument):
+        lowered = argument.lower()
+        if lowered in ('yes', 'y', 'true', 't', '1', 'enable', 'on'):
+            return True
+        elif lowered in ('no', 'n', 'false', 'f', '0', 'disable', 'off'):
+            return False
+        else:
+            raise commands.BadArgument(lowered + ' is not a recognized boolean option')
+
+
 class Tags(commands.Cog):
+    FORMATTED_KEYS = [f'`{key}`' for key in Tag.EDITABLE]
+
     def __init__(self, bot):
         self.bot = bot
         self.tags_collection = self.bot.config['tags']['tags_collection']
@@ -111,7 +124,7 @@ class Tags(commands.Cog):
                 await ctx.send(f'Tag `{selection.id}` was deleted.')
 
     @tag.command(aliases=['change'])
-    async def edit(self, ctx, tag: TagConverter, new_reaction: commands.clean_content):
+    async def edit(self, ctx, tag: TagConverter, key, *, new_value: commands.clean_content):
         if len(tag) == 1:
             selection = tag[0]
         else:
@@ -120,13 +133,17 @@ class Tags(commands.Cog):
 
         # only allow tag owner and admins to edit tags
         if selection.creator != ctx.author and not ctx.author.guild_permissions.administrator:
-            # raise commands.BadArgument('You\'re not this tag\'s owner.')
-            await ctx.send('You\'re not this tag\'s owner.')
+            raise commands.BadArgument('You\'re not this tag\'s owner.')
+        elif key not in Tag.EDITABLE:
+            raise commands.BadArgument(f'Cannot edit `{key}`. Valid choices: {", ".join(self.FORMATTED_KEYS)}.')
         else:
-            old_reaction = selection.reaction
-            selection.reaction = new_reaction
-            await self.bot.db.update(self.tags_collection, selection.id, {'reaction': selection.reaction})
-            await ctx.send(f'Tag `{selection.id}` was edited. Old reaction:\n{old_reaction}')
+            if key == 'in_msg_trigger':
+                new_value = await BoolConverter().convert(ctx, new_value)
+
+            old_value = getattr(selection, key)
+            setattr(selection, key, new_value)
+            await self.bot.db.update(self.tags_collection, selection.id, {key: new_value})
+            await ctx.send(f'Tag `{selection.id}` was edited. Old {key}:\n{old_value}')
 
     @tag.command()
     async def list(self, ctx, dm=False):

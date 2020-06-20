@@ -5,6 +5,8 @@ import pendulum
 
 
 class Tag:
+    EDITABLE = ['trigger', 'reaction', 'in_msg_trigger']
+
     def __init__(self, id_, trigger, reaction, creator, in_msg_trigger=False, use_count=0, creation_date=None):
         self.id = id_
         self.trigger = trigger
