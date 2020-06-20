@@ -115,7 +115,7 @@ class Tags(commands.Cog):
         if len(tag) == 1:
             selection = tag[0]
         else:
-            pages = SelectionMenu(source=TagListSource(tag), delete_message_after=True)
+            pages = SelectionMenu(source=TagListSource(tag))
             selection = await pages.prompt(ctx)
 
         # only allow tag owner and admins to edit tags
@@ -149,7 +149,7 @@ class Tags(commands.Cog):
         if len(tag) == 1:
             await ctx.send(embed=tag[0].info_embed())
         else:
-            pages = SelectionMenu(source=TagListSource(tag), delete_message_after=True)
+            pages = SelectionMenu(source=TagListSource(tag))
             selection = await pages.prompt(ctx)
             await ctx.send(embed=selection.info_embed())
 
