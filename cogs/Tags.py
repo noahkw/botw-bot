@@ -3,7 +3,6 @@ import logging
 import random
 import typing
 
-import discord
 from discord.ext import commands
 from discord.ext.menus import MenuPages
 
@@ -70,22 +69,8 @@ class Tags(commands.Cog):
             tags = [tag for tag in self.tags if ratio(tag.trigger.lower(), trigger.lower()) > fuzzy]
         return tags
 
-    async def prompt_selection(self, ctx, tags):
-        def check(m):
-            return m.channel == ctx.channel and m.author == ctx.author
-
-        prompt_msg = await ctx.send('Type the tag\'s index.')
-        try:
-            msg = await self.bot.wait_for('message', timeout=30.0, check=check)
-        except asyncio.TimeoutError:
-            await prompt_msg.delete()
-        else:
-            await prompt_msg.delete()
-            index = int(msg.content)
-            if 0 < index <= len(tags):
-                return tags[index - 1]
-            else:
-                raise commands.BadArgument(f'Valid selections: 1,..., {len(tags)}')
+    async def get_duplicates(self, trigger, reaction):
+        return [tag for tag in self.tags if (tag.trigger == trigger and tag.reaction == reaction)]
 
     @commands.group(aliases=['tags'], invoke_without_command=True)
     async def tag(self, ctx, *, args=None):
@@ -95,8 +80,9 @@ class Tags(commands.Cog):
     async def add(self, ctx, in_msg_trigger: typing.Optional[bool] = False, trigger: commands.clean_content = '', *,
                   reaction: commands.clean_content):
         tag = Tag(None, trigger, reaction, ctx.author, in_msg_trigger=in_msg_trigger)
-        if tag in self.tags:
-            raise commands.BadArgument('This tag exists already.')
+        matches = await self.get_duplicates(trigger, reaction)
+        if len(matches) > 0:
+            raise commands.BadArgument(f'This tag already exists (`{matches[0].id}`).')
         else:
             id_ = await self.bot.db.set_get_id(self.tags_collection, tag.to_dict())
             tag.id = id_
@@ -139,6 +125,12 @@ class Tags(commands.Cog):
         else:
             if key == 'in_msg_trigger':
                 new_value = await BoolConverter().convert(ctx, new_value)
+            elif key in ['trigger', 'reaction']:
+                # check whether we are creating a duplicate
+                matches = await self.get_duplicates(new_value if key == 'trigger' else selection.trigger,
+                                                    new_value if key == 'reaction' else selection.reaction)
+                if len(matches) > 0:
+                    raise commands.BadArgument(f'This edit would create a duplicate of tag `{matches[0].id}`.')
 
             old_value = getattr(selection, key)
             setattr(selection, key, new_value)
