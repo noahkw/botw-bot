@@ -56,16 +56,3 @@ class Profiles(commands.Cog):
         profile.location = location
         await self.bot.db.update(self.profiles_collection, str(ctx.author.id), {'location': location})
         await ctx.message.add_reaction(CHECK_EMOJI)
-
-    @commands.Cog.listener()
-    async def on_command_error(self, ctx, error):
-        if hasattr(ctx.command, 'on_error'):
-            return
-
-        error = getattr(error, 'original', error)
-
-        if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument)):
-            await ctx.send(error)
-            return
-
-        logger.exception(error)

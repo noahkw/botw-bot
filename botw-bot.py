@@ -43,9 +43,16 @@ async def on_disconnect():
 
 @bot.event
 async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandNotFound):
+    if isinstance(error, commands.CommandNotFound) or hasattr(ctx.command, 'on_error'):
         return
-    raise error
+
+    error = getattr(error, 'original', error)
+
+    if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument, commands.MissingPermissions)):
+        await ctx.send(error)
+        return
+
+    logger.exception(error)
 
 
 @bot.check
