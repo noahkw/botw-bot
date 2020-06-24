@@ -18,7 +18,7 @@ handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(me
 logger.addHandler(handler)
 
 INITIAL_EXTENSIONS = [
-    'cogs.BiasOfTheWeek', 'cogs.Utilities', 'cogs.Scheduler',
+    'cogs.BiasOfTheWeek', 'cogs.Utilities',
     'cogs.EmojiUtils', 'cogs.Tags', 'cogs.Trolling', 'cogs.WolframAlpha',
     'cogs.Reminders', 'cogs.Weather', 'cogs.Profiles', 'jishaku'
 ]
