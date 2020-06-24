@@ -6,66 +6,69 @@ from discord.ext import commands
 
 from DataStore import FirebaseDataStore
 
-config = configparser.ConfigParser()
-config.read('conf.ini')
-bot = commands.Bot(command_prefix=config['discord']['command_prefix'])
-bot.config = config
-bot.db = FirebaseDataStore(config['firebase']['key_file'], config['firebase']['db_name'], bot.loop)
-logger = logging.getLogger('discord')
-logger.setLevel(logging.INFO)
-handler = logging.FileHandler(filename='botw-bot.log', encoding='utf-8', mode='w')
-handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-logger.addHandler(handler)
 
-INITIAL_EXTENSIONS = [
-    'cogs.BiasOfTheWeek', 'cogs.Utilities',
-    'cogs.EmojiUtils', 'cogs.Tags', 'cogs.Trolling', 'cogs.WolframAlpha',
-    'cogs.Reminders', 'cogs.Weather', 'cogs.Profiles', 'jishaku'
-]
+class BotwBot(commands.Bot):
+    INITIAL_EXTENSIONS = [
+        'cogs.BiasOfTheWeek', 'cogs.Utilities',
+        'cogs.EmojiUtils', 'cogs.Tags', 'cogs.Trolling', 'cogs.WolframAlpha',
+        'cogs.Reminders', 'cogs.Weather', 'cogs.Profiles', 'jishaku'
+    ]
 
+    def __init__(self, config_path, **kwargs):
+        self.config = configparser.ConfigParser()
+        self.config.read(config_path)
+        super().__init__(**kwargs, command_prefix=self.config['discord']['command_prefix'])
+        self.db = FirebaseDataStore(self.config['firebase']['key_file'], self.config['firebase']['db_name'], self.loop)
+        self.add_checks()
 
-@bot.event
-async def on_ready():
-    await bot.change_presence(activity=discord.Game('with Bini'))
-    logger.info(f"Logged in as {bot.user}. Whitelisted servers: {config.items('whitelisted_servers')}")
+    async def on_ready(self):
+        await self.change_presence(activity=discord.Game('with Bini'))
+        logger.info(f"Logged in as {self.user}. Whitelisted servers: {self.config.items('whitelisted_servers')}")
 
-    for ext in INITIAL_EXTENSIONS:
-        ext_logger = logging.getLogger(ext)
-        ext_logger.setLevel(logging.INFO)
-        ext_logger.addHandler(handler)
-        bot.load_extension(ext)
+        for ext in self.INITIAL_EXTENSIONS:
+            ext_logger = logging.getLogger(ext)
+            ext_logger.setLevel(logging.INFO)
+            ext_logger.addHandler(handler)
+            self.load_extension(ext)
 
+    async def on_disconnect(self):
+        logger.info('disconnected')
 
-@bot.event
-async def on_disconnect():
-    logger.info('disconnected')
+    async def on_command_error(self, ctx, error):
+        if isinstance(error, commands.CommandNotFound) or hasattr(ctx.command, 'on_error'):
+            return
 
+        error = getattr(error, 'original', error)
 
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandNotFound) or hasattr(ctx.command, 'on_error'):
-        return
+        if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument, commands.MissingPermissions)):
+            await ctx.send(error)
+            return
 
-    error = getattr(error, 'original', error)
+        logger.exception(error)
 
-    if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument, commands.MissingPermissions)):
-        await ctx.send(error)
-        return
+    def add_checks(self):
+        async def globally_block_dms(ctx):
+            return ctx.guild is not None
 
-    logger.exception(error)
+        async def whitelisted_server(ctx):
+            server_ids = [int(server) for key, server in ctx.bot.config.items('whitelisted_servers')]
+            return ctx.guild is None or ctx.guild.id in server_ids
 
+        self.add_check(globally_block_dms)
+        self.add_check(whitelisted_server)
 
-@bot.check
-async def globally_block_dms(ctx):
-    return ctx.guild is not None
-
-
-@bot.check
-async def whitelisted_server(ctx):
-    server_ids = [int(server) for key, server in config.items('whitelisted_servers')]
-    return ctx.guild.id in server_ids
+    def run(self):
+        super().run(self.config['discord']['token'])
 
 
-bot.run(config['discord']['token'])
+if __name__ == '__main__':
+    logger = logging.getLogger('discord')
+    logger.setLevel(logging.INFO)
+    handler = logging.FileHandler(filename='botw-bot.log', encoding='utf-8', mode='w')
+    handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+    logger.addHandler(handler)
 
-logger.info('Cleaning up')
+    botw_bot = BotwBot('conf.ini')
+    botw_bot.run()
+
+    logger.info('Cleaning up')

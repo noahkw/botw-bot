@@ -64,7 +64,7 @@ class Trolling(commands.Cog):
             logger.exception(error)
 
     async def on_message(self, message):
-        if message.author.bot:
+        if message.author.bot or not message.guild:
             return
 
         if self.poop_role_name in [
