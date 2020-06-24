@@ -51,7 +51,7 @@ class Trolling(commands.Cog):
                 if msg.author != self.bot.user and not msg_ctx.valid and len(content) > 0:
                     valid_msg_content = content
                     break
-            if valid_msg_content is not None:
+            if valid_msg_content and len(valid_msg_content) > 0:
                 await ctx.send(mock_case(valid_msg_content))
             else:
                 await ctx.message.add_reaction(CROSS_EMOJI)
@@ -61,7 +61,7 @@ class Trolling(commands.Cog):
         if isinstance(error, commands.errors.BadArgument):
             await ctx.send("Can't find message with that ID. It's probably ancient.")
         else:
-            logger.error(error)
+            logger.exception(error)
 
     async def on_message(self, message):
         if message.author.bot:

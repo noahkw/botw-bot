@@ -27,11 +27,10 @@ class Utilities(commands.Cog):
             f'.pong: Discord WebSocket: `{self.bot.latency * 1000:0.2f}` ms')
 
     @commands.command()
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def reload(self, ctx):
         self.bot.reload_extension('cogs.BiasOfTheWeek')
         self.bot.reload_extension('cogs.Utilities')
-        self.bot.reload_extension('cogs.Scheduler')
         self.bot.reload_extension('cogs.EmojiUtils')
         self.bot.reload_extension('cogs.Profiles')
         self.bot.reload_extension('cogs.Reminders')
@@ -40,12 +39,6 @@ class Utilities(commands.Cog):
         self.bot.reload_extension('cogs.Weather')
         self.bot.reload_extension('cogs.WolframAlpha')
         await ctx.message.add_reaction(CHECK_EMOJI)
-
-    @reload.error
-    async def reload_error(self, ctx, error):
-        if isinstance(error, commands.errors.MissingPermissions):
-            await ctx.send(error)
-        logger.error(error)
 
     @commands.command()
     async def choose(self, ctx, *args: commands.clean_content):
@@ -62,8 +55,3 @@ class Utilities(commands.Cog):
     @commands.command()
     async def shout(self, ctx, *, msg: commands.clean_content):
         await ctx.send(f'{self.shout_emoji} {msg.upper()}!')
-
-    @shout.error
-    async def shout_error(self, ctx, error):
-        if isinstance(error, commands.errors.MissingRequiredArgument):
-            await ctx.send('Give me something to shout!')

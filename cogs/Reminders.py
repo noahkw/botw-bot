@@ -108,14 +108,6 @@ class Reminders(commands.Cog):
 
         await ctx.send(f'I\'ll remind you at `{parsed_date.to_cookie_string()}` (in {diff}): `{what}`.')
 
-    @add.error
-    @reminders_.error
-    async def add_error(self, ctx, error):
-        if isinstance(error, commands.BadArgument) or isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(error)
-        else:
-            logger.exception(error)
-
     @reminders_.command()
     async def list(self, ctx):
         """

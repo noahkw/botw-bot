@@ -85,10 +85,6 @@ class BiasOfTheWeek(commands.Cog):
             await self.bot.db.set(self.nominations_collection, str(ctx.author.id), idol.to_dict())
             await ctx.send(f'{ctx.author} nominates **{idol}**.')
 
-    @nominate.error
-    async def nominate_error(self, ctx, error):
-        await ctx.send(error)
-
     async def _clear_nominations(self, member=None):
         if member is None:
             self.nominations = {}
@@ -118,12 +114,6 @@ class BiasOfTheWeek(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def winner(self, ctx, silent: bool = False):
         await self._pick_winner(silent=silent)
-
-    @winner.error
-    async def winner_error(self, ctx, error):
-        if isinstance(error, commands.errors.MissingPermissions):
-            await ctx.send(error)
-        logger.error(error)
 
     async def _pick_winner(self, silent=False):
         member, pick = random.choice(list(self.nominations.items()))

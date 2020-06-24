@@ -34,10 +34,6 @@ class EmojiUtils(commands.Cog):
         for emoji_chunk in chunker(emoji_sorted, EmojiUtils.SPLIT_MSG_AFTER):
             await channel.send(' '.join(str(e) for e in emoji_chunk))
 
-    @emoji_list.error
-    async def emoji_list_error(self, ctx, error):
-        await ctx.send(error)
-
     async def on_guild_emojis_update(self, guild, before, after):
         # delete old messages containing emoji
         # need to use Message.delete to be able to delete messages older than 14 days

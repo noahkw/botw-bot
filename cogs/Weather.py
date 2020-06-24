@@ -140,11 +140,3 @@ class Weather(commands.Cog):
                          icon_url=content['icon'])
         embed.set_footer(text='Powered by openweathermap.org')
         await ctx.send(embed=embed)
-
-    @weather.error
-    @current.error
-    async def current_error(self, ctx, error):
-        if isinstance(error, commands.BadArgument) or isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(error)
-        else:
-            logger.exception(error)
