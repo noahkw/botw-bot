@@ -40,6 +40,9 @@ app_id=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 [profiles]
 profiles_collection=profiles
 
+[settings]
+settings_collection=settings
+
 [firebase]
 key_file=xxx-firebase-adminsdk-xxx-xxx.json
 db_name=xxx

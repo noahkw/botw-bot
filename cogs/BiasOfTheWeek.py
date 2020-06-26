@@ -9,7 +9,7 @@ from discord.ext.menus import MenuPages
 
 from const import CROSS_EMOJI, CHECK_EMOJI
 from menu import Confirm, BotwWinnerListSource
-from models import BotwWinner
+from models import BotwWinner, BotwState
 from models import Idol
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ class BiasOfTheWeek(commands.Cog):
         self.announcement_day = divmod((self.winner_day - 3), 7)[1]
         self.botw_channel = self.bot.get_channel(int(self.bot.config['biasoftheweek']['botw_channel']))
         self.nominations_channel = self.bot.get_channel(int(self.bot.config['biasoftheweek']['nominations_channel']))
+        self.skip_next = False
 
         if self.bot.loop.is_running():
             asyncio.create_task(self._ainit())
@@ -67,7 +68,7 @@ class BiasOfTheWeek(commands.Cog):
         if idol in self.nominations.values():
             await ctx.send(f'**{idol}** has already been nominated. Please nominate someone else.')
         elif idol in [winner.idol for winner in self.past_winners if winner.timestamp > pendulum.now().subtract(
-                days=self.past_winners_time).timestamp()]:  # check whether idol has won in the past
+                days=self.past_winners_time)]:  # check whether idol has won in the past
             await ctx.send(
                 f'**{idol}** has already won in the past `{self.past_winners_time}` days. Please nominate someone else.')
         elif ctx.author in self.nominations.keys():
@@ -126,42 +127,77 @@ class BiasOfTheWeek(commands.Cog):
             f"""Bias of the Week ({now.week_of_year}-{now.year}): {member if silent else member.mention}\'s pick **{pick}**. 
 You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_name']}* on {assign_date.to_cookie_string()}.""")
 
-        botw_winner = BotwWinner(member, pick, now.timestamp())
+        botw_winner = BotwWinner(member, pick, now)
         self.past_winners.append(botw_winner)
         await self.bot.db.add(self.past_winners_collection, botw_winner.to_dict())
         await self._clear_nominations(member)
 
     async def _assign_winner_role(self, winner):
+        member = winner.member
+        logger.info(f'Assigning winner role to {member}')
         guild = self.nominations_channel.guild
-        winner = guild.get_member(winner.id)
+        member = guild.get_member(member.id)
         botw_winner_role = discord.utils.get(guild.roles, name=self.bot.config['biasoftheweek']['winner_role_name'])
-        await winner.add_roles(botw_winner_role)
-        await winner.send(f'Hi, your pick won this week\'s BotW. Congratulations!\n'
+        await member.add_roles(botw_winner_role)
+        await member.send(f'Hi, your pick **{winner.idol}** won this week\'s BotW. Congratulations!\n'
                           f'You may now post your pics and gfys in {self.botw_channel.mention}.\n'
                           f'Don\'t forget to change the server icon using `.botw icon`'
                           f' in {self.nominations_channel.mention}.')
 
     async def _remove_winner_role(self, winner):
+        member = winner.member
+        logger.info(f'Removing winner role from {member}')
         guild = self.nominations_channel.guild
-        winner = guild.get_member(winner.id)
+        member = guild.get_member(member.id)
         botw_winner_role = discord.utils.get(guild.roles, name=self.bot.config['biasoftheweek']['winner_role_name'])
-        await winner.remove_roles(botw_winner_role)
+        await member.remove_roles(botw_winner_role)
+
+    @biasoftheweek.command()
+    @commands.is_owner()
+    async def skip(self, ctx):
+        settings_cog = self.bot.get_cog('Settings')
+        settings = await settings_cog.get_settings(ctx.guild)
+        state = settings.botw_state
+        if state == BotwState.WINNER_CHOSEN:
+            raise commands.BadArgument('Can\'t skip because the current winner has not been notified yet.')
+
+        await settings_cog.set_botw_state(ctx.guild, BotwState.DEFAULT if state == BotwState.SKIP else BotwState.SKIP)
+
+        next_announcement = pendulum.now('UTC').next(self.announcement_day)
+        await ctx.send(f'BotW Winner selection on {next_announcement.to_cookie_string()} is '
+                       f'now {"" if state == BotwState.DEFAULT else "not "}being skipped.')
 
     @tasks.loop(hours=1.0)
     async def _loop(self):
+        # pendulum.set_test_now(pendulum.now('UTC').next(self.winner_day))
         logger.info('Hourly loop running')
         now = pendulum.now('UTC')
+        guild = self.nominations_channel.guild
+        settings_cog = self.bot.get_cog('Settings')
+        settings = await settings_cog.get_settings(guild)
+
         # pick winner on announcement day
         if now.day_of_week == self.announcement_day and now.hour == 0:
-            await self._pick_winner()
+            if settings.botw_state not in (BotwState.SKIP, BotwState.WINNER_CHOSEN) and len(self.nominations) > 0:
+                await self._pick_winner()
+                await settings_cog.set_botw_state(guild, BotwState.WINNER_CHOSEN)
+            else:
+                logger.info(f'Skipping BotW winner selection in {guild}')
 
         # assign role on winner day
         elif now.day_of_week == self.winner_day and now.hour == 0:
-            winner, previous_winner = sorted(self.past_winners, key=lambda w: w.timestamp, reverse=True)[0:2]
-            logger.info(f'Removing winner role from {previous_winner.member}')
-            await self._remove_winner_role(previous_winner.member)
-            logger.info(f'Assigning winner role to {winner.member}')
-            await self._assign_winner_role(winner.member)
+            if settings.botw_state not in (BotwState.SKIP, BotwState.DEFAULT):
+                winner, previous_winner = sorted(self.past_winners, key=lambda w: w.timestamp, reverse=True)[0:2]
+                await self._remove_winner_role(previous_winner)
+                await self._assign_winner_role(winner)
+            else:
+                logger.info(f'Skipping BotW winner role assignment in {guild}')
+
+            await settings_cog.set_botw_state(guild, BotwState.DEFAULT)
+
+    @_loop.before_loop
+    async def loop_before(self):
+        await self.bot.wait_until_ready()
 
     @biasoftheweek.command()
     async def history(self, ctx):

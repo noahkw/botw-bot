@@ -31,6 +31,7 @@ class Utilities(commands.Cog):
     async def reload(self, ctx):
         self.bot.reload_extension('cogs.BiasOfTheWeek')
         self.bot.reload_extension('cogs.Utilities')
+        self.bot.reload_extension('cogs.Settings')
         self.bot.reload_extension('cogs.EmojiUtils')
         self.bot.reload_extension('cogs.Profiles')
         self.bot.reload_extension('cogs.Reminders')
