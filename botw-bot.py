@@ -1,5 +1,6 @@
 import configparser
 import logging
+import asyncio
 
 import discord
 from discord.ext import commands
@@ -15,6 +16,7 @@ class BotwBot(commands.Bot):
     ]
 
     def __init__(self, config_path, **kwargs):
+        self.startup = True
         self.config = configparser.ConfigParser()
         self.config.read(config_path)
         super().__init__(**kwargs, command_prefix=self.config['discord']['command_prefix'])
@@ -23,13 +25,15 @@ class BotwBot(commands.Bot):
 
     async def on_ready(self):
         await self.change_presence(activity=discord.Game('with Bini'))
-        logger.info(f"Logged in as {self.user}. Whitelisted servers: {self.config.items('whitelisted_servers')}")
+        if self.startup:
+            self.startup = False
+            for ext in self.INITIAL_EXTENSIONS:
+                ext_logger = logging.getLogger(ext)
+                ext_logger.setLevel(logging.INFO)
+                ext_logger.addHandler(handler)
+                self.load_extension(ext)
 
-        for ext in self.INITIAL_EXTENSIONS:
-            ext_logger = logging.getLogger(ext)
-            ext_logger.setLevel(logging.INFO)
-            ext_logger.addHandler(handler)
-            self.load_extension(ext)
+        logger.info(f"Logged in as {self.user}. Whitelisted servers: {self.config.items('whitelisted_servers')}")
 
     async def on_disconnect(self):
         logger.info('disconnected')
