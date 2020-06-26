@@ -6,6 +6,7 @@ import discord
 import pendulum
 from discord.ext import commands, tasks
 from discord.ext.menus import MenuPages
+from dateparser import parse
 
 from const import CROSS_EMOJI, CHECK_EMOJI
 from menu import Confirm, BotwWinnerListSource
@@ -228,3 +229,16 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         else:
             await ctx.message.add_reaction(CROSS_EMOJI)
             logger.error(error)
+
+    @biasoftheweek.command()
+    @commands.has_permissions(administrator=True)
+    async def addwinner(self, ctx, member: discord.Member, starting_day, group, name):
+        day = parse(starting_day)
+        day = pendulum.instance(day)
+
+        prev_announcement_day = day.previous(self.announcement_day + 1)
+
+        botw_winner = BotwWinner(member, Idol(group, name), prev_announcement_day)
+        self.past_winners.append(botw_winner)
+        await self.bot.db.add(self.past_winners_collection, botw_winner.to_dict())
+        await ctx.message.add_reaction(CHECK_EMOJI)
