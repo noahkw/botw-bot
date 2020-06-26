@@ -4,14 +4,15 @@ import random
 
 import discord
 import pendulum
+from dateparser import parse
 from discord.ext import commands, tasks
 from discord.ext.menus import MenuPages
-from dateparser import parse
 
 from const import CROSS_EMOJI, CHECK_EMOJI
 from menu import Confirm, BotwWinnerListSource
 from models import BotwWinner, BotwState
 from models import Idol
+from util import ratio
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,13 @@ def has_winner_role():
         return ctx.bot.config['biasoftheweek']['winner_role_name'] in [role.name for role in ctx.message.author.roles]
 
     return commands.check(predicate)
+
+
+def match_idol(idol, collection, cutoff=75):
+    matches = [(i, ratio(str(i).lower(), str(idol).lower())) for i in collection]
+    best_match = max(matches, key=lambda i: i[1])
+
+    return best_match[0] if best_match[1] > cutoff else None
 
 
 class BiasOfTheWeek(commands.Cog):
@@ -65,20 +73,26 @@ class BiasOfTheWeek(commands.Cog):
     @biasoftheweek.command()
     async def nominate(self, ctx, group: commands.clean_content, name: commands.clean_content):
         idol = Idol(group, name)
+        best_match = match_idol(idol,
+                                     [winner.idol for winner in self.past_winners] + list(self.nominations.values()))
+        if best_match is not None and not best_match == idol:
+            confirm_match = await Confirm(f'Did you mean **{best_match}**?').prompt(ctx)
+            if confirm_match:
+                idol = best_match
 
         if idol in self.nominations.values():
-            await ctx.send(f'**{idol}** has already been nominated. Please nominate someone else.')
+            raise commands.BadArgument(f'**{idol}** has already been nominated. Please nominate someone else.')
         elif idol in [winner.idol for winner in self.past_winners if winner.timestamp > pendulum.now().subtract(
                 days=self.past_winners_time)]:  # check whether idol has won in the past
-            await ctx.send(
-                f'**{idol}** has already won in the past `{self.past_winners_time}` days. Please nominate someone else.')
+            raise commands.BadArgument(f'**{idol}** has already won in the past `{self.past_winners_time}` days. '
+                                       f'Please nominate someone else.')
         elif ctx.author in self.nominations.keys():
             old_idol = self.nominations[ctx.author]
 
-            confirm = await Confirm(f'Your current nomination is **{old_idol}**. Do you want to override it?').prompt(
-                ctx)
+            confirm_override = await Confirm(f'Your current nomination is **{old_idol}**. '
+                                    f'Do you want to override it?').prompt(ctx)
 
-            if confirm:
+            if confirm_override:
                 self.nominations[ctx.author] = idol
                 await self.bot.db.set(self.nominations_collection, str(ctx.author.id), idol.to_dict())
                 await ctx.send(f'{ctx.author} nominates **{idol}** instead of **{old_idol}**.')

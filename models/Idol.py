@@ -6,6 +6,9 @@ class Idol:
     def __str__(self):
         return f'{self.group} {self.name}'
 
+    def __repr__(self):
+        return f'<{str(self)}>'
+
     def __eq__(self, other):
         if not isinstance(other, Idol):
             return NotImplemented
