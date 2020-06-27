@@ -60,7 +60,7 @@ class Tags(commands.Cog):
         self.tags = [Tag.from_dict(tag.to_dict(), self.bot, tag.id) for tag in
                      await self.bot.db.get(self.tags_collection)]
 
-        logger.info(f'Initial tags from db: {self.tags}')
+        logger.info(f'# Initial tags from db: {len(self.tags)}')
 
     async def get_tags_by_trigger(self, trigger, fuzzy=75):
         if not fuzzy:

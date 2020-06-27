@@ -59,7 +59,7 @@ class BiasOfTheWeek(commands.Cog):
         for nomination in _nominations:
             self.nominations[self.bot.get_user(int(nomination.id))] = Idol.from_dict(nomination.to_dict())
 
-        logger.info(f'Initial nominations from db: {self.nominations}')
+        logger.info(f'# Initial nominations from db: {len(self.nominations)}')
 
         self.past_winners = [BotwWinner.from_dict(winner.to_dict(), self.bot) for winner in
                              await self.bot.db.get(self.past_winners_collection)]

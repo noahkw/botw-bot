@@ -31,7 +31,7 @@ class Profiles(commands.Cog):
         for profile in _profiles:
             self.profiles[self.bot.get_user(int(profile.id))] = Profile.from_dict(profile.to_dict())
 
-        logger.info(f'Initial profiles from db: {self.profiles}')
+        logger.info(f'# Initial profiles from db: {len(self.profiles)}')
 
     async def _create_profile(self, member: discord.Member):
         profile = Profile()
