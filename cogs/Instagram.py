@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 
 import aiohttp
@@ -21,6 +22,12 @@ class Instagram(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.session = aiohttp.ClientSession()
+
+        self.cookies_file = self.bot.config['instagram']['cookies_file']
+        with open(self.cookies_file, 'r') as f:
+            self.session.cookie_jar.update_cookies(cookies=json.load(f))
+
+        logger.info(f'Loaded {len(self.session.cookie_jar)} cookies')
 
     def cog_unload(self):
         asyncio.create_task(self.session.close())
@@ -72,6 +79,14 @@ class Instagram(commands.Cog):
         chunks = chunker(media, 4)
         for chunk in chunks:
             await ctx.send('\n'.join(chunk))
+
+    @instagram.command()
+    @commands.is_owner()
+    async def reload(self, ctx):
+        with open(self.cookies_file, 'r') as f:
+            self.session.cookie_jar.update_cookies(cookies=json.load(f))
+
+        await ctx.send(f'Loaded {len(self.session.cookie_jar)} cookies')
 
     @commands.Cog.listener('on_message')
     async def on_message(self, message):
