@@ -29,16 +29,9 @@ class Utilities(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def reload(self, ctx):
-        self.bot.reload_extension('cogs.BiasOfTheWeek')
-        self.bot.reload_extension('cogs.Utilities')
-        self.bot.reload_extension('cogs.Settings')
-        self.bot.reload_extension('cogs.EmojiUtils')
-        self.bot.reload_extension('cogs.Profiles')
-        self.bot.reload_extension('cogs.Reminders')
-        self.bot.reload_extension('cogs.Tags')
-        self.bot.reload_extension('cogs.Trolling')
-        self.bot.reload_extension('cogs.Weather')
-        self.bot.reload_extension('cogs.WolframAlpha')
+        for ext in self.bot.INITIAL_EXTENSIONS:
+            self.bot.reload_extension(ext)
+
         await ctx.message.add_reaction(CHECK_EMOJI)
 
     @commands.command()
