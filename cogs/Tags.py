@@ -180,7 +180,7 @@ class Tags(commands.Cog):
         which scales poorly. Probably need to implement a more efficient matching algorithm down the line.
 
         If multiple tags are found in one message, it chooses one at random."""
-        if message.author.bot:
+        if message.author.bot or not message.guild:
             return
 
         ctx = await self.bot.get_context(message)

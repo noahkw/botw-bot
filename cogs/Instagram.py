@@ -1,8 +1,12 @@
 import asyncio
 import json
 import logging
+from io import BytesIO
+from os.path import basename
+from urllib.parse import urlparse
 
 import aiohttp
+from discord import File
 from discord.ext import commands
 from regex import regex
 
@@ -76,9 +80,17 @@ class Instagram(commands.Cog):
         if len(media) == 0:
             raise commands.BadArgument('This Instagram post contains no images or videos.')
 
-        chunks = chunker(media, 4)
+        files = []
+
+        for url in media:
+            async with self.session.get(url) as response:
+                filename = basename(urlparse(url).path)
+                file = File(BytesIO(await response.read()), filename=filename)
+                files.append(file)
+
+        chunks = chunker(files, 10)
         for chunk in chunks:
-            await ctx.send('\n'.join(chunk))
+            await ctx.send(files=chunk)
 
     @instagram.command()
     @commands.is_owner()
@@ -91,7 +103,7 @@ class Instagram(commands.Cog):
     @commands.Cog.listener('on_message')
     async def on_message(self, message):
         ctx = await self.bot.get_context(message)
-        if ctx.valid:
+        if ctx.valid or not ctx.guild:
             return
 
         result = regex.match(self.URL_REGEX, message.content)
@@ -100,3 +112,6 @@ class Instagram(commands.Cog):
             confirm = await Confirm(f'Do you want me to embed this IG post?').prompt(ctx)
             if confirm:
                 await ctx.invoke(self.show, url=url)
+
+    async def cog_before_invoke(self, ctx):
+        await ctx.trigger_typing()
