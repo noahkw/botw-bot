@@ -10,7 +10,7 @@ from DataStore import FirebaseDataStore
 
 class BotwBot(commands.Bot):
     INITIAL_EXTENSIONS = [
-        'cogs.BiasOfTheWeek', 'cogs.Utilities', 'cogs.Settings',  # 'cogs.Instagram',
+        'cogs.BiasOfTheWeek', 'cogs.Utilities', 'cogs.Settings', 'cogs.Instagram',
         'cogs.EmojiUtils', 'cogs.Tags', 'cogs.Trolling', 'cogs.WolframAlpha',
         'cogs.Reminders', 'cogs.Weather', 'cogs.Profiles', 'jishaku',
     ]
