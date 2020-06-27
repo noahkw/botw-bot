@@ -4,8 +4,7 @@ import logging
 import discord
 from discord.ext import commands
 
-from models import Profile, GuildSettings
-from const import CHECK_EMOJI
+from models import GuildSettings
 
 logger = logging.getLogger(__name__)
 

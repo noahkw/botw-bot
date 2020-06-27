@@ -15,7 +15,7 @@ def setup(bot):
 
 class EmojiUtils(commands.Cog):
     SPLIT_MSG_AFTER = 15
-    NEW_EMOTE_THRESHOLD = 3600 + 600  # 3600 + number of seconds
+    NEW_EMOTE_THRESHOLD = 3600 + 3600  # 3600 + number of seconds
     DELETE_LIMIT = 50
 
     def __init__(self, bot):

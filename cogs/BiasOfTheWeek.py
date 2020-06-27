@@ -74,7 +74,7 @@ class BiasOfTheWeek(commands.Cog):
     async def nominate(self, ctx, group: commands.clean_content, name: commands.clean_content):
         idol = Idol(group, name)
         best_match = match_idol(idol,
-                                     [winner.idol for winner in self.past_winners] + list(self.nominations.values()))
+                                [winner.idol for winner in self.past_winners] + list(self.nominations.values()))
         if best_match is not None and not best_match == idol:
             confirm_match = await Confirm(f'Did you mean **{best_match}**?').prompt(ctx)
             if confirm_match:
@@ -90,7 +90,7 @@ class BiasOfTheWeek(commands.Cog):
             old_idol = self.nominations[ctx.author]
 
             confirm_override = await Confirm(f'Your current nomination is **{old_idol}**. '
-                                    f'Do you want to override it?').prompt(ctx)
+                                             f'Do you want to override it?').prompt(ctx)
 
             if confirm_override:
                 self.nominations[ctx.author] = idol

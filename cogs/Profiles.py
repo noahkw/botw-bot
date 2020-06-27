@@ -4,8 +4,8 @@ import logging
 import discord
 from discord.ext import commands
 
-from models import Profile
 from const import CHECK_EMOJI
+from models import Profile
 
 logger = logging.getLogger(__name__)
 
