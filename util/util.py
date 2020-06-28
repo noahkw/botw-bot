@@ -1,3 +1,4 @@
+import asyncio
 import re
 from random import getrandbits
 
@@ -51,3 +52,16 @@ def celsius_to_fahrenheit(temp):
 
 def meters_to_miles(meters):
     return meters * 0.000621371
+
+
+class Cooldown:
+    def __init__(self, duration):
+        self.cooldown = False
+        self.duration = duration
+
+    async def __aenter__(self):
+        self.cooldown = True
+        await asyncio.sleep(self.duration)
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self.cooldown = False
