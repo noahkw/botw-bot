@@ -228,6 +228,12 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         else:
             await ctx.send('There have been no winners yet.')
 
+    @biasoftheweek.command(name='servername', aliases=['name'])
+    @has_winner_role()
+    async def server_name(self, ctx, *, name):
+        await ctx.guild.edit(name=name)
+        await ctx.message.add_reaction(CHECK_EMOJI)
+
     @biasoftheweek.command()
     @has_winner_role()
     async def icon(self, ctx):
