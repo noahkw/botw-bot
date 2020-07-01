@@ -6,6 +6,7 @@ from discord.ext import commands
 from discord.utils import find
 
 from const import SHOUT_EMOJI, CHECK_EMOJI
+from util import ack
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +29,10 @@ class Utilities(commands.Cog):
 
     @commands.command()
     @commands.is_owner()
+    @ack
     async def reload(self, ctx):
         for ext in self.bot.INITIAL_EXTENSIONS:
             self.bot.reload_extension(ext)
-
-        await ctx.message.add_reaction(CHECK_EMOJI)
 
     @commands.command()
     async def choose(self, ctx, *args: commands.clean_content):

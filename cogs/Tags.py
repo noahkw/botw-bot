@@ -9,7 +9,7 @@ from discord.ext.menus import MenuPages
 from const import CHECK_EMOJI
 from menu import Confirm, TagListSource, PseudoMenu, SelectionMenu
 from models import Tag
-from util import ordered_sublists, ratio
+from util import ordered_sublists, ratio, ack
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +77,7 @@ class Tags(commands.Cog):
         await ctx.invoke(self.list, dm=args)
 
     @tag.command()
+    @ack
     async def add(self, ctx, in_msg_trigger: typing.Optional[bool] = False, trigger: commands.clean_content = '', *,
                   reaction: commands.clean_content):
         tag = Tag(None, trigger, reaction, ctx.author, in_msg_trigger=in_msg_trigger)
@@ -87,7 +88,6 @@ class Tags(commands.Cog):
             id_ = await self.bot.db.set_get_id(self.tags_collection, tag.to_dict())
             tag.id = id_
             self.tags.append(tag)
-            await ctx.message.add_reaction(CHECK_EMOJI)
 
     @tag.command(aliases=['remove'])
     async def delete(self, ctx, tag: TagConverter):

@@ -12,7 +12,7 @@ from const import CROSS_EMOJI, CHECK_EMOJI
 from menu import Confirm, BotwWinnerListSource, SelectionMenu, IdolListSource
 from models import BotwWinner, BotwState
 from models import Idol
-from util import ratio
+from util import ratio, ack
 
 logger = logging.getLogger(__name__)
 
@@ -116,9 +116,9 @@ class BiasOfTheWeek(commands.Cog):
 
     @biasoftheweek.command(name='clearnominations')
     @commands.has_permissions(administrator=True)
+    @ack
     async def clear_nominations(self, ctx, member: discord.Member = None):
         await self._clear_nominations(member)
-        await ctx.message.add_reaction(CHECK_EMOJI)
 
     @biasoftheweek.command()
     async def nominations(self, ctx):
@@ -230,20 +230,19 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
 
     @biasoftheweek.command(name='servername', aliases=['name'])
     @has_winner_role()
+    @ack
     async def server_name(self, ctx, *, name):
         await ctx.guild.edit(name=name)
-        await ctx.message.add_reaction(CHECK_EMOJI)
 
     @biasoftheweek.command()
     @has_winner_role()
+    @ack
     async def icon(self, ctx):
         try:
             file = await ctx.message.attachments[0].read()
             await ctx.guild.edit(icon=file)
-            await ctx.message.add_reaction(CHECK_EMOJI)
         except IndexError:
             raise commands.BadArgument('Icon missing.')
-        await ctx.message.add_reaction(CHECK_EMOJI)
 
     @icon.error
     async def icon_error(self, ctx, error):
@@ -257,6 +256,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
 
     @biasoftheweek.command()
     @commands.has_permissions(administrator=True)
+    @ack
     async def addwinner(self, ctx, member: discord.Member, starting_day, group, name):
         day = parse(starting_day)
         day = pendulum.instance(day)
@@ -266,7 +266,6 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         botw_winner = BotwWinner(member, Idol(group, name), prev_announcement_day)
         self.past_winners.append(botw_winner)
         await self.bot.db.add(self.past_winners_collection, botw_winner.to_dict())
-        await ctx.message.add_reaction(CHECK_EMOJI)
 
     @biasoftheweek.command(name='load')
     @commands.is_owner()
