@@ -9,6 +9,7 @@ name2=XXXXXXXXXXXXXXXXXX
 [biasoftheweek]
 winner_role_name=BotW-Winner
 nominations_collection=botw_nominations
+idols_collection=botw_idols
 past_winners_collection=botw_winners
 past_winners_time=180
 # [1, 7], 0=sunday, 6=saturday

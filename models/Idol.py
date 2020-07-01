@@ -7,12 +7,15 @@ class Idol:
         return f'{self.group} {self.name}'
 
     def __repr__(self):
-        return f'<{str(self)}>'
+        return f'<{self.group}, {self.name}>'
 
     def __eq__(self, other):
         if not isinstance(other, Idol):
             return NotImplemented
         return str.lower(self.group) == str.lower(other.group) and str.lower(self.name) == str.lower(other.name)
+
+    def __hash__(self):
+        return hash((self.group, self.name))
 
     def to_dict(self):
         return {'group': self.group, 'name': self.name}

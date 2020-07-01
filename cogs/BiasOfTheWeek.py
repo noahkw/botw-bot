@@ -9,7 +9,7 @@ from discord.ext import commands, tasks
 from discord.ext.menus import MenuPages
 
 from const import CROSS_EMOJI, CHECK_EMOJI
-from menu import Confirm, BotwWinnerListSource
+from menu import Confirm, BotwWinnerListSource, SelectionMenu, IdolListSource
 from models import BotwWinner, BotwState
 from models import Idol
 from util import ratio
@@ -40,13 +40,14 @@ class BiasOfTheWeek(commands.Cog):
         self.bot = bot
         self.nominations = {}
         self.nominations_collection = self.bot.config['biasoftheweek']['nominations_collection']
+        self.idols = set()
+        self.idols_collection = self.bot.config['biasoftheweek']['idols_collection']
         self.past_winners_collection = self.bot.config['biasoftheweek']['past_winners_collection']
         self.past_winners_time = int(self.bot.config['biasoftheweek']['past_winners_time'])
         self.winner_day = int(self.bot.config['biasoftheweek']['winner_day'])
         self.announcement_day = divmod((self.winner_day - 3), 7)[1]
         self.botw_channel = self.bot.get_channel(int(self.bot.config['biasoftheweek']['botw_channel']))
         self.nominations_channel = self.bot.get_channel(int(self.bot.config['biasoftheweek']['nominations_channel']))
-        self.skip_next = False
 
         if self.bot.loop.is_running():
             asyncio.create_task(self._ainit())
@@ -64,6 +65,8 @@ class BiasOfTheWeek(commands.Cog):
         self.past_winners = [BotwWinner.from_dict(winner.to_dict(), self.bot) for winner in
                              await self.bot.db.get(self.past_winners_collection)]
 
+        self.idols = set([Idol.from_dict(idol.to_dict()) for idol in await self.bot.db.get(self.idols_collection)])
+
         self._loop.start()
 
     @commands.group(name='biasoftheweek', aliases=['botw'])
@@ -74,7 +77,9 @@ class BiasOfTheWeek(commands.Cog):
     async def nominate(self, ctx, group: commands.clean_content, name: commands.clean_content):
         idol = Idol(group, name)
         best_match = match_idol(idol,
-                                [winner.idol for winner in self.past_winners] + list(self.nominations.values()))
+                                [winner.idol for winner in self.past_winners] +
+                                list(self.idols) +
+                                list(self.nominations.values()))
         if best_match is not None and not best_match == idol:
             confirm_match = await Confirm(f'Did you mean **{best_match}**?').prompt(ctx)
             if confirm_match:
@@ -256,3 +261,57 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         self.past_winners.append(botw_winner)
         await self.bot.db.add(self.past_winners_collection, botw_winner.to_dict())
         await ctx.message.add_reaction(CHECK_EMOJI)
+
+    @biasoftheweek.command(name='load')
+    @commands.is_owner()
+    async def load_idols(self, ctx):
+        try:
+            idols_attachment = ctx.message.attachments[0]
+        except IndexError:
+            raise commands.BadArgument('Attach a file.')
+
+        text = (await idols_attachment.read()).decode('UTF-8')
+        lines = text.splitlines()
+        lines_tokenized = [line.split(' ') for line in lines]
+
+        seen_groups = set()
+
+        for tokens in lines_tokenized:
+            sublists = [(' '.join(tokens[:i]), ' '.join(tokens[i:])) for i in range(1, len(tokens))]
+
+            try:
+                for candidate in sublists:
+                    if (idol := Idol(*candidate)) in self.idols:
+                        seen_groups.add(idol.group)
+                        raise Exception()  # raise to exit outer loop
+            except Exception:
+                continue
+
+            group_candidates = set(token[0] for token in sublists)
+
+            if len(tokens) == 2:
+                # easy case
+                idol = Idol(*tokens)
+                seen_groups.add(idol.group)
+
+                self.idols.add(idol)
+                await self.bot.db.add(self.idols_collection, idol.to_dict())
+            elif group := group_candidates.intersection(seen_groups):
+                group = group.pop()  # want a string, not a set
+                name = [tokens[1] for tokens in sublists if tokens[0] == group].pop()
+                idol = Idol(group, name)
+                self.idols.add(idol)
+                await self.bot.db.add(self.idols_collection, idol.to_dict())
+            else:
+                correct = await self.prompt_idol_correction(ctx, sublists)
+
+                if correct is not None:
+                    # filter
+                    seen_groups.add(correct.group)
+                    self.idols.add(correct)
+                    await self.bot.db.add(self.idols_collection, correct.to_dict())
+
+    async def prompt_idol_correction(self, ctx, sublists):
+        pages = SelectionMenu(source=IdolListSource(sublists))
+        selection = await pages.prompt(ctx)
+        return Idol(selection[0], selection[1])

@@ -67,6 +67,17 @@ class BotwWinnerListSource(menus.ListPageSource):
         return embed
 
 
+class IdolListSource(menus.ListPageSource):
+    def __init__(self, data):
+        super().__init__(data, per_page=4)
+
+    async def format_page(self, menu, entries):
+        embed = Embed(title=f'Possible combinations')
+        for index, combination in enumerate(entries):
+            embed.add_field(name=str(index + 1), value=str(combination))
+        return embed
+
+
 class SelectionMenu(menus.MenuPages):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
