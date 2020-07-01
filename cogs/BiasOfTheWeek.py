@@ -281,13 +281,15 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
 
             try:
                 for candidate in sublists:
-                    if (idol := Idol(*candidate)) in self.idols:
+                    idol = Idol(*candidate)
+                    if idol in self.idols:
                         seen_groups.add(idol.group)
                         raise Exception()  # raise to exit outer loop
             except Exception:
                 continue
 
             group_candidates = set(token[0] for token in sublists)
+            group = group_candidates.intersection(seen_groups)
 
             if len(tokens) == 2:
                 # easy case
@@ -296,7 +298,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
 
                 self.idols.add(idol)
                 await self.bot.db.add(self.idols_collection, idol.to_dict())
-            elif group := group_candidates.intersection(seen_groups):
+            elif group:
                 group = group.pop()  # want a string, not a set
                 name = [tokens[1] for tokens in sublists if tokens[0] == group].pop()
                 idol = Idol(group, name)
