@@ -22,10 +22,8 @@ class EmojiUtils(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.emoji_channel = self.bot.get_channel(int(self.bot.config['emojiutils']['emoji_channel']))
-        self.lock = asyncio.Lock()
-        self.cooldown = Cooldown(self.UPDATE_FREQUENCY)
-        self.last_update = None
+        self.cooldowns = {}
+        self.last_updates = {}
 
     @commands.group(name='emoji')
     @commands.has_permissions(administrator=True)
@@ -38,32 +36,41 @@ class EmojiUtils(commands.Cog):
 
     @commands.Cog.listener('on_guild_emojis_update')
     async def on_guild_emojis_update(self, guild, before, after):
-        self.last_update = after
+        self.last_updates[guild] = after
 
-        if self.cooldown.cooldown:
+        if guild not in self.cooldowns:
+            self.cooldowns[guild] = Cooldown(self.UPDATE_FREQUENCY)
+
+        if self.cooldowns[guild].cooldown:
             return
         else:
-            async with self.cooldown:
-                await self.update_emoji_list()
+            async with self.cooldowns[guild]:
+                await self.update_emoji_list(guild)
 
     async def send_emoji_list(self, channel):
         emoji_sorted = sorted(channel.guild.emojis, key=lambda e: e.name)
         for emoji_chunk in chunker(emoji_sorted, EmojiUtils.SPLIT_MSG_AFTER):
             await channel.send(' '.join(str(e) for e in emoji_chunk))
 
-    async def update_emoji_list(self):
-        async with self.lock:
-            # delete old messages containing emoji
-            # need to use Message.delete to be able to delete messages older than 14 days
-            async for message in self.emoji_channel.history(limit=EmojiUtils.DELETE_LIMIT):
-                await message.delete()
+    async def update_emoji_list(self, guild):
+        settings_cog = self.bot.get_cog('Settings')
+        settings = await settings_cog.get_settings(guild)
+        emoji_channel = settings.emoji_channel
+        if emoji_channel is None:
+            logger.warning(f'Emoji channel for guild {guild} is not set. Skipping update')
+            return
 
-            # get emoji that were added in the last 10 minutes
-            now = pendulum.now('UTC')
-            recent_emoji = [emoji for emoji in self.last_update if now.diff(pendulum.instance(
-                discord.utils.snowflake_time(emoji.id))).in_minutes() < EmojiUtils.NEW_EMOTE_THRESHOLD]
+        # delete old messages containing emoji
+        # need to use Message.delete to be able to delete messages older than 14 days
+        async for message in emoji_channel.history(limit=EmojiUtils.DELETE_LIMIT):
+            await message.delete()
 
-            await self.send_emoji_list(self.emoji_channel)
+        # get emoji that were added in the last 10 minutes
+        now = pendulum.now('UTC')
+        recent_emoji = [emoji for emoji in self.last_updates if now.diff(pendulum.instance(
+            discord.utils.snowflake_time(emoji.id))).in_minutes() < EmojiUtils.NEW_EMOTE_THRESHOLD]
 
-            if len(recent_emoji) > 0:
-                await self.emoji_channel.send(f"Recently added: {''.join(str(e) for e in recent_emoji)}")
+        await self.send_emoji_list(emoji_channel)
+
+        if len(recent_emoji) > 0:
+            await emoji_channel.send(f"Recently added: {''.join(str(e) for e in recent_emoji)}")
