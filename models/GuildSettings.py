@@ -17,7 +17,7 @@ class GuildSettings:
     def to_dict(self):
         return {
             'botw_state': self.botw_state.name,
-            'emoji_channel': self.emoji_channel.id
+            'emoji_channel': self.emoji_channel.id if self.emoji_channel else None
         }
 
     @staticmethod
