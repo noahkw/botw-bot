@@ -106,7 +106,7 @@ class Instagram(commands.Cog):
         if ctx.valid or not ctx.guild:
             return
 
-        result = regex.match(self.URL_REGEX, message.content)
+        result = regex.search(self.URL_REGEX, message.content)
         if result:
             url = result.group(0)
             confirm = await Confirm(f'Do you want me to embed this IG post?').prompt(ctx)
