@@ -29,6 +29,7 @@ class GuildSettings:
     def to_embed(self, guild):
         embed = Embed(title=f'Settings of {guild}')
         embed.add_field(name='botw_state', value=str(self.botw_state))
-        embed.add_field(name='emoji channel', value=self.emoji_channel.mention)
+        if self.emoji_channel:
+            embed.add_field(name='emoji channel', value=self.emoji_channel.mention)
 
         return embed
