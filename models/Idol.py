@@ -12,7 +12,7 @@ class Idol:
     def __eq__(self, other):
         if not isinstance(other, Idol):
             return NotImplemented
-        return str.lower(self.group) == str.lower(other.group) and str.lower(self.name) == str.lower(other.name)
+        return self.group == other.group and self.name == other.name
 
     def __hash__(self):
         return hash((self.group, self.name))
