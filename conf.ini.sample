@@ -47,6 +47,9 @@ settings_collection=settings
 [instagram]
 cookies_file=ig_cookies.json
 
+[mirroring]
+mirrors_collection=mirrors
+
 [firebase]
 key_file=xxx-firebase-adminsdk-xxx-xxx.json
 db_name=xxx

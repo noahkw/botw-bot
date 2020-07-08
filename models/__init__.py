@@ -1,4 +1,5 @@
 from .BotwWinner import *
+from .ChannelMirror import *
 from .GuildSettings import *
 from .Idol import *
 from .Profile import *
