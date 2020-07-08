@@ -49,7 +49,7 @@ class EmojiUtils(commands.Cog):
 
     async def send_emoji_list(self, channel):
         emoji_sorted = sorted(channel.guild.emojis, key=lambda e: e.name)
-        for emoji_chunk in chunker(emoji_sorted, EmojiUtils.SPLIT_MSG_AFTER):
+        for emoji_chunk in chunker(emoji_sorted, self.SPLIT_MSG_AFTER):
             await channel.send(' '.join(str(e) for e in emoji_chunk))
 
     async def update_emoji_list(self, guild):
@@ -62,13 +62,13 @@ class EmojiUtils(commands.Cog):
 
         # delete old messages containing emoji
         # need to use Message.delete to be able to delete messages older than 14 days
-        async for message in emoji_channel.history(limit=EmojiUtils.DELETE_LIMIT):
+        async for message in emoji_channel.history(limit=self.DELETE_LIMIT):
             await message.delete()
 
-        # get emoji that were added in the last 10 minutes
+        # get emoji that were added in the last NEW_EMOTE_THRESHOLD minutes
         now = pendulum.now('UTC')
-        recent_emoji = [emoji for emoji in self.last_updates if now.diff(pendulum.instance(
-            discord.utils.snowflake_time(emoji.id))).in_minutes() < EmojiUtils.NEW_EMOTE_THRESHOLD]
+        recent_emoji = [emoji for emoji in self.last_updates[guild] if now.diff(pendulum.instance(
+            discord.utils.snowflake_time(emoji.id))).in_minutes() < self.NEW_EMOTE_THRESHOLD]
 
         await self.send_emoji_list(emoji_channel)
 
