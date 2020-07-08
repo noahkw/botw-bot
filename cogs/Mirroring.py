@@ -14,6 +14,22 @@ def setup(bot):
     bot.add_cog(Mirroring(bot))
 
 
+class TextChannelConverter(commands.Converter):
+    def __init__(self):
+        self.text_channel_converter = commands.TextChannelConverter()
+
+    async def convert(self, ctx, argument):
+        try:
+            return await self.text_channel_converter.convert(ctx, argument)
+        except commands.BadArgument:
+            # do global lookup via ID
+            channel = ctx.bot.get_channel(int(argument))
+            if channel is not None:
+                return channel
+            else:
+                raise commands.BadArgument(f'Channel "{argument}" not found.')
+
+
 class Mirroring(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -46,7 +62,7 @@ class Mirroring(commands.Cog):
             self.mirrors[mirror.origin] = [mirror]
 
     @mirror.command()
-    async def add(self, ctx, origin: discord.TextChannel, dest: discord.TextChannel):
+    async def add(self, ctx, origin: TextChannelConverter, dest: TextChannelConverter):
         if origin == dest:
             raise commands.BadArgument('Cannot mirror a channel to itself.')
 
@@ -65,7 +81,7 @@ class Mirroring(commands.Cog):
 
     @mirror.command(aliases=['delete'])
     @ack
-    async def remove(self, ctx, origin: discord.TextChannel, dest: discord.TextChannel):
+    async def remove(self, ctx, origin: TextChannelConverter, dest: TextChannelConverter):
         mirrors = self.mirrors[origin]
         try:
             mirror = [m for m in mirrors if m.dest == dest].pop()
