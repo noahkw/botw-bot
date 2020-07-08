@@ -76,3 +76,7 @@ def ack(cmd):
         await cmd(self, ctx, *args, **kwargs)
         await ctx.message.add_reaction(CHECK_EMOJI)
     return acked_command
+
+
+def flatten(l):
+    return [item for sublist in l for item in sublist]
