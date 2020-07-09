@@ -47,10 +47,9 @@ class EmojiUtils(commands.Cog):
             async with self.cooldowns[guild]:
                 await self.update_emoji_list(guild)
 
-    async def send_emoji_list(self, channel):
-        # need to refetch guild to update its emoji
-        guild = await self.bot.fetch_guild(channel.guild.id)
-        emoji_sorted = sorted(guild.emojis, key=lambda e: e.name)
+    async def send_emoji_list(self, channel, after=None):
+        emojis = after if after else channel.guild.emojis
+        emoji_sorted = sorted(emojis, key=lambda e: e.name)
         for emoji_chunk in chunker(emoji_sorted, self.SPLIT_MSG_AFTER):
             await channel.send(' '.join(str(e) for e in emoji_chunk))
 
@@ -72,7 +71,7 @@ class EmojiUtils(commands.Cog):
         recent_emoji = [emoji for emoji in self.last_updates[guild] if now.diff(pendulum.instance(
             discord.utils.snowflake_time(emoji.id))).in_minutes() < self.NEW_EMOTE_THRESHOLD]
 
-        await self.send_emoji_list(emoji_channel)
+        await self.send_emoji_list(emoji_channel, after=self.last_updates[guild])
 
         if len(recent_emoji) > 0:
             await emoji_channel.send(f"Recently added: {''.join(str(e) for e in recent_emoji)}")
