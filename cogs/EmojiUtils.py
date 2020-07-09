@@ -48,7 +48,9 @@ class EmojiUtils(commands.Cog):
                 await self.update_emoji_list(guild)
 
     async def send_emoji_list(self, channel):
-        emoji_sorted = sorted(channel.guild.emojis, key=lambda e: e.name)
+        # need to refetch guild to update its emoji
+        guild = await self.bot.fetch_guild(channel.guild.id)
+        emoji_sorted = sorted(guild.emojis, key=lambda e: e.name)
         for emoji_chunk in chunker(emoji_sorted, self.SPLIT_MSG_AFTER):
             await channel.send(' '.join(str(e) for e in emoji_chunk))
 
