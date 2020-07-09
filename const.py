@@ -1,6 +1,7 @@
 # unicode emoji
 CHECK_EMOJI = '\N{White Heavy Check Mark}'
 CROSS_EMOJI = '\N{Cross Mark}'
+INSPECT_EMOJI = '\N{RIGHT-POINTING MAGNIFYING GLASS}'
 
 # custom emoji
 SHOUT_EMOJI = 'yeeunshout'

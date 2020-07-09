@@ -10,7 +10,7 @@ from discord import File
 from discord.ext import commands
 from regex import regex
 
-from menu import Confirm
+from menu import InstagramConfirm
 from util import chunker
 
 logger = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ class Instagram(commands.Cog):
         result = regex.search(self.URL_REGEX, message.content)
         if result:
             url = result.group(0)
-            confirm = await Confirm(f'Do you want me to embed this IG post?').prompt(ctx)
+            confirm = await InstagramConfirm(message).prompt(ctx)
             if confirm:
                 await ctx.invoke(self.show, url=url)
 
