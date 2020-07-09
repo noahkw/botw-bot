@@ -81,7 +81,7 @@ class Weather(commands.Cog):
         else:
             profiles = self.bot.get_cog('Profiles')
             profile = await profiles.get_profile(ctx.author)
-            location = profile.location
+            location = profile.location.value
             if location is not None:
                 await ctx.invoke(self.current, location=location)
             else:
@@ -140,3 +140,7 @@ class Weather(commands.Cog):
                          icon_url=content['icon'])
         embed.set_footer(text='Powered by openweathermap.org')
         await ctx.send(embed=embed)
+
+        # set location in profile to queried location
+        profiles = self.bot.get_cog('Profiles')
+        await profiles.set(ctx.author, 'location', location)
