@@ -177,7 +177,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
     async def skip(self, ctx):
         settings_cog = self.bot.get_cog('Settings')
         settings = await settings_cog.get_settings(ctx.guild)
-        state = settings.botw_state
+        state = settings.botw_state.value
         if state == BotwState.WINNER_CHOSEN:
             raise commands.BadArgument('Can\'t skip because the current winner has not been notified yet.')
 
@@ -198,7 +198,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
 
         # pick winner on announcement day
         if now.day_of_week == self.announcement_day and now.hour == 0:
-            if settings.botw_state not in (BotwState.SKIP, BotwState.WINNER_CHOSEN) and len(self.nominations) > 0:
+            if settings.botw_state.value not in (BotwState.SKIP, BotwState.WINNER_CHOSEN) and len(self.nominations) > 0:
                 await self._pick_winner()
                 await settings_cog.set_botw_state(guild, BotwState.WINNER_CHOSEN)
             else:
@@ -206,7 +206,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
 
         # assign role on winner day
         elif now.day_of_week == self.winner_day and now.hour == 0:
-            if settings.botw_state not in (BotwState.SKIP, BotwState.DEFAULT):
+            if settings.botw_state.value not in (BotwState.SKIP, BotwState.DEFAULT):
                 winner, previous_winner = sorted(self.past_winners, key=lambda w: w.timestamp, reverse=True)[0:2]
                 await self._remove_winner_role(previous_winner)
                 await self._assign_winner_role(winner)

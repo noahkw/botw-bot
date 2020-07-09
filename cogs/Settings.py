@@ -29,12 +29,13 @@ class Settings(commands.Cog):
         _settings = await self.bot.db.get(self.settings_collection)
 
         for setting in _settings:
-            self.settings[self.bot.get_guild(int(setting.id))] = GuildSettings.from_dict(setting.to_dict(), self.bot)
+            guild = self.bot.get_guild(int(setting.id))
+            self.settings[guild] = GuildSettings.from_dict(guild, setting.to_dict())
 
         logger.info(f'# Initial settings from db: {len(self.settings)}')
 
     async def _create_settings(self, guild: discord.Guild):
-        settings = GuildSettings()
+        settings = GuildSettings(guild)
         self.settings[guild] = settings
         await self.bot.db.set(self.settings_collection, str(guild.id), settings.to_dict())
 
@@ -46,24 +47,33 @@ class Settings(commands.Cog):
 
     async def set(self, guild: discord.Guild, key, value):
         settings = await self.get_settings(guild)
-        setattr(settings, key, value)
+        attr = getattr(settings, key)
+        attr.value = value
         await self.bot.db.update(self.settings_collection, str(guild.id), {key: value})
 
     async def set_botw_state(self, guild, value):
         settings = await self.get_settings(guild)
-        settings.botw_state = value
+        settings.botw_state.value = value
         await self.bot.db.update(self.settings_collection, str(guild.id), {'botw_state': value.name})
 
     @commands.group(invoke_without_command=True)
     @commands.has_permissions(administrator=True)
     async def settings(self, ctx):
         settings = await self.get_settings(ctx.guild)
-        await ctx.send(embed=settings.to_embed(ctx.guild))
+        await ctx.send(embed=settings.to_embed())
 
-    @settings.command()
+    @settings.command(name='emojichannel')
     @commands.has_permissions(administrator=True)
     @ack
     async def set_emoji_channel(self, ctx, channel: discord.TextChannel):
         settings = await self.get_settings(ctx.guild)
-        settings.emoji_channel = channel
+        settings.emoji_channel.value = channel
         await self.bot.db.update(self.settings_collection, str(ctx.guild.id), {'emoji_channel': channel.id})
+
+    @settings.command(name='prefix')
+    @commands.has_permissions(administrator=True)
+    @ack
+    async def set_prefix(self, ctx, prefix):
+        settings = await self.get_settings(ctx.guild)
+        settings.prefix.value = prefix
+        await self.bot.db.update(self.settings_collection, str(ctx.guild.id), {'prefix': prefix})

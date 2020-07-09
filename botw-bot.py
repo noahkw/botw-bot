@@ -63,6 +63,14 @@ class BotwBot(commands.Bot):
     def run(self):
         super().run(self.config['discord']['token'])
 
+    async def get_prefix(self, message):
+        settings_cog = self.get_cog('Settings')
+        settings = await settings_cog.get_settings(message.guild)
+
+        prefix = settings.prefix.value if settings.prefix.value is not None else self.command_prefix
+
+        return commands.when_mentioned_or(prefix)(self, message)
+
 
 if __name__ == '__main__':
     logger = logging.getLogger('discord')

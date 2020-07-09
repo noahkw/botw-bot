@@ -56,7 +56,7 @@ class EmojiUtils(commands.Cog):
     async def update_emoji_list(self, guild):
         settings_cog = self.bot.get_cog('Settings')
         settings = await settings_cog.get_settings(guild)
-        emoji_channel = settings.emoji_channel
+        emoji_channel = settings.emoji_channel.value
         if emoji_channel is None:
             logger.warning(f'Emoji channel for guild {guild} is not set. Skipping update')
             return
