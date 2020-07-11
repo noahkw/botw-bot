@@ -20,14 +20,17 @@ class ProfileItem:
     def value(self, value):
         self._value = value
 
+    def db_value(self):
+        return self.value
+
 
 class AvatarItem(ProfileItem):
-    def __init__(self, value, hidden=True):
-        super().__init__('Avatar', value, hidden)
+    def __init__(self, user, hidden=True):
+        super().__init__('Avatar', user, hidden)
 
     def add_to_embed(self, embed):
         if not self.hidden:
-            embed.set_image(url=self.value)
+            embed.set_image(url=self.value.avatar_url)
 
 
 class Profile:
@@ -39,12 +42,12 @@ class Profile:
         self.user = user
 
         self.location = ProfileItem('Location', location, hidden=True)
-        self.avatar = AvatarItem(user.avatar_url, hidden=False)
+        self.avatar = AvatarItem(user, hidden=False)
         self.created_at = ProfileItem('Joined Discord', user.created_at, hidden=False)
 
     def to_dict(self):
         return {
-            'location': self.location.value
+            profile_item: getattr(self, profile_item).db_value() for profile_item in Profile.__items_db__
         }
 
     @staticmethod
@@ -56,7 +59,6 @@ class Profile:
 
     def to_embed(self):
         embed = Embed(title=f'Profile of {self.user}')
-        # embed.set_image(url=self.user.avatar_url)
 
         for item in self.__items__:
             getattr(self, item).add_to_embed(embed)
