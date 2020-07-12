@@ -1,6 +1,5 @@
 import concurrent
 from abc import ABC, abstractmethod
-from functools import partial
 
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -48,51 +47,50 @@ class FirebaseDataStore(DataStore):
         self.loop = loop
 
     async def set(self, collection, document, val):
-        ref = self._get_doc_ref(collection, document)
-        await self.loop.run_in_executor(self.executor, partial(ref.set, val))
+        ref = await self._get_doc_ref(collection, document)
+        await self.loop.run_in_executor(self.executor, ref.set, val)
 
     async def set_get_id(self, collection, val):
-        ref = self._get_doc_ref(collection, None)
-        await self.loop.run_in_executor(self.executor, partial(ref.set, val))
+        ref = await self._get_doc_ref(collection, None)
+        await self.loop.run_in_executor(self.executor, ref.set, val)
         return ref.id
 
     async def update(self, collection, document, val):
-        ref = self._get_doc_ref(collection, document)
-        await self.loop.run_in_executor(self.executor,
-                                        partial(ref.update, val))
+        ref = await self._get_doc_ref(collection, document)
+        await self.loop.run_in_executor(self.executor, ref.update, val)
 
     async def add(self, collection, val):
-        ref = self._get_collection(collection)
-        await self.loop.run_in_executor(self.executor, partial(ref.add, val))
+        ref = await self._get_collection(collection)
+        await self.loop.run_in_executor(self.executor, ref.add, val)
 
     async def get(self, collection, document=None):
         if document is None:
-            ref = self._get_collection(collection)
+            ref = await self._get_collection(collection)
             return await self.loop.run_in_executor(self.executor, ref.stream)
         else:
-            ref = self._get_doc_ref(collection, document)
+            ref = await self._get_doc_ref(collection, document)
             return await self.loop.run_in_executor(self.executor, ref.get)
 
     async def delete(self, collection, document=None):
         if document is not None:
-            ref = self._get_doc_ref(collection, document)
+            ref = await self._get_doc_ref(collection, document)
             await self.loop.run_in_executor(self.executor, ref.delete)
         else:
             # implement batching later
-            docs = self._get_collection(collection).stream()
+            docs = (await self._get_collection(collection)).stream()
             for doc in docs:
-                await self.loop.run_in_executor(self.executor,
-                                                doc.reference.delete)
+                await self.loop.run_in_executor(self.executor, doc.reference.delete)
 
     async def query(self, collection, *query):
-        ref = self._get_collection(collection).where(*query)
+        ref = (await self._get_collection(collection)).where(*query)
         return await self.loop.run_in_executor(self.executor, ref.stream)
 
-    def _get_doc_ref(self, collection, document):
-        return self._get_collection(collection).document(document)
+    async def _get_doc_ref(self, collection, document):
+        collection = await self._get_collection(collection)
+        return await self.loop.run_in_executor(self.executor, collection.document, document)
 
-    def _get_collection(self, collection):
-        return self.db.collection(collection)
+    async def _get_collection(self, collection):
+        return await self.loop.run_in_executor(self.executor, self.db.collection, collection)
 
 
 if __name__ == '__main__':
