@@ -6,7 +6,6 @@ import typing
 from discord.ext import commands
 from discord.ext.menus import MenuPages
 
-from const import CHECK_EMOJI
 from menu import Confirm, TagListSource, PseudoMenu, SelectionMenu
 from models import Tag
 from util import ordered_sublists, ratio, ack
@@ -22,11 +21,11 @@ class TagConverter(commands.Converter):
     async def convert(self, ctx, argument):
         cog = ctx.bot.get_cog('Tags')
         try:
-            tag = [tag for tag in cog.tags if tag.id == argument].pop()
+            tag = [tag for tag in cog.tags[ctx.guild] if tag.id == argument].pop()
             return [tag]
         except IndexError:
             # argument was not an ID, search triggers
-            tags = await cog.get_tags_by_trigger(argument)
+            tags = await cog.get_tags_by_trigger(argument, ctx.guild)
             if len(tags) > 0:
                 return tags
             else:
@@ -57,20 +56,33 @@ class Tags(commands.Cog):
             self.bot.loop.run_until_complete(self._ainit())
 
     async def _ainit(self):
-        self.tags = [Tag.from_dict(tag.to_dict(), self.bot, tag.id) for tag in
-                     await self.bot.db.get(self.tags_collection)]
+        self.tags = {}
+
+        for _tag in await self.bot.db.get(self.tags_collection):
+            tag = Tag.from_dict(_tag.to_dict(), self.bot, _tag.id)
+            if tag.guild in self.tags:
+                self.tags[tag.guild].append(tag)
+            else:
+                self.tags[tag.guild] = [tag]
 
         logger.info(f'# Initial tags from db: {len(self.tags)}')
 
-    async def get_tags_by_trigger(self, trigger, fuzzy=75):
+    async def get_tags_by_trigger(self, trigger, guild, fuzzy=75):
         if not fuzzy:
-            tags = [tag for tag in self.tags if tag.trigger.lower() == trigger.lower()]
+            tags = [tag for tag in self.get_tags(guild) if tag.trigger.lower() == trigger.lower()]
         else:
-            tags = [tag for tag in self.tags if ratio(tag.trigger.lower(), trigger.lower()) > fuzzy]
+            tags = [tag for tag in self.get_tags(guild) if ratio(tag.trigger.lower(), trigger.lower()) > fuzzy]
         return tags
 
-    async def get_duplicates(self, trigger, reaction):
-        return [tag for tag in self.tags if (tag.trigger == trigger and tag.reaction == reaction)]
+    async def get_duplicates(self, trigger, reaction, guild):
+        return [tag for tag in self.get_tags(guild) if
+                (tag.trigger == trigger and tag.reaction == reaction and tag.guild == guild)]
+
+    def get_tags(self, guild):
+        if guild not in self.tags:
+            self.tags[guild] = []
+
+        return self.tags[guild]
 
     @commands.group(aliases=['tags'], invoke_without_command=True)
     async def tag(self, ctx, *, args=None):
@@ -80,14 +92,14 @@ class Tags(commands.Cog):
     @ack
     async def add(self, ctx, in_msg_trigger: typing.Optional[bool] = False, trigger: commands.clean_content = '', *,
                   reaction: commands.clean_content):
-        tag = Tag(None, trigger, reaction, ctx.author, in_msg_trigger=in_msg_trigger)
-        matches = await self.get_duplicates(trigger, reaction)
+        tag = Tag(None, trigger, reaction, ctx.author, ctx.guild, in_msg_trigger=in_msg_trigger)
+        matches = await self.get_duplicates(trigger, reaction, ctx.guild)
         if len(matches) > 0:
             raise commands.BadArgument(f'This tag already exists (`{matches[0].id}`).')
         else:
             id_ = await self.bot.db.set_get_id(self.tags_collection, tag.to_dict())
             tag.id = id_
-            self.tags.append(tag)
+            self.get_tags(ctx.guild).append(tag)
 
     @tag.command(aliases=['remove'])
     async def delete(self, ctx, tag: TagConverter):
@@ -105,7 +117,7 @@ class Tags(commands.Cog):
                                     f'trigger `{selection.trigger}` and reaction {selection.reaction}?').prompt(ctx)
 
             if confirm:
-                self.tags.remove(selection)
+                self.get_tags(ctx.guild).remove(selection)
                 await self.bot.db.delete(self.tags_collection, selection.id)
                 await ctx.send(f'Tag `{selection.id}` was deleted.')
 
@@ -143,12 +155,12 @@ class Tags(commands.Cog):
         Sends a list of all tags in the server to the channel.
         .tag list true for the entire list via DM.
         """
-        if len(self.tags) > 0:
+        if len(self.get_tags(ctx.guild)) > 0:
             if dm:
-                menu = PseudoMenu(TagListSource(self.tags, per_page=15), ctx.author)
+                menu = PseudoMenu(TagListSource(self.get_tags(ctx.guild), per_page=15), ctx.author)
                 await menu.start()
             else:
-                pages = MenuPages(source=TagListSource(self.tags), clear_reactions_after=True)
+                pages = MenuPages(source=TagListSource(self.get_tags(ctx.guild)), clear_reactions_after=True)
                 await pages.start(ctx)
         else:
             await ctx.send('Try adding a few tags first!')
@@ -164,10 +176,10 @@ class Tags(commands.Cog):
 
     @tag.command()
     async def random(self, ctx):
-        if len(self.tags) < 1:
+        if len(self.get_tags(ctx.guild)) < 1:
             await ctx.send('Try to add a few tags first!')
         else:
-            await self.invoke_tag(ctx, random.choice(self.tags), info=True)
+            await self.invoke_tag(ctx, random.choice(self.get_tags(ctx.guild)), info=True)
 
     @tag.command()
     async def search(self, ctx, *, tag: TagConverter):
@@ -191,7 +203,7 @@ class Tags(commands.Cog):
         # no arg defaults to splitting on whitespace
         tokens = message.content.lower().split()
         found_tags = []
-        for tag in self.tags:
+        for tag in self.get_tags(ctx.guild):
             if tag.trigger.lower() == message.content.lower():
                 found_tags.append(tag)
             elif tag.in_msg_trigger:

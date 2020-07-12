@@ -10,7 +10,11 @@ from DataStore import FirebaseDataStore
 async def backup():
     collections = [('tags', 'tags_collection'),
                    ('reminders', 'reminders_collection'),
-                   ('biasoftheweek', 'past_winners_collection')]
+                   ('biasoftheweek', 'past_winners_collection'),
+                   ('biasoftheweek', 'idols_collection'),
+                   ('profiles', 'profiles_collection'),
+                   ('settings', 'settings_collection'),
+                   ('mirroring', 'mirrors_collection')]
 
     now = int(time.time())
 
@@ -19,6 +23,18 @@ async def backup():
         objs = [obj.to_dict() for obj in await db.get(config[module][coll])]
         with open(f'{module}.{coll}.{now}.backup', 'w+') as f:
             f.write(json.dumps(objs, sort_keys=True, indent=4))
+
+
+async def transfer_initial_tags(guild_id):
+    # Transfers ALL tags to the given guild id. Only use this when migrating from a build where tags were global
+    tags = db.db.collection('tags').stream()
+    ids = []
+    for tag in tags:
+        print(tag.to_dict())
+        ids.append(tag.id)
+
+    for _id in ids:
+        db.db.collection('tags').document(_id).update({'guild': guild_id})
 
 
 if __name__ == '__main__':
@@ -36,3 +52,5 @@ if __name__ == '__main__':
             asyncio.create_task(backup())
         else:
             loop.run_until_complete(backup())
+    elif args.operation == 'transfer_all_tags':
+        transfer_initial_tags(601932891743846440)
