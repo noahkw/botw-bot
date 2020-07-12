@@ -25,7 +25,7 @@ async def backup():
             f.write(json.dumps(objs, sort_keys=True, indent=4))
 
 
-async def transfer_initial_tags(guild_id):
+def transfer_initial_tags(guild_id):
     # Transfers ALL tags to the given guild id. Only use this when migrating from a build where tags were global
     tags = db.db.collection('tags').stream()
     ids = []
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     db = FirebaseDataStore(config['firebase']['key_file'], config['firebase']['db_name'], loop)
 
     parser = ArgumentParser(description='Firebase db utility script')
-    parser.add_argument('operation', choices=['backup'])
+    parser.add_argument('operation', choices=['backup', 'transfer_all_tags'])
     args = parser.parse_args()
 
     if args.operation == 'backup':
