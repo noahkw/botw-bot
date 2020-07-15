@@ -16,6 +16,7 @@ def setup(bot):
 
 class Settings(commands.Cog):
     def __init__(self, bot):
+        self._ready = asyncio.Event()
         self.bot = bot
         self.settings = {}
         self.settings_collection = self.bot.config['settings']['settings_collection']
@@ -30,20 +31,23 @@ class Settings(commands.Cog):
 
         for setting in _settings:
             guild = self.bot.get_guild(int(setting.id))
-            self.settings[guild] = GuildSettings.from_dict(guild, setting.to_dict())
+            self.settings[guild.id] = GuildSettings.from_dict(guild, setting.to_dict())
 
         logger.info(f'# Initial settings from db: {len(self.settings)}')
+        self._ready.set()
 
     async def _create_settings(self, guild: discord.Guild):
+        logger.info(f'Creating guild settings for "{guild}"')
         settings = GuildSettings(guild)
         self.settings[guild] = settings
         await self.bot.db.set(self.settings_collection, str(guild.id), settings.to_dict())
 
     async def get_settings(self, guild: discord.Guild):
-        if guild not in self.settings:
+        await self._ready.wait()
+        if guild.id not in self.settings:
             await self._create_settings(guild)
 
-        return self.settings[guild]
+        return self.settings[guild.id]
 
     async def set(self, guild: discord.Guild, key, value):
         settings = await self.get_settings(guild)
