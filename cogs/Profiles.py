@@ -17,6 +17,7 @@ def setup(bot):
 
 class Profiles(commands.Cog):
     def __init__(self, bot):
+        self._ready = asyncio.Event()
         self.bot = bot
         self.profiles = {}
         self.profiles_collection = self.bot.config['profiles']['profiles_collection']
@@ -31,20 +32,22 @@ class Profiles(commands.Cog):
 
         for profile in _profiles:
             user = self.bot.get_user(int(profile.id))
-            self.profiles[user] = Profile.from_dict(user, profile.to_dict())
+            self.profiles[user.id] = Profile.from_dict(user, profile.to_dict())
 
         logger.info(f'# Initial profiles from db: {len(self.profiles)}')
+        self._ready.set()
 
     async def _create_profile(self, user: discord.User):
         profile = Profile(user)
-        self.profiles[user] = profile
+        self.profiles[user.id] = profile
         await self.bot.db.set(self.profiles_collection, str(user.id), profile.to_dict())
 
     async def get_profile(self, user: discord.User):
-        if user not in self.profiles:
+        await self._ready.wait()
+        if user.id not in self.profiles:
             await self._create_profile(user)
 
-        return self.profiles[user]
+        return self.profiles[user.id]
 
     async def set(self, user: discord.User, key, value):
         profile = await self.get_profile(user)

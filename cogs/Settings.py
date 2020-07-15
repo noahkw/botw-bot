@@ -39,7 +39,7 @@ class Settings(commands.Cog):
     async def _create_settings(self, guild: discord.Guild):
         logger.info(f'Creating guild settings for "{guild}"')
         settings = GuildSettings(guild)
-        self.settings[guild] = settings
+        self.settings[guild.id] = settings
         await self.bot.db.set(self.settings_collection, str(guild.id), settings.to_dict())
 
     async def get_settings(self, guild: discord.Guild):
