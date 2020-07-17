@@ -88,6 +88,9 @@ class Instagram(commands.Cog):
                 file = File(BytesIO(await response.read()), filename=filename)
                 files.append(file)
 
+        # remove discord's default instagram embed
+        await ctx.message.edit(suppress=True)
+
         chunks = chunker(files, 10)
         for chunk in chunks:
             await ctx.send(files=chunk)
