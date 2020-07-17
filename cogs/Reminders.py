@@ -25,7 +25,7 @@ def setup(bot):
 class ReminderConverter(commands.Converter):
     async def convert(self, ctx, argument):
         # match strings like 'in 1 hour to do the laundry'
-        r_to = re.search(r'(.*) to (.*)', argument)
+        r_to = re.search(r'(.*?) to (.*)', argument)
         if r_to:
             return r_to.group(1), r_to.group(2)
 
