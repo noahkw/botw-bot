@@ -9,6 +9,7 @@ from discord.ext.menus import MenuPages
 from menu import Confirm, TagListSource, PseudoMenu, SelectionMenu
 from models import Tag
 from util import ordered_sublists, ratio, ack
+from util.converters import ReactionConverter, BoolConverter
 
 logger = logging.getLogger(__name__)
 
@@ -30,17 +31,6 @@ class TagConverter(commands.Converter):
                 return tags
             else:
                 raise commands.BadArgument(f'Tag {argument} could not be found.')
-
-
-class BoolConverter(commands.Converter):
-    async def convert(self, ctx, argument):
-        lowered = argument.lower()
-        if lowered in ('yes', 'y', 'true', 't', '1', 'enable', 'on'):
-            return True
-        elif lowered in ('no', 'n', 'false', 'f', '0', 'disable', 'off'):
-            return False
-        else:
-            raise commands.BadArgument(lowered + ' is not a recognized boolean option')
 
 
 class Tags(commands.Cog):
@@ -91,7 +81,7 @@ class Tags(commands.Cog):
     @tag.command()
     @ack
     async def add(self, ctx, in_msg_trigger: typing.Optional[bool] = False, trigger: commands.clean_content = '', *,
-                  reaction: commands.clean_content):
+                  reaction: ReactionConverter):
         tag = Tag(None, trigger, reaction, ctx.author, ctx.guild, in_msg_trigger=in_msg_trigger)
         matches = await self.get_duplicates(trigger, reaction, ctx.guild)
         if len(matches) > 0:
@@ -140,7 +130,7 @@ class Tags(commands.Cog):
             elif key in ['trigger', 'reaction']:
                 # check whether we are creating a duplicate
                 matches = await self.get_duplicates(new_value if key == 'trigger' else selection.trigger,
-                                                    new_value if key == 'reaction' else selection.reaction)
+                                                    new_value if key == 'reaction' else selection.reaction, ctx.guild)
                 if len(matches) > 0:
                     raise commands.BadArgument(f'This edit would create a duplicate of tag `{matches[0].id}`.')
 
