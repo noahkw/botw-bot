@@ -78,10 +78,18 @@ class Tags(commands.Cog):
     async def tag(self, ctx, *, args=None):
         await ctx.invoke(self.list, dm=args)
 
-    @tag.command()
+    @tag.command(aliases=['new', 'create'])
     @ack
     async def add(self, ctx, in_msg_trigger: typing.Optional[bool] = False, trigger: commands.clean_content = '', *,
                   reaction: ReactionConverter):
+        """
+        Adds a new tag
+        Example usage:
+            .tag add wave https://gfycat.com/BenvolentCurteousGermanpinsher
+            .tag add "doggo pic" [attach picture to the message]
+        To scan the entire message for the trigger string:
+            .tag add True haha stop laughing
+        """
         tag = Tag(None, trigger, reaction, ctx.author, ctx.guild, in_msg_trigger=in_msg_trigger)
         matches = await self.get_duplicates(trigger, reaction, ctx.guild)
         if len(matches) > 0:

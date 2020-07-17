@@ -38,8 +38,7 @@ def _transform(self, ctx, param):
             default = ctx.message.attachments[0].url
             param = Parameter(param.name, param.kind, default=default, annotation=typing.Optional[param.annotation])
         else:
-            default = ''
-            param = Parameter(param.name, param.kind, default=default, annotation=param.annotation)
+            param = Parameter(param.name, param.kind, annotation=param.annotation)
 
     return _old_transform(self, ctx, param)
 
