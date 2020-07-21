@@ -50,10 +50,7 @@ class Tags(commands.Cog):
 
         for _tag in await self.bot.db.get(self.tags_collection):
             tag = Tag.from_dict(_tag.to_dict(), self.bot, _tag.id)
-            if tag.guild in self.tags:
-                self.tags[tag.guild].append(tag)
-            else:
-                self.tags[tag.guild] = [tag]
+            self.tags.setdefault(tag.guild, []).append(tag)
 
         logger.info(f'# Initial tags from db: {len(self.tags)}')
 
@@ -69,10 +66,7 @@ class Tags(commands.Cog):
                 (tag.trigger == trigger and tag.reaction == reaction and tag.guild == guild)]
 
     def get_tags(self, guild):
-        if guild not in self.tags:
-            self.tags[guild] = []
-
-        return self.tags[guild]
+        return self.tags.setdefault(guild, [])
 
     @commands.group(aliases=['tags'], invoke_without_command=True)
     async def tag(self, ctx, *, args=None):
@@ -161,7 +155,7 @@ class Tags(commands.Cog):
                 pages = MenuPages(source=TagListSource(self.get_tags(ctx.guild)), clear_reactions_after=True)
                 await pages.start(ctx)
         else:
-            await ctx.send('Try adding a few tags first!')
+            await ctx.send('Try to add a few tags first!')
 
     @tag.command()
     async def info(self, ctx, *, tag: TagConverter):
