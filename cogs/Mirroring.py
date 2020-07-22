@@ -4,6 +4,7 @@ import logging
 import discord
 from discord.ext import commands
 
+from cogs import CustomCog, AinitMixin
 from models import ChannelMirror
 from util import flatten, ack
 
@@ -30,16 +31,13 @@ class TextChannelConverter(commands.Converter):
                 raise commands.BadArgument(f'Channel "{argument}" not found.')
 
 
-class Mirroring(commands.Cog):
+class Mirroring(CustomCog, AinitMixin):
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
         self.mirrors = {}
         self.mirrors_collection = self.bot.config['mirroring']['mirrors_collection']
 
-        if self.bot.loop.is_running():
-            asyncio.create_task(self._ainit())
-        else:
-            self.bot.loop.run_until_complete(self._ainit())
+        super(AinitMixin).__init__()
 
     async def _ainit(self):
         _mirrors = await self.bot.db.get(self.mirrors_collection)

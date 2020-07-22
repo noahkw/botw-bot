@@ -8,6 +8,7 @@ from dateparser import parse
 from discord.ext import commands, tasks
 from discord.ext.menus import MenuPages
 
+from cogs import AinitMixin, CustomCog
 from const import CROSS_EMOJI, CHECK_EMOJI
 from menu import Confirm, BotwWinnerListSource, SelectionMenu, IdolListSource
 from models import BotwWinner, BotwState
@@ -35,9 +36,9 @@ def match_idol(idol, collection, cutoff=75):
     return best_match[0] if best_match[1] > cutoff else None
 
 
-class BiasOfTheWeek(commands.Cog):
+class BiasOfTheWeek(CustomCog, AinitMixin):
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
         self.nominations = {}
         self.nominations_collection = self.bot.config['biasoftheweek']['nominations_collection']
         self.idols = set()
@@ -49,10 +50,7 @@ class BiasOfTheWeek(commands.Cog):
         self.botw_channel = self.bot.get_channel(int(self.bot.config['biasoftheweek']['botw_channel']))
         self.nominations_channel = self.bot.get_channel(int(self.bot.config['biasoftheweek']['nominations_channel']))
 
-        if self.bot.loop.is_running():
-            asyncio.create_task(self._ainit())
-        else:
-            self.bot.loop.run_until_complete(self._ainit())
+        super(AinitMixin).__init__()
 
     async def _ainit(self):
         _nominations = await self.bot.db.get(self.nominations_collection)

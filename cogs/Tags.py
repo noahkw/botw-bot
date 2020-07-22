@@ -6,6 +6,7 @@ import typing
 from discord.ext import commands
 from discord.ext.menus import MenuPages
 
+from cogs import CustomCog, AinitMixin
 from menu import Confirm, TagListSource, PseudoMenu, SelectionMenu
 from models import Tag
 from util import ordered_sublists, ratio, ack
@@ -33,17 +34,14 @@ class TagConverter(commands.Converter):
                 raise commands.BadArgument(f'Tag {argument} could not be found.')
 
 
-class Tags(commands.Cog):
+class Tags(CustomCog, AinitMixin):
     FORMATTED_KEYS = [f'`{key}`' for key in Tag.EDITABLE]
 
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
         self.tags_collection = self.bot.config['tags']['tags_collection']
 
-        if self.bot.loop.is_running():
-            asyncio.create_task(self._ainit())
-        else:
-            self.bot.loop.run_until_complete(self._ainit())
+        super(AinitMixin).__init__()
 
     async def _ainit(self):
         self.tags = {}

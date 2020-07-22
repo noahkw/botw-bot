@@ -4,6 +4,7 @@ import logging
 import discord
 from discord.ext import commands
 
+from cogs import AinitMixin, CustomCog
 from const import CHECK_EMOJI
 from models import Profile
 from util import ack
@@ -15,17 +16,13 @@ def setup(bot):
     bot.add_cog(Profiles(bot))
 
 
-class Profiles(commands.Cog):
+class Profiles(CustomCog, AinitMixin):
     def __init__(self, bot):
-        self._ready = asyncio.Event()
-        self.bot = bot
+        super().__init__(bot)
         self.profiles = {}
         self.profiles_collection = self.bot.config['profiles']['profiles_collection']
 
-        if self.bot.loop.is_running():
-            asyncio.create_task(self._ainit())
-        else:
-            self.bot.loop.run_until_complete(self._ainit())
+        super(AinitMixin).__init__()
 
     async def _ainit(self):
         _profiles = await self.bot.db.get(self.profiles_collection)
@@ -35,7 +32,6 @@ class Profiles(commands.Cog):
             self.profiles[user.id] = Profile.from_dict(user, profile.to_dict())
 
         logger.info(f'# Initial profiles from db: {len(self.profiles)}')
-        self._ready.set()
 
     async def _create_profile(self, user: discord.User):
         profile = Profile(user)
@@ -43,7 +39,7 @@ class Profiles(commands.Cog):
         await self.bot.db.set(self.profiles_collection, str(user.id), profile.to_dict())
 
     async def get_profile(self, user: discord.User):
-        await self._ready.wait()
+        await self.wait_until_ready()
         if user.id not in self.profiles:
             await self._create_profile(user)
 

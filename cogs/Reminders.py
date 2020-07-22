@@ -10,6 +10,7 @@ from discord.ext import commands
 from discord.ext.menus import MenuPages
 from discord.utils import find
 
+from cogs import CustomCog, AinitMixin
 from const import SHOUT_EMOJI
 from menu import ReminderListSource
 from models import Reminder
@@ -41,18 +42,15 @@ class ReminderConverter(commands.Converter):
         return tokens[0], tokens[1]
 
 
-class Reminders(commands.Cog):
+class Reminders(CustomCog, AinitMixin):
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
         self.reminders_collection = self.bot.config['reminders']['reminders_collection']
         self.scheduler = TimedScheduler(prefer_utc=True)
         self.scheduler.start()
         self.shout_emoji = find(lambda e: e.name == SHOUT_EMOJI, self.bot.emojis)
 
-        if self.bot.loop.is_running():
-            asyncio.create_task(self._ainit())
-        else:
-            self.bot.loop.run_until_complete(self._ainit())
+        super(AinitMixin).__init__()
 
     async def _ainit(self):
         self.reminders = [Reminder.from_dict(reminder.to_dict(), self.bot, reminder.id) for reminder in

@@ -4,6 +4,7 @@ import logging
 import discord
 from discord.ext import commands
 
+from cogs import AinitMixin, CustomCog
 from models import GuildSettings
 from util import ack
 
@@ -14,17 +15,13 @@ def setup(bot):
     bot.add_cog(Settings(bot))
 
 
-class Settings(commands.Cog):
+class Settings(CustomCog, AinitMixin):
     def __init__(self, bot):
-        self._ready = asyncio.Event()
-        self.bot = bot
+        super().__init__(bot)
         self.settings = {}
         self.settings_collection = self.bot.config['settings']['settings_collection']
 
-        if self.bot.loop.is_running():
-            asyncio.create_task(self._ainit())
-        else:
-            self.bot.loop.run_until_complete(self._ainit())
+        super(AinitMixin).__init__()
 
     async def _ainit(self):
         _settings = await self.bot.db.get(self.settings_collection)
@@ -34,7 +31,6 @@ class Settings(commands.Cog):
             self.settings[guild.id] = GuildSettings.from_dict(guild, setting.to_dict())
 
         logger.info(f'# Initial settings from db: {len(self.settings)}')
-        self._ready.set()
 
     async def _create_settings(self, guild: discord.Guild):
         logger.info(f'Creating guild settings for "{guild}"')
@@ -43,7 +39,7 @@ class Settings(commands.Cog):
         await self.bot.db.set(self.settings_collection, str(guild.id), settings.to_dict())
 
     async def get_settings(self, guild: discord.Guild):
-        await self._ready.wait()
+        await self.wait_until_ready()
         if guild.id not in self.settings:
             await self._create_settings(guild)
 
