@@ -18,6 +18,7 @@ def format_template(template, member: discord.Member):
 class Greeters(commands.Cog):
     GREETER_NOT_SET = '{greeter} greeter has not been configured for this server.'
     GREETER_DOESNT_EXIST = 'This type of greeter does not exist.'
+    GREETERS = {'join': 'join_greeter', 'leave': 'leave_greeter'}
 
     def __init__(self, bot):
         self.bot = bot
@@ -55,13 +56,43 @@ class Greeters(commands.Cog):
         else:
             raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter='Join'))
 
-    async def send_join_greeter(self, member):
+    @greeters.command()
+    @commands.has_permissions(administrator=True)
+    async def leave(self, ctx, channel: discord.TextChannel = None, *, template=None):
+        """
+        Add a new greeter for when a user leaves the server.
+        Displays the current greeter if no arguments are specified.
+
+        Example usage:
+            greeters leave #general {name} left {guild}!
+
+        Available placeholders for the message:
+        {mention}: Mentions the user (not recommended in leave greeter)
+        {name}: The user's name
+        {discriminator}: The user's discriminator
+        {id}: The user's id
+        {number}: The number of members in the server
+        {guild}: The server's name
+        """
+        settings_cog = self.bot.get_cog('Settings')
+        settings = await settings_cog.get_settings(ctx.guild)
+
+        if channel and template:
+            await settings_cog.update(ctx.guild, 'leave_greeter', channel, template)
+            await ctx.send(f'Leave greeter set to `{template}` in {channel.mention}.')
+        elif settings.leave_greeter.template:
+            await ctx.send(
+                f'Leave greeter in {settings.leave_greeter.channel.mention}: `{settings.leave_greeter.template}`.')
+        else:
+            raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter='Leave'))
+
+    async def send_greeter(self, greeter, member):
         settings_cog = self.bot.get_cog('Settings')
         settings = await settings_cog.get_settings(member.guild)
 
-        channel, template = settings.join_greeter.value
+        channel, template = getattr(settings, self.GREETERS[greeter]).value
         if not channel or not template:
-            raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter='Join'))
+            raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter=greeter))
 
         await channel.send(format_template(template, member))
 
@@ -71,8 +102,9 @@ class Greeters(commands.Cog):
         """
         Test the given greeter.
         """
-        if greeter.lower() == 'join':
-            await self.send_join_greeter(ctx.author)
+        greeter = greeter.lower()
+        if greeter in self.GREETERS:
+            await self.send_greeter(greeter, ctx.author)
         else:
             raise commands.BadArgument(self.GREETER_DOESNT_EXIST)
 
@@ -82,20 +114,29 @@ class Greeters(commands.Cog):
         """
         Disables the given greeter in the given channel.
         """
-        if greeter.lower() == 'join':
+        greeter = greeter.lower()
+        if greeter in self.GREETERS:
             settings_cog = self.bot.get_cog('Settings')
             settings = await settings_cog.get_settings(ctx.guild)
-            old_template = settings.join_greeter.template
+            old_template = getattr(settings, self.GREETERS[greeter]).template
 
-            await settings_cog.update(ctx.guild, 'join_greeter', None, None)
-            await ctx.send(f'The join greeter in {channel.mention} was reset. Old message: `{old_template}`.')
+            await settings_cog.update(ctx.guild, self.GREETERS[greeter], None, None)
+            await ctx.send(f'The {greeter} greeter in {channel.mention} was reset. Old message: `{old_template}`.')
         else:
             raise commands.BadArgument(self.GREETER_DOESNT_EXIST)
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
         try:
-            await self.send_join_greeter(member)
+            await self.send_greeter('join', member)
         except commands.BadArgument:
             # we are not interested in join greeter not configured exceptions
+            pass
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member):
+        try:
+            await self.send_greeter('leave', member)
+        except commands.BadArgument:
+            # we are not interested in leave greeter not configured exceptions
             pass

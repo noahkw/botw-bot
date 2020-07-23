@@ -78,17 +78,18 @@ class GreeterItem(SettingsItem):
 
 
 class GuildSettings:
-    __slots__ = ('guild', 'botw_state', 'emoji_channel', 'prefix', 'join_greeter',)
+    __slots__ = ('guild', 'botw_state', 'emoji_channel', 'prefix', 'join_greeter', 'leave_greeter',)
     __items__ = __slots__[1:]
 
     def __init__(self, guild, botw_state=BotwState.DEFAULT, emoji_channel=None, prefix=None,
-                 join_greeter=None):
+                 join_greeter=None, leave_greeter=None):
         self.guild = guild
 
         self.botw_state = BotwStateItem('BotW state', botw_state)
         self.emoji_channel = DiscordModelItem('Emoji channel', emoji_channel, guild.get_channel)
         self.prefix = SettingsItem('Prefix', prefix)
         self.join_greeter = GreeterItem('Join greeter', guild.get_channel, join_greeter if join_greeter else {})
+        self.leave_greeter = GreeterItem('Leave greeter', guild.get_channel, leave_greeter if leave_greeter else {})
 
     def to_dict(self):
         return {
