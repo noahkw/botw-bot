@@ -45,16 +45,10 @@ class Settings(CustomCog, AinitMixin):
 
         return self.settings[guild.id]
 
-    async def set(self, guild: discord.Guild, key, value):
+    async def update(self, guild: discord.Guild, attr, *values):
         settings = await self.get_settings(guild)
-        attr = getattr(settings, key)
-        attr.value = value
-        await self.bot.db.update(self.settings_collection, str(guild.id), {key: value})
-
-    async def set_botw_state(self, guild, value):
-        settings = await self.get_settings(guild)
-        settings.botw_state.value = value
-        await self.bot.db.update(self.settings_collection, str(guild.id), {'botw_state': value.name})
+        db_value = settings.update(attr, *values)
+        await self.bot.db.update(self.settings_collection, str(guild.id), {attr: db_value})
 
     @commands.group(invoke_without_command=True)
     @commands.has_permissions(administrator=True)
@@ -66,14 +60,19 @@ class Settings(CustomCog, AinitMixin):
     @commands.has_permissions(administrator=True)
     @ack
     async def set_emoji_channel(self, ctx, channel: discord.TextChannel):
-        settings = await self.get_settings(ctx.guild)
-        settings.emoji_channel.value = channel
-        await self.bot.db.update(self.settings_collection, str(ctx.guild.id), {'emoji_channel': channel.id})
+        """
+        Set the text channel where the bot keeps an up-to-date emoji list.
+        """
+        await self.update(ctx.guild, 'emoji_channel', channel)
 
     @settings.command(name='prefix')
     @commands.has_permissions(administrator=True)
     @ack
     async def set_prefix(self, ctx, prefix):
-        settings = await self.get_settings(ctx.guild)
-        settings.prefix.value = prefix
-        await self.bot.db.update(self.settings_collection, str(ctx.guild.id), {'prefix': prefix})
+        """
+        Set the command prefix for the bot.
+
+        Default prefix: .
+        Mentioning the bot is an alternative that always works. Example: @bot help
+        """
+        await self.update(ctx.guild, 'prefix', prefix)
