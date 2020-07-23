@@ -207,9 +207,9 @@ class Tags(CustomCog, AinitMixin):
             await self.invoke_tag(message.channel, chosen_tag)
 
     async def invoke_tag(self, channel, tag, info=False):
-        tag.use_count += 1
-        await self.bot.db.update(self.tags_collection, tag.id, {'use_count': tag.use_count})
         if info:
             await channel.send(f'**{tag.trigger}** (*{tag.id}*) by {tag.creator}\n{tag.reaction}')
         else:
             await channel.send(tag.reaction)
+        tag.use_count += 1
+        await self.bot.db.update(self.tags_collection, tag.id, {'use_count': tag.use_count})
