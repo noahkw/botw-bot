@@ -11,8 +11,11 @@ def setup(bot):
 
 
 def format_template(template, member: discord.Member):
-    return template.format(mention=member.mention, id=member.id, number=member.guild.member_count,
-                           name=member.name, discriminator=member.discriminator, guild=member.guild.name)
+    try:
+        return template.format(mention=member.mention, id=member.id, number=member.guild.member_count,
+                               name=member.name, discriminator=member.discriminator, guild=member.guild.name)
+    except KeyError as e:
+        raise commands.BadArgument(f'The placeholder `{e}` is not supported.')
 
 
 class Greeters(commands.Cog):
@@ -49,6 +52,9 @@ class Greeters(commands.Cog):
         settings = await settings_cog.get_settings(ctx.guild)
 
         if channel and template:
+            # test the template string. will raise if a wrong placeholder is used
+            format_template(template, ctx.author)
+
             await settings_cog.update(ctx.guild, 'join_greeter', channel, template)
             await ctx.send(f'Join greeter set to `{template}` in {channel.mention}.')
         elif settings.join_greeter.template:
@@ -78,6 +84,9 @@ class Greeters(commands.Cog):
         settings = await settings_cog.get_settings(ctx.guild)
 
         if channel and template:
+            # test the template string. will raise if a wrong placeholder is used
+            format_template(template, ctx.author)
+
             await settings_cog.update(ctx.guild, 'leave_greeter', channel, template)
             await ctx.send(f'Leave greeter set to `{template}` in {channel.mention}.')
         elif settings.leave_greeter.template:
