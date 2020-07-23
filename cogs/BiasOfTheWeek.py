@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import random
 
@@ -9,7 +8,7 @@ from discord.ext import commands, tasks
 from discord.ext.menus import MenuPages
 
 from cogs import AinitMixin, CustomCog
-from const import CROSS_EMOJI, CHECK_EMOJI
+from const import CROSS_EMOJI
 from menu import Confirm, BotwWinnerListSource, SelectionMenu, IdolListSource
 from models import BotwWinner, BotwState
 from models import Idol
@@ -179,7 +178,8 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         if state == BotwState.WINNER_CHOSEN:
             raise commands.BadArgument('Can\'t skip because the current winner has not been notified yet.')
 
-        await settings_cog.set_botw_state(ctx.guild, BotwState.DEFAULT if state == BotwState.SKIP else BotwState.SKIP)
+        await settings_cog.update(ctx.guild, 'botw_state',
+                                  BotwState.DEFAULT if state == BotwState.SKIP else BotwState.SKIP)
 
         next_announcement = pendulum.now('UTC').next(self.announcement_day)
         await ctx.send(f'BotW Winner selection on {next_announcement.to_cookie_string()} is '
@@ -198,7 +198,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         if now.day_of_week == self.announcement_day and now.hour == 0:
             if settings.botw_state.value not in (BotwState.SKIP, BotwState.WINNER_CHOSEN) and len(self.nominations) > 0:
                 await self._pick_winner()
-                await settings_cog.set_botw_state(guild, BotwState.WINNER_CHOSEN)
+                await settings_cog.update(guild, 'botw_state', BotwState.WINNER_CHOSEN)
             else:
                 logger.info(f'Skipping BotW winner selection in {guild}')
 
@@ -211,7 +211,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
             else:
                 logger.info(f'Skipping BotW winner role assignment in {guild}')
 
-            await settings_cog.set_botw_state(guild, BotwState.DEFAULT)
+            await settings_cog.update(guild, 'botw_state', BotwState.DEFAULT)
 
     @_loop.before_loop
     async def loop_before(self):

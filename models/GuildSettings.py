@@ -28,6 +28,9 @@ class SettingsItem:
     def db_value(self):
         return self.value
 
+    def update(self, value):
+        self.value = value
+
 
 class DiscordModelItem(SettingsItem):
     def __init__(self, name, value, get_function):
@@ -52,21 +55,50 @@ class BotwStateItem(SettingsItem):
         return self.value.name if self.value else None
 
 
+class GreeterItem(SettingsItem):
+    def __init__(self, name, get_function, kwargs):
+        self.channel = get_function(kwargs.pop('channel', None))
+        self.template = kwargs.pop('template', None)
+        super().__init__(name, (self.channel, self.template))
+
+    def add_to_embed(self, embed):
+        pass
+
+    def update(self, *values):
+        channel, template = values
+        self.value = (channel, template)
+        self.channel = channel
+        self.template = template
+
+    def db_value(self):
+        return {
+            'channel': self.channel.id if self.channel else None,
+            'template': self.template if self.template else None
+        }
+
+
 class GuildSettings:
-    __slots__ = ('guild', 'botw_state', 'emoji_channel', 'prefix',)
+    __slots__ = ('guild', 'botw_state', 'emoji_channel', 'prefix', 'join_greeter',)
     __items__ = __slots__[1:]
 
-    def __init__(self, guild, botw_state=BotwState.DEFAULT, emoji_channel=None, prefix=None):
+    def __init__(self, guild, botw_state=BotwState.DEFAULT, emoji_channel=None, prefix=None,
+                 join_greeter=None):
         self.guild = guild
 
         self.botw_state = BotwStateItem('BotW state', botw_state)
         self.emoji_channel = DiscordModelItem('Emoji channel', emoji_channel, guild.get_channel)
         self.prefix = SettingsItem('Prefix', prefix)
+        self.join_greeter = GreeterItem('Join greeter', guild.get_channel, join_greeter if join_greeter else {})
 
     def to_dict(self):
         return {
             settings_item: getattr(self, settings_item).db_value() for settings_item in GuildSettings.__items__
         }
+
+    def update(self, attr, *values):
+        item = getattr(self, attr)
+        item.update(*values)
+        return item.db_value()
 
     @staticmethod
     def from_dict(guild, source):
