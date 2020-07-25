@@ -8,6 +8,42 @@ from discord.ext import commands
 from DataStore import FirebaseDataStore
 
 
+class EmbedHelpCommand(commands.DefaultHelpCommand):
+    CREATOR_ID = 207955387909931009
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.brief = 'Display this message'
+
+    async def send_bot_help(self, mapping):
+        ctx = self.context
+        bot = ctx.bot
+
+        filtered = await self.filter_commands(bot.commands, sort=True)
+
+        def cmd_to_str(group=False):
+            newline = '\n' if group else ' '
+
+            def actual(cmd):
+                help = cmd.brief or cmd.help
+                return f'**{cmd.name}**{newline}{help or "No description"}\n'
+
+            return actual
+
+        groups = [group for group in filtered if isinstance(group, commands.Group)]
+        top_level_commands = [cmd for cmd in filtered if not isinstance(cmd, commands.Group)]
+
+        embed = discord.Embed(description=self.get_ending_note()) \
+            .set_author(name=f'{bot.user.name} Help', icon_url=bot.user.avatar_url) \
+            .set_footer(text=f'Made by {bot.get_user(self.CREATOR_ID)}. Running {bot.version}.') \
+            .add_field(name='Categories', value=' '.join(map(cmd_to_str(group=True), groups))) \
+            .add_field(name='​', value='​') \
+            .add_field(name='​', value='​') \
+            .add_field(name='Various', value=' '.join(map(cmd_to_str(), top_level_commands)))
+
+        await self.get_destination().send(embed=embed)
+
+
 class BotwBot(commands.Bot):
     INITIAL_EXTENSIONS = [
         'cogs.BiasOfTheWeek', 'cogs.Utilities', 'cogs.Settings', 'cogs.Instagram',
@@ -20,7 +56,8 @@ class BotwBot(commands.Bot):
         self.startup = True
         self.config = configparser.ConfigParser()
         self.config.read(config_path)
-        super().__init__(**kwargs, command_prefix=self.config['discord']['command_prefix'])
+        super().__init__(**kwargs, command_prefix=self.config['discord']['command_prefix'],
+                         help_command=EmbedHelpCommand())
         self.db = FirebaseDataStore(self.config['firebase']['key_file'], self.config['firebase']['db_name'], self.loop)
         self.add_checks()
 

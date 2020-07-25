@@ -66,7 +66,7 @@ class Tags(CustomCog, AinitMixin):
     def get_tags(self, guild):
         return self.tags.setdefault(guild, [])
 
-    @commands.group(aliases=['tags'], invoke_without_command=True)
+    @commands.group(name='tags', aliases=['tag'], invoke_without_command=True, brief='Manage custom reactions')
     async def tag(self, ctx, *, args=None):
         await ctx.invoke(self.list, dm=args)
 

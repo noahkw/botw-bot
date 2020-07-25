@@ -48,7 +48,7 @@ class Mirroring(CustomCog, AinitMixin):
 
         logger.info(f'# Initial mirrors from db: {len(self.mirrors)}')
 
-    @commands.group()
+    @commands.group(brief='Create channel mirrors between servers')
     @commands.is_owner()
     async def mirror(self, ctx):
         pass

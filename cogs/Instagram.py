@@ -66,8 +66,7 @@ class Instagram(commands.Cog):
             return [media['node']['display_url'] if
                     media['node']['__typename'] == 'GraphImage' else media['node']['video_url'] for media in media]
 
-    @commands.group(aliases=['ig'], invoke_without_command=True)
-    @commands.has_permissions(administrator=True)
+    @commands.group(aliases=['ig'], invoke_without_command=True, brief='Display posts from Instagram')
     async def instagram(self, ctx, args=None):
         if args:
             await ctx.invoke(self.show, url=args)

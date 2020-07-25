@@ -28,9 +28,8 @@ class WolframAlpha(commands.Cog):
     def cog_unload(self):
         asyncio.create_task(self.session.close())
 
-    @commands.group(name='wolframalpha',
-                    aliases=['wa'],
-                    invoke_without_command=True)
+    @commands.group(name='wolframalpha', aliases=['wa'], invoke_without_command=True,
+                    brief='Query WolframAlpha')
     async def wolfram_alpha(self, ctx, *, args=None):
         if args:
             await ctx.invoke(self.simple, query=args)

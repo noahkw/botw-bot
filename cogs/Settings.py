@@ -50,7 +50,7 @@ class Settings(CustomCog, AinitMixin):
         db_value = settings.update(attr, *values)
         await self.bot.db.update(self.settings_collection, str(guild.id), {attr: db_value})
 
-    @commands.group(invoke_without_command=True)
+    @commands.group(invoke_without_command=True, brief='Change the bot\'s behavior in the server')
     @commands.has_permissions(administrator=True)
     async def settings(self, ctx):
         settings = await self.get_settings(ctx.guild)

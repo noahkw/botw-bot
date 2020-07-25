@@ -26,7 +26,8 @@ class Greeters(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.group(aliases=['greeter'], invoke_without_command=True)
+    @commands.group(aliases=['greeter'], invoke_without_command=True, brief='Configure greeters for the server')
+    @commands.has_permissions(administrator=True)
     async def greeters(self, ctx):
         await ctx.send_help(self.greeters)
 

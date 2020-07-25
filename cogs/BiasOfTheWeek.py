@@ -66,7 +66,7 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
 
         self._loop.start()
 
-    @commands.group(name='biasoftheweek', aliases=['botw'])
+    @commands.group(name='biasoftheweek', aliases=['botw'], brief='Organize Bias of the Week events')
     async def biasoftheweek(self, ctx):
         pass
 

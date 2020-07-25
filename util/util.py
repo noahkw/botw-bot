@@ -1,5 +1,6 @@
 import asyncio
 import re
+import subprocess
 from functools import wraps
 from random import getrandbits
 
@@ -80,3 +81,7 @@ def ack(cmd):
 
 def flatten(l):
     return [item for sublist in l for item in sublist]
+
+
+def git_version_label():
+    return subprocess.check_output(['git', 'describe', '--tags', '--long']).decode('ascii').strip()

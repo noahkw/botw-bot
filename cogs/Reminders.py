@@ -67,7 +67,8 @@ class Reminders(CustomCog, AinitMixin):
     def cog_unload(self):
         self.scheduler._task.cancel()
 
-    @commands.group(name='reminders', aliases=['remindme', 'remind'], invoke_without_command=True)
+    @commands.group(name='reminders', aliases=['remindme', 'remind'], invoke_without_command=True,
+                    brief='Set reminders in the future')
     async def reminders_(self, ctx, *, args: ReminderConverter = None):
         if args:
             await ctx.invoke(self.add, args=args)

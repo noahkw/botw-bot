@@ -37,7 +37,7 @@ class Trolling(commands.Cog):
         self.bot.add_listener(self.on_message, 'on_message')
         self.poop_role_name = self.bot.config['trolling']['poop_role_name']
 
-    @commands.command()
+    @commands.command(brief='Mocks (spongetexts) a message')
     async def mock(self, ctx, *, message: MessageOrStringConverter = None):
         if isinstance(message, str):
             await ctx.send(mock_case(remove_broken_emoji(message)))

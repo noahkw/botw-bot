@@ -74,7 +74,7 @@ class Weather(commands.Cog):
     def cog_unload(self):
         asyncio.create_task(self.session.close())
 
-    @commands.group(name='weather', invoke_without_command=True)
+    @commands.group(name='weather', invoke_without_command=True, brief='Query OpenWeatherMap for weather info')
     async def weather(self, ctx, *, args=None):
         if args:
             await ctx.invoke(self.current, location=args)

@@ -25,7 +25,7 @@ class EmojiUtils(commands.Cog):
         self.cooldowns = {}
         self.last_updates = {}
 
-    @commands.group(name='emoji')
+    @commands.group(name='emoji', brief='Emoji related convenience commands')
     @commands.has_permissions(administrator=True)
     async def emoji(self, ctx):
         pass

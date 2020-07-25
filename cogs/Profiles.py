@@ -51,7 +51,7 @@ class Profiles(CustomCog, AinitMixin):
         attr.value = value
         await self.bot.db.update(self.profiles_collection, str(user.id), {key: value})
 
-    @commands.group(invoke_without_command=True)
+    @commands.group(invoke_without_command=True, brief='View or edit profiles')
     async def profile(self, ctx, user: discord.User = None):
         lookup = ctx.author if user is None else user
         profile = await self.get_profile(lookup)
