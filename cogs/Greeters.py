@@ -31,23 +31,23 @@ class Greeters(commands.Cog):
     async def greeters(self, ctx):
         await ctx.send_help(self.greeters)
 
-    @greeters.command()
+    @greeters.command(brief='Adds or displays the join greeter')
     @commands.has_permissions(administrator=True)
     async def join(self, ctx, channel: discord.TextChannel = None, *, template=None):
         """
-        Add a new greeter for when a user joins the server.
+        Adds a new greeter for when a user joins the server.
         Displays the current greeter if no arguments are specified.
 
         Example usage:
-            greeters join #general Welcome {mention} to {guild}!
+        `{prefix}greeters join #general Welcome {{mention}} to {{guild}}!`
 
         Available placeholders for the message:
-        {mention}: Mentions the user
-        {name}: The user's name
-        {discriminator}: The user's discriminator
-        {id}: The user's id
-        {number}: The number of members in the server
-        {guild}: The server's name
+        `{{mention}}`: Mentions the user
+        `{{name}}`: The user's name
+        `{{discriminator}}`: The user's discriminator
+        `{{id}}`: The user's id
+        `{{number}}`: The number of members in the server
+        `{{guild}}`: The server's name
         """
         settings_cog = self.bot.get_cog('Settings')
         settings = await settings_cog.get_settings(ctx.guild)
@@ -63,23 +63,23 @@ class Greeters(commands.Cog):
         else:
             raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter='Join'))
 
-    @greeters.command()
+    @greeters.command(brief='Adds or displays the leave greeter')
     @commands.has_permissions(administrator=True)
     async def leave(self, ctx, channel: discord.TextChannel = None, *, template=None):
         """
-        Add a new greeter for when a user leaves the server.
+        Adds a new greeter for when a user leaves the server.
         Displays the current greeter if no arguments are specified.
 
         Example usage:
-            greeters leave #general {name} left {guild}!
+        `{prefix}greeters leave #general {{name}} left {{guild}}!`
 
         Available placeholders for the message:
-        {mention}: Mentions the user (not recommended in leave greeter)
-        {name}: The user's name
-        {discriminator}: The user's discriminator
-        {id}: The user's id
-        {number}: The number of members in the server
-        {guild}: The server's name
+        `{{mention}}`: Mentions the user (not recommended here)
+        `{{name}}`: The user's name
+        `{{discriminator}}`: The user's discriminator
+        `{{id}}`: The user's id
+        `{{number}}`: The number of members in the server
+        `{{guild}}`: The server's name
         """
         settings_cog = self.bot.get_cog('Settings')
         settings = await settings_cog.get_settings(ctx.guild)
@@ -106,11 +106,14 @@ class Greeters(commands.Cog):
 
         await channel.send(format_template(template, member))
 
-    @greeters.command()
+    @greeters.command(brief='Tests the given greeter')
     @commands.has_permissions(administrator=True)
     async def test(self, ctx, greeter):
         """
-        Test the given greeter.
+        Tests the given greeter.
+
+        Example usage:
+        `{prefix}greeter test join`
         """
         greeter = greeter.lower()
         if greeter in self.GREETERS:
@@ -118,11 +121,14 @@ class Greeters(commands.Cog):
         else:
             raise commands.BadArgument(self.GREETER_DOESNT_EXIST)
 
-    @greeters.command()
+    @greeters.command(brief='Disables the given greeter in the given channel')
     @commands.has_permissions(administrator=True)
     async def disable(self, ctx, greeter, channel: discord.TextChannel):
         """
         Disables the given greeter in the given channel.
+
+        Example usage:
+        `{prefix}greeter disable leave`
         """
         greeter = greeter.lower()
         if greeter in self.GREETERS:

@@ -70,17 +70,21 @@ class Tags(CustomCog, AinitMixin):
     async def tag(self, ctx, *, args=None):
         await ctx.invoke(self.list, dm=args)
 
-    @tag.command(aliases=['new', 'create'])
+    @tag.command(aliases=['new', 'create'], brief='Adds a new tag')
     @ack
     async def add(self, ctx, in_msg_trigger: typing.Optional[bool] = False, trigger: commands.clean_content = '', *,
                   reaction: ReactionConverter):
         """
-        Adds a new tag
+        Adds a new tag.
+
         Example usage:
-            .tag add wave https://gfycat.com/BenvolentCurteousGermanpinsher
-            .tag add "doggo pic" [attach picture to the message]
-        To scan the entire message for the trigger string:
-            .tag add True haha stop laughing
+        `{prefix}tag add wave https://gfycat.com/BenvolentCurteousGermanpinsher`
+
+        Attach picture to the message and type:
+        `{prefix}tag add "doggo pic"`
+
+        To scan the entire message for the trigger **haha**:
+        `{prefix}tag add true haha stop laughing`
         """
         tag = Tag(None, trigger, reaction, ctx.author, ctx.guild, in_msg_trigger=in_msg_trigger)
         matches = await self.get_duplicates(trigger, reaction, ctx.guild)
@@ -139,11 +143,12 @@ class Tags(CustomCog, AinitMixin):
             await self.bot.db.update(self.tags_collection, selection.id, {key: new_value})
             await ctx.send(f'Tag `{selection.id}` was edited. Old {key}:\n{old_value}')
 
-    @tag.command()
+    @tag.command(brief='Sends a list of all tags in the server to the channel')
     async def list(self, ctx, dm=False):
         """
         Sends a list of all tags in the server to the channel.
-        .tag list true for the entire list via DM.
+
+        `{prefix}tag list true` for the entire list via DM.
         """
         if len(self.get_tags(ctx.guild)) > 0:
             if dm:
