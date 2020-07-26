@@ -9,7 +9,7 @@ from discord.ext.menus import MenuPages
 from cogs import CustomCog, AinitMixin
 from menu import Confirm, TagListSource, PseudoMenu, SelectionMenu
 from models import Tag
-from util import ordered_sublists, ratio, ack
+from util import ordered_sublists, ratio, ack, auto_help
 from util.converters import ReactionConverter, BoolConverter
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,7 @@ class Tags(CustomCog, AinitMixin):
     def get_tags(self, guild):
         return self.tags.setdefault(guild, [])
 
+    @auto_help
     @commands.group(name='tags', aliases=['tag'], invoke_without_command=True, brief='Manage custom reactions')
     async def tag(self, ctx, *, args=None):
         await ctx.invoke(self.list, dm=args)

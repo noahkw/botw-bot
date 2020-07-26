@@ -1,10 +1,7 @@
 import asyncio
 import re
 import subprocess
-from functools import wraps
 from random import getrandbits
-
-from const import CHECK_EMOJI
 
 
 def chunker(iterable, n, return_index=False):
@@ -69,14 +66,6 @@ class Cooldown:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         self.cooldown = False
-
-
-def ack(cmd):
-    @wraps(cmd)
-    async def acked_command(self, ctx, *args, **kwargs):
-        await cmd(self, ctx, *args, **kwargs)
-        await ctx.message.add_reaction(CHECK_EMOJI)
-    return acked_command
 
 
 def flatten(l):

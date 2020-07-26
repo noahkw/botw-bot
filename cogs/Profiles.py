@@ -1,13 +1,11 @@
-import asyncio
 import logging
 
 import discord
 from discord.ext import commands
 
 from cogs import AinitMixin, CustomCog
-from const import CHECK_EMOJI
 from models import Profile
-from util import ack
+from util import ack, auto_help
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +49,7 @@ class Profiles(CustomCog, AinitMixin):
         attr.value = value
         await self.bot.db.update(self.profiles_collection, str(user.id), {key: value})
 
+    @auto_help
     @commands.group(invoke_without_command=True, brief='View or edit profiles')
     async def profile(self, ctx, user: discord.User = None):
         lookup = ctx.author if user is None else user

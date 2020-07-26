@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import re
 from datetime import timezone
@@ -14,7 +13,7 @@ from cogs import CustomCog, AinitMixin
 from const import SHOUT_EMOJI
 from menu import ReminderListSource
 from models import Reminder
-from util import has_passed
+from util import has_passed, auto_help
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +66,7 @@ class Reminders(CustomCog, AinitMixin):
     def cog_unload(self):
         self.scheduler._task.cancel()
 
+    @auto_help
     @commands.group(name='reminders', aliases=['remindme', 'remind'], invoke_without_command=True,
                     brief='Set reminders in the future')
     async def reminders_(self, ctx, *, args: ReminderConverter = None):
@@ -75,14 +75,15 @@ class Reminders(CustomCog, AinitMixin):
         else:
             await ctx.send_help(self.reminders_)
 
-    @reminders_.command()
+    @reminders_.command(brief='Adds a new reminder')
     async def add(self, ctx, *, args: ReminderConverter):
         """
-        Adds a new reminder
+        Adds a new reminder.
+
         Example usage:
-        .remind in 3 hours to do the laundry
-        .remind 15-06-20 at 6pm KST to Irene & Seulgi debut
-        .remind in 6 minutes 30 seconds to eggs
+        `{prefix}remind in 3 hours to do the laundry`
+        `{prefix}remind 15-06-20 at 6pm KST to Irene & Seulgi debut`
+        `{prefix}remind in 6 minutes 30 seconds to eggs`
         """
         when, what = args
         parsed_date = parse(when)

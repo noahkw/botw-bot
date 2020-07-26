@@ -1,12 +1,10 @@
-import asyncio
 import logging
 
-import discord
 from discord.ext import commands
 
 from cogs import CustomCog, AinitMixin
 from models import ChannelMirror
-from util import flatten, ack
+from util import flatten, ack, auto_help
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +46,7 @@ class Mirroring(CustomCog, AinitMixin):
 
         logger.info(f'# Initial mirrors from db: {len(self.mirrors)}')
 
+    @auto_help
     @commands.group(brief='Create channel mirrors between servers')
     @commands.is_owner()
     async def mirror(self, ctx):

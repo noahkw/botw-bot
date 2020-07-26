@@ -11,7 +11,7 @@ from discord.ext import commands
 from regex import regex
 
 from menu import InstagramConfirm
-from util import chunker
+from util import chunker, auto_help
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,7 @@ class Instagram(commands.Cog):
             return [media['node']['display_url'] if
                     media['node']['__typename'] == 'GraphImage' else media['node']['video_url'] for media in media]
 
+    @auto_help
     @commands.group(aliases=['ig'], invoke_without_command=True, brief='Display posts from Instagram')
     async def instagram(self, ctx, args=None):
         if args:

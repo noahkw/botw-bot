@@ -6,6 +6,8 @@ import aiohttp
 from discord import File
 from discord.ext import commands
 
+from util import auto_help
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,6 +30,7 @@ class WolframAlpha(commands.Cog):
     def cog_unload(self):
         asyncio.create_task(self.session.close())
 
+    @auto_help
     @commands.group(name='wolframalpha', aliases=['wa'], invoke_without_command=True,
                     brief='Query WolframAlpha')
     async def wolfram_alpha(self, ctx, *, args=None):

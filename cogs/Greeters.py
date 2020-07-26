@@ -3,6 +3,8 @@ import logging
 import discord
 from discord.ext import commands
 
+from util import auto_help
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,6 +28,7 @@ class Greeters(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @auto_help
     @commands.group(aliases=['greeter'], invoke_without_command=True, brief='Configure greeters for the server')
     @commands.has_permissions(administrator=True)
     async def greeters(self, ctx):
@@ -59,7 +62,8 @@ class Greeters(commands.Cog):
             await settings_cog.update(ctx.guild, 'join_greeter', channel, template)
             await ctx.send(f'Join greeter set to `{template}` in {channel.mention}.')
         elif settings.join_greeter.template:
-            await ctx.send(f'Join greeter in {settings.join_greeter.channel.mention}: `{settings.join_greeter.template}`.')
+            await ctx.send(
+                f'Join greeter in {settings.join_greeter.channel.mention}: `{settings.join_greeter.template}`.')
         else:
             raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter='Join'))
 

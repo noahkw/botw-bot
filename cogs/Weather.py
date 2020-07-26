@@ -7,7 +7,7 @@ from discord import Embed
 from discord.ext import commands
 
 from const import WEATHER_EMOJI
-from util import celsius_to_fahrenheit, meters_to_miles
+from util import celsius_to_fahrenheit, meters_to_miles, auto_help
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,7 @@ class Weather(commands.Cog):
     def cog_unload(self):
         asyncio.create_task(self.session.close())
 
+    @auto_help
     @commands.group(name='weather', invoke_without_command=True, brief='Query OpenWeatherMap for weather info')
     async def weather(self, ctx, *, args=None):
         if args:

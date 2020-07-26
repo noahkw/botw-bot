@@ -1,11 +1,10 @@
-import asyncio
 import logging
 
 import discord
 import pendulum
 from discord.ext import commands
 
-from util import chunker, Cooldown
+from util import chunker, Cooldown, auto_help
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +24,7 @@ class EmojiUtils(commands.Cog):
         self.cooldowns = {}
         self.last_updates = {}
 
+    @auto_help
     @commands.group(name='emoji', brief='Emoji related convenience commands')
     @commands.has_permissions(administrator=True)
     async def emoji(self, ctx):

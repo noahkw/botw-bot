@@ -12,7 +12,7 @@ from const import CROSS_EMOJI
 from menu import Confirm, BotwWinnerListSource, SelectionMenu, IdolListSource
 from models import BotwWinner, BotwState
 from models import Idol
-from util import ratio, ack
+from util import ratio, ack, auto_help
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,7 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
 
         self._loop.start()
 
+    @auto_help
     @commands.group(name='biasoftheweek', aliases=['botw'], brief='Organize Bias of the Week events')
     async def biasoftheweek(self, ctx):
         pass
