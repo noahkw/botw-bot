@@ -145,3 +145,6 @@ class Weather(commands.Cog):
         # set location in profile to queried location
         profiles = self.bot.get_cog('Profiles')
         await profiles.set(ctx.author, 'location', location)
+
+    async def cog_before_invoke(self, ctx):
+        await ctx.trigger_typing()

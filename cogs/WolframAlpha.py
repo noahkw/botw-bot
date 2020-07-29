@@ -63,3 +63,6 @@ class WolframAlpha(commands.Cog):
                     await ctx.send(file=file)
                 else:
                     await ctx.send(WolframAlpha.MSG_EMPTY_RESPONSE)
+
+    async def cog_before_invoke(self, ctx):
+        await ctx.trigger_typing()
