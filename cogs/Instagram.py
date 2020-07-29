@@ -38,12 +38,6 @@ class Instagram(commands.Cog):
         asyncio.create_task(self.session.close())
 
     async def get_media(self, url):
-        result = regex.match(self.URL_REGEX, url)
-        if result:
-            url = result.group(0)
-        else:
-            raise commands.BadArgument('Invalid Instagram URL.')
-
         headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:67.0) Gecko/20100101 Firefox/67.0",
         }
@@ -67,16 +61,7 @@ class Instagram(commands.Cog):
             return [media['node']['display_url'] if
                     media['node']['__typename'] == 'GraphImage' else media['node']['video_url'] for media in media]
 
-    @auto_help
-    @commands.group(aliases=['ig'], invoke_without_command=True, brief='Display posts from Instagram')
-    async def instagram(self, ctx, args=None):
-        if args:
-            await ctx.invoke(self.show, url=args)
-        else:
-            await ctx.send_help(self.instagram)
-
-    @instagram.command()
-    async def show(self, ctx, url):
+    async def show_media(self, ctx, url):
         media = await self.get_media(url)
         if len(media) == 0:
             raise commands.BadArgument('This Instagram post contains no images or videos.')
@@ -96,6 +81,24 @@ class Instagram(commands.Cog):
         for chunk in chunks:
             await ctx.send(files=chunk)
 
+    @auto_help
+    @commands.group(aliases=['ig'], invoke_without_command=True, brief='Display posts from Instagram')
+    async def instagram(self, ctx, args=None):
+        if args:
+            await ctx.invoke(self.show, url=args)
+        else:
+            await ctx.send_help(self.instagram)
+
+    @instagram.command()
+    async def show(self, ctx, url):
+        result = regex.match(self.URL_REGEX, url)
+        if result:
+            url = result.group(0)
+        else:
+            raise commands.BadArgument('Invalid Instagram URL.')
+
+        await self.show_media(ctx, url)
+
     @instagram.command()
     @commands.is_owner()
     async def reload(self, ctx):
@@ -110,12 +113,15 @@ class Instagram(commands.Cog):
         if ctx.valid or not ctx.guild:
             return
 
-        result = regex.search(self.URL_REGEX, message.content)
-        if result:
-            url = result.group(0)
+        results = regex.finditer(self.URL_REGEX, message.content)
+        urls = [result.group(0) for result in results]
+
+        if len(urls) > 0:
             confirm = await SimpleConfirm(message, emoji=INSPECT_EMOJI).prompt(ctx)
             if confirm:
-                await ctx.invoke(self.show, url=url)
+                async with ctx.typing():
+                    for url in urls:
+                        await self.show_media(ctx, url)
 
     async def cog_before_invoke(self, ctx):
         await ctx.trigger_typing()
