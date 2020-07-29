@@ -2,6 +2,7 @@
 CHECK_EMOJI = '\N{White Heavy Check Mark}'
 CROSS_EMOJI = '\N{Cross Mark}'
 INSPECT_EMOJI = '\N{RIGHT-POINTING MAGNIFYING GLASS}'
+SNOOZE_EMOJI = '\N{ALARM CLOCK}'
 
 # custom emoji
 SHOUT_EMOJI = 'yeeunshout'

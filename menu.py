@@ -2,7 +2,7 @@ import discord
 from discord import Embed
 from discord.ext import menus
 
-from const import CROSS_EMOJI, CHECK_EMOJI, NUMBER_TO_EMOJI, INSPECT_EMOJI
+from const import CROSS_EMOJI, CHECK_EMOJI, NUMBER_TO_EMOJI, INSPECT_EMOJI, SNOOZE_EMOJI
 
 
 class Confirm(menus.Menu):
@@ -29,19 +29,24 @@ class Confirm(menus.Menu):
         return self.result
 
 
-class InstagramConfirm(menus.Menu):
-    def __init__(self, msg):
-        super().__init__(timeout=60.0, clear_reactions_after=True)
+class SimpleConfirm(menus.Menu):
+    def __init__(self, msg, timeout=60.0, emoji=CHECK_EMOJI):
+        super().__init__(timeout=timeout, clear_reactions_after=True)
         self.msg = msg
         self.result = None
 
+        def button_callback():
+            async def do_confirm(_, payload):
+                self.result = True
+                self.stop()
+
+            return do_confirm
+
+        button = menus.Button(emoji, button_callback())
+        self.add_button(button)
+
     async def send_initial_message(self, ctx, channel):
         return self.msg
-
-    @menus.button(INSPECT_EMOJI)
-    async def do_confirm(self, payload):
-        self.result = True
-        self.stop()
 
     async def prompt(self, ctx):
         await self.start(ctx, wait=True)

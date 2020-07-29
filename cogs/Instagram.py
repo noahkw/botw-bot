@@ -10,7 +10,8 @@ from discord import File
 from discord.ext import commands
 from regex import regex
 
-from menu import InstagramConfirm
+from const import INSPECT_EMOJI
+from menu import SimpleConfirm
 from util import chunker, auto_help
 
 logger = logging.getLogger(__name__)
@@ -112,7 +113,7 @@ class Instagram(commands.Cog):
         result = regex.search(self.URL_REGEX, message.content)
         if result:
             url = result.group(0)
-            confirm = await InstagramConfirm(message).prompt(ctx)
+            confirm = await SimpleConfirm(message, emoji=INSPECT_EMOJI).prompt(ctx)
             if confirm:
                 await ctx.invoke(self.show, url=url)
 

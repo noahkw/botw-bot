@@ -10,8 +10,8 @@ from discord.ext.menus import MenuPages
 from discord.utils import find
 
 from cogs import CustomCog, AinitMixin
-from const import SHOUT_EMOJI
-from menu import ReminderListSource
+from const import SHOUT_EMOJI, SNOOZE_EMOJI
+from menu import ReminderListSource, SimpleConfirm
 from models import Reminder
 from util import has_passed, auto_help
 
@@ -39,6 +39,21 @@ class ReminderConverter(commands.Converter):
         # match strings like 'tomorrow football'
         tokens = argument.split()
         return tokens[0], tokens[1]
+
+
+def parse_date(date):
+    parsed_date = parse(date)
+    if parsed_date is None:
+        raise commands.BadArgument('Couldn\'t parse the date.')
+    if parsed_date.tzinfo is None:
+        parsed_date = parsed_date.astimezone(timezone.utc)
+
+    parsed_date = pendulum.parse(str(parsed_date))
+
+    if has_passed(parsed_date):
+        raise commands.BadArgument(f'`{parsed_date.to_cookie_string()}` is in the past.')
+
+    return parsed_date
 
 
 class Reminders(CustomCog, AinitMixin):
@@ -86,18 +101,9 @@ class Reminders(CustomCog, AinitMixin):
         `{prefix}remind in 6 minutes 30 seconds to eggs`
         """
         when, what = args
-        parsed_date = parse(when)
-        if parsed_date is None:
-            raise commands.BadArgument('Couldn\'t parse the date.')
-        if parsed_date.tzinfo is None:
-            parsed_date = parsed_date.astimezone(timezone.utc)
+        parsed_date = parse_date(when)
 
         now = pendulum.now('UTC')
-        parsed_date = pendulum.parse(str(parsed_date))
-
-        if has_passed(parsed_date):
-            raise commands.BadArgument(f'`{parsed_date.to_cookie_string()}` is in the past.')
-
         diff = parsed_date.diff_for_humans(now, True)
 
         reminder = Reminder(None, ctx.author, parsed_date, now, what)
@@ -106,7 +112,7 @@ class Reminders(CustomCog, AinitMixin):
         self.reminders.append(reminder)
         self.scheduler.schedule(self.remind_user(reminder), parsed_date)
 
-        await ctx.send(f'I\'ll remind you at `{parsed_date.to_cookie_string()}` (in {diff}): `{what}`.')
+        await ctx.send(f'I\'ll remind you on `{parsed_date.to_cookie_string()}` (in {diff}): `{what}`.')
 
     @reminders_.command()
     async def list(self, ctx):
@@ -123,10 +129,42 @@ class Reminders(CustomCog, AinitMixin):
     async def remind_user(self, reminder, late=False):
         diff = reminder.created.diff_for_humans(reminder.due, True)
         assert not reminder.done
+
+        user = reminder.user
+
+        if late:
+            await user.send(f'{self.shout_emoji} You told me to remind you some time ago. '
+                            f'Sorry for being late:\n{reminder.content}')
+        else:
+            message = await user.send(f'{self.shout_emoji} You told me to remind you {diff} ago:\n{reminder.content}')
+            ctx = await self.bot.get_context(message)
+            ctx.author = user
+
+            confirm = await SimpleConfirm(message, timeout=120.0, emoji=SNOOZE_EMOJI).prompt(ctx)
+            if confirm:
+                try:
+                    new_due = await self.prompt_snooze_time(reminder)
+                    reminder.due = new_due
+                    await self.bot.db.update(self.reminders_collection, reminder.id, {'due': new_due.timestamp()})
+                    self.scheduler.schedule(self.remind_user(reminder), new_due)
+                    return
+                except commands.BadArgument as ba:
+                    await ctx.send(ba)
+
         reminder.done = True
         await self.bot.db.update(self.reminders_collection, reminder.id, {'done': True})
-        if late:
-            await reminder.user.send(f'{self.shout_emoji} You told me to remind you some time ago. '
-                                     f'Sorry for being late:\n{reminder.content}')
-        else:
-            await reminder.user.send(f'{self.shout_emoji} You told me to remind you {diff} ago:\n{reminder.content}')
+
+    async def prompt_snooze_time(self, reminder):
+        user = reminder.user
+
+        message = await user.send('When do you want me to remind you again? (e.g.: `in 30 minutes`)')
+        channel = message.channel
+
+        answer = await self.bot.wait_for('message', check=lambda msg: msg.channel == channel)
+        parsed_date = parse_date(answer.content)
+
+        now = pendulum.now('UTC')
+        diff = parsed_date.diff_for_humans(now, True)
+
+        await channel.send(f'Reminding you again in {diff}.')
+        return parsed_date
