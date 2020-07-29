@@ -74,3 +74,7 @@ def flatten(l):
 
 def git_version_label():
     return subprocess.check_output(['git', 'describe', '--tags', '--long']).decode('ascii').strip()
+
+
+def git_short_history():
+    return subprocess.check_output(['git', 'log', '-3', '--pretty=format:`%h`: %s (%ar)']).decode('ascii').strip()

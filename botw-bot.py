@@ -19,7 +19,7 @@ def cmd_to_str(group=False):
 
 
 class EmbedHelpCommand(commands.DefaultHelpCommand):
-    CREATOR_ID = 207955387909931009
+
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -29,7 +29,7 @@ class EmbedHelpCommand(commands.DefaultHelpCommand):
         heading = f' - {name}' if name else ''
         return discord.Embed(description=self.get_ending_note()) \
             .set_author(name=f'{bot.user.name} Help{heading}', icon_url=bot.user.avatar_url) \
-            .set_footer(text=f'Made by {bot.get_user(self.CREATOR_ID)}. Running {bot.version}.')
+            .set_footer(text=f'Made by {bot.get_user(bot.CREATOR_ID)}. Running {bot.version}.')
 
     def format_help(self, text):
         return text.format(prefix=self.clean_prefix)
@@ -81,6 +81,8 @@ class EmbedHelpCommand(commands.DefaultHelpCommand):
 
 
 class BotwBot(commands.Bot):
+    CREATOR_ID = 207955387909931009
+
     INITIAL_EXTENSIONS = [
         'cogs.BiasOfTheWeek', 'cogs.Utilities', 'cogs.Settings', 'cogs.Instagram',
         'cogs.EmojiUtils', 'cogs.Tags', 'cogs.Trolling', 'cogs.WolframAlpha',
