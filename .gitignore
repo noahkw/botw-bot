@@ -137,11 +137,11 @@ conf.ini
 # vscode
 .vscode/
 
-# venv
-venv/
-
 # firebase private key
 *firebase-adminsdk*.json
 
 # instagram cookie file
 ig_cookies.json
+
+# gfycat creds file
+gfycat_creds.json

@@ -1,4 +1,5 @@
 import discord
+import gfypy
 from discord import Embed
 from discord.ext import menus
 
@@ -100,6 +101,17 @@ class IdolListSource(menus.ListPageSource):
         for index, combination in enumerate(entries):
             embed.add_field(name=str(index + 1), value=str(combination))
         return embed
+
+
+class GfyListSource(menus.ListPageSource):
+    def __init__(self, data):
+        super().__init__(data, per_page=1)
+
+    async def format_page(self, menu, entries):
+        return f"""**Gfy** `{menu.current_page + 1} / {self.get_max_pages()}`
+*{entries['title']}*
+
+{gfypy.const.GFYCAT_URL}/{entries["gfyId"]}"""
 
 
 class SelectionMenu(menus.MenuPages):
