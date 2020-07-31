@@ -3,6 +3,7 @@ import random
 import time
 
 import discord
+import typing
 from discord import Embed
 from discord.ext import commands
 from discord.utils import find
@@ -75,3 +76,24 @@ class Utilities(commands.Cog):
         embed.add_field(name='Servers', value=servers)
 
         await ctx.send(embed=embed)
+
+    @commands.command(brief='Sends a message to a channel')
+    @commands.has_permissions(administrator=True)
+    @ack
+    async def say(self, ctx, channel: typing.Optional[discord.TextChannel] = None, *, content):
+        if not channel:
+            channel = ctx.channel
+
+        try:
+            await channel.send(content)
+        except discord.Forbidden:
+            await ctx.send(f'I don\'t have permission to send messages in {channel}.')
+
+    @commands.command(brief='Edits a message sent by the bot')
+    @commands.has_permissions(administrator=True)
+    @ack
+    async def edit(self, ctx, message: discord.Message, *, content):
+        try:
+            await message.edit(content=content)
+        except discord.Forbidden:
+            await ctx.send(f'Couldn\'t edit the message. It\'s probably ancient.')
