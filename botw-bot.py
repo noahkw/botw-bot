@@ -20,7 +20,6 @@ def cmd_to_str(group=False):
 
 class EmbedHelpCommand(commands.DefaultHelpCommand):
 
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -125,7 +124,8 @@ class BotwBot(commands.Bot):
 
         error = getattr(error, 'original', error)
 
-        if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument, commands.MissingPermissions)):
+        if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument, commands.MissingPermissions,
+                              commands.DisabledCommand)):
             await ctx.send(error)
             return
 

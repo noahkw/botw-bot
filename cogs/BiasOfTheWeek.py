@@ -69,7 +69,8 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
     @auto_help
     @commands.group(name='biasoftheweek', aliases=['botw'], brief='Organize Bias of the Week events')
     async def biasoftheweek(self, ctx):
-        pass
+        if ctx.guild != self.botw_channel.guild:
+            raise commands.DisabledCommand('BotW has not been enabled in this server.')
 
     @biasoftheweek.command()
     async def nominate(self, ctx, group: commands.clean_content, name: commands.clean_content):
