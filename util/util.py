@@ -106,7 +106,7 @@ def draw_rotated_text(image, angle, xy, text, fill, *args, **kwargs):
         rotated_mask = mask.rotate(angle)
     else:
         # rotate an an enlarged mask to minimize jaggies
-        bigger_mask = mask.resize((max_dim * 8, max_dim * 8),
+        bigger_mask = mask.resize((max_dim * 4, max_dim * 4),
                                   resample=Image.BICUBIC)
         rotated_mask = bigger_mask.rotate(angle).resize(
             mask_size, resample=Image.LANCZOS)

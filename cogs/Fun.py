@@ -32,12 +32,10 @@ class Fun(commands.Cog):
             template = Image.open(f)
 
             font = ImageFont.truetype(font=self.ARIAL_FONT_PATH, size=38, encoding='unic')
-            draw = ImageDraw.Draw(template)
 
             # wrap text
             text = textwrap.fill(text, width=20)
 
-            # draw.text((120, 1200), text, fill=(0, 0, 0), font=font)
             draw_rotated_text(template, 26.0, (65, 1200), text, (0, 0, 0), font=font)
 
             buffer = io.BytesIO()
