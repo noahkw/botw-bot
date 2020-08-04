@@ -29,6 +29,7 @@ jishaku==1.17.1.181
 msgpack==0.6.2
 multidict==4.7.4
 pendulum==2.1.2
+Pillow~=7.2.0
 protobuf==3.11.2
 pyasn1==0.4.8
 pyasn1-modules==0.2.8

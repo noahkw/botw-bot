@@ -86,7 +86,7 @@ class BotwBot(commands.Bot):
         'cogs.BiasOfTheWeek', 'cogs.Utilities', 'cogs.Settings', 'cogs.Instagram',
         'cogs.EmojiUtils', 'cogs.Tags', 'cogs.Trolling', 'cogs.WolframAlpha',
         'cogs.Reminders', 'cogs.Weather', 'cogs.Profiles', 'cogs.Mirroring',
-        'cogs.Greeters', 'jishaku',
+        'cogs.Greeters', 'cogs.Fun', 'jishaku',
     ]
 
     def __init__(self, config_path, **kwargs):
