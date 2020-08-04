@@ -49,6 +49,8 @@ def parse_date(date):
         parsed_date = parsed_date.astimezone(timezone.utc)
 
     parsed_date = pendulum.parse(str(parsed_date))
+    # add 1s to account for processing time, results in nicer diffs
+    parsed_date = parsed_date.add(seconds=1)
 
     if has_passed(parsed_date):
         raise commands.BadArgument(f'`{parsed_date.to_cookie_string()}` is in the past.')

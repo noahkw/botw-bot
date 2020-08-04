@@ -28,13 +28,13 @@ import-expression==1.0.0
 jishaku==1.17.1.181
 msgpack==0.6.2
 multidict==4.7.4
-pendulum==2.0.5
+pendulum==2.1.2
 protobuf==3.11.2
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
 python-dateutil==2.8.1
 pytz==2019.3
-pytzdata==2019.3
+pytzdata==2020.1
 regex==2020.5.14
 requests==2.22.0
 rsa==4.0
