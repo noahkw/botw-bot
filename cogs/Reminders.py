@@ -25,14 +25,14 @@ def setup(bot):
 class ReminderConverter(commands.Converter):
     async def convert(self, ctx, argument):
         # match strings like 'in 1 hour to do the laundry'
-        r_to = re.search(r'(.*?) to (.*)', argument)
+        r_to = re.search(r'(.*?) to (.*)', argument, re.DOTALL)
         if r_to:
             return r_to.group(1), r_to.group(2)
 
         # match strings like '"28-05-20 at 18:00 KST" "Red Velvet comeback"'
         # may be improved to also parse the forms '"longer string" singleword'
         # and 'singleword "longer string"'
-        r_quotes = re.search(r'"(.*)" *"(.*)"', argument)
+        r_quotes = re.search(r'"(.*)" *"(.*)"', argument, re.DOTALL)
         if r_quotes:
             return r_quotes.group(1), r_quotes.group(2)
 
