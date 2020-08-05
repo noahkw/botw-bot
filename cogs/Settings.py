@@ -29,7 +29,8 @@ class Settings(CustomCog, AinitMixin):
 
         for setting in _settings:
             guild = self.bot.get_guild(int(setting.id))
-            self.settings[guild.id] = GuildSettings.from_dict(guild, setting.to_dict())
+            if guild:
+                self.settings[guild.id] = GuildSettings.from_dict(guild, setting.to_dict())
 
         logger.info(f'# Initial settings from db: {len(self.settings)}')
 
