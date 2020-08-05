@@ -56,9 +56,9 @@ class Utilities(commands.Cog):
 
     @commands.command(brief='Shows some info about the bot')
     async def info(self, ctx):
-        embed = Embed(description=f'**Testing server**\n{self.server_invite}\n'
-                                  f'**Latest changes**\n{git_short_history()}') \
-            .set_author(name=f'{self.bot.user.name} Info', icon_url=self.bot.user.avatar_url) \
+        embed = Embed(description=f'**Testing server**\n{self.server_invite}\n')
+                                  # f'**Latest changes**\n{git_short_history()}') \
+        embed.set_author(name=f'{self.bot.user.name} Info', icon_url=self.bot.user.avatar_url) \
             .set_footer(text=f'Made by {self.bot.get_user(self.bot.CREATOR_ID)}. Running {self.bot.version}.') \
             .set_thumbnail(url=self.bot.user.avatar_url_as(static_format='png'))
 
