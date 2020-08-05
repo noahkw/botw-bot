@@ -109,6 +109,9 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
             await ctx.send(f'{ctx.author} nominates **{idol}**.')
 
     async def cog_command_error(self, ctx, error):
+        if hasattr(ctx.command, 'on_error'):
+            return
+
         if isinstance(error, commands.CheckFailure):
             await ctx.send('BotW has not been enabled in this server.')
 
@@ -377,6 +380,11 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
     @ack
     async def server_name(self, ctx, *, name):
         await ctx.guild.edit(name=name)
+
+    @server_name.error
+    async def server_name_error(self, ctx, error):
+        if isinstance(error, commands.CheckFailure):
+            await ctx.send('Only the current BotW winner may change the server name.')
 
     @biasoftheweek.command(brief='Changes the server icon')
     @botw_enabled()
