@@ -4,6 +4,7 @@ Originally a Discord bot for organizing * of the week challenges, now more of a 
 Current modules:
 - Bias of the Week
 - Emoji utilities
+- Fun
 - Instagram
 - Mirroring
 - Profiles
