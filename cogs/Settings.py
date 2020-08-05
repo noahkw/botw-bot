@@ -25,6 +25,8 @@ class Settings(CustomCog, AinitMixin):
     async def _ainit(self):
         _settings = await self.bot.db.get(self.settings_collection)
 
+        await self.bot.wait_until_ready()
+
         for setting in _settings:
             guild = self.bot.get_guild(int(setting.id))
             self.settings[guild.id] = GuildSettings.from_dict(guild, setting.to_dict())

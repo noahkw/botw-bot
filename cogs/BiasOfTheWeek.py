@@ -68,6 +68,8 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
     async def _ainit(self):
         _nominations = await self.bot.db.get(self.nominations_collection)
 
+        await self.bot.wait_until_ready()
+
         for _nomination in _nominations:
             nomination = Nomination.from_dict(_nomination.to_dict(), self.bot, _nomination.id)
             member = nomination.member
