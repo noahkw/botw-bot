@@ -2,7 +2,7 @@ import io
 import logging
 import textwrap
 
-from PIL import Image, ImageFont, ImageDraw
+from PIL import Image, ImageFont
 from discord import File
 from discord.ext import commands
 
@@ -44,10 +44,10 @@ class Fun(commands.Cog):
 
             return buffer
 
-    @memes.command(brief='Creates meme image from Trump/Swan interview template.')
+    @memes.command(brief='Creates meme image from Trump/Swan interview template')
     async def swantf(self, ctx, *, text: commands.clean_content):
         if len(text) >= self.SWANTF_MAX_CHARS:
-            raise commands.BadArgument(f'Text too long. Must be less than {self.SWANTF_MAX_CHARS}.')
+            raise commands.BadArgument(f'Text too long. Must be less than {self.SWANTF_MAX_CHARS} characters.')
 
         with ctx.typing():
             image_buffer = await self.bot.loop.run_in_executor(None, self.make_swantf_image, text)
