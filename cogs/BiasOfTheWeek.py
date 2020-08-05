@@ -108,17 +108,16 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
             self.get_nominations(guild)[member.id] = nomination
             await ctx.send(f'{ctx.author} nominates **{idol}**.')
 
+    async def cog_command_error(self, ctx, error):
+        if isinstance(error, commands.CheckFailure):
+            await ctx.send('BotW has not been enabled in this server.')
+
     @auto_help
     @commands.group(name='biasoftheweek', aliases=['botw'], brief='Organize Bias of the Week events',
                     invoke_without_command=True)
     @botw_enabled()
     async def biasoftheweek(self, ctx):
         pass
-
-    @biasoftheweek.error
-    async def biasoftheweek_error(self, ctx, error):
-        if isinstance(error, commands.CheckFailure):
-            await ctx.send('BotW has not been enabled in this server.')
 
     @biasoftheweek.command(brief='Sets up BotW in the server')
     @commands.has_permissions(administrator=True)
@@ -144,8 +143,6 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
             await ctx.send('Should winners be able to change the server icon and name? (yes/no)')
             botw_winner_changes = await self.bot.wait_for('message', check=check, timeout=60.0)
             botw_winner_changes = await BoolConverter().convert(ctx, botw_winner_changes.content)
-
-            print(botw_channel, nominations_channel, botw_winner_changes)
         except asyncio.TimeoutError:
             await ctx.send(f'Timed out.\nPlease restart the setup using `{ctx.prefix}botw setup`.')
         except commands.CommandError as e:
@@ -156,7 +153,28 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
             await settings_cog.update(ctx.guild, 'botw_winner_changes', botw_winner_changes)
             await settings_cog.update(ctx.guild, 'botw_enabled', True)
 
+            # create role
+            winner_role_name = self.bot.config['biasoftheweek']['winner_role_name']
+            if role := discord.utils.get(ctx.guild.roles, name=winner_role_name):
+                # botw role exists
+                pass
+            else:  # need to create botw role
+                try:
+                    role = await ctx.guild.create_role(name=winner_role_name, reason='BotW setup')
+                except discord.Forbidden:
+                    await ctx.send(f'Could not create role `{winner_role_name}`. Please create it yourself and'
+                                   f' make sure it has send message permissions in {botw_channel.mention}.')
+
+            if role:
+                try:
+                    await botw_channel.edit(overwrites={role: discord.PermissionOverwrite(send_messages=True)},
+                                            reason='BotW setup')
+                except discord.Forbidden:
+                    pass
+
             await ctx.send(f'Bias of the Week is now enabled in this server! `{ctx.prefix}botw disable` to disable.')
+            logger.info(f'BotW was set up in {ctx.guild}: %s, %s, %s',
+                        botw_channel, nominations_channel, botw_winner_changes)
 
     @biasoftheweek.command(brief='Disable BotW in the server')
     @commands.has_permissions(administrator=True)
@@ -259,9 +277,11 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         botw_winner_role = discord.utils.get(guild.roles, name=self.bot.config['biasoftheweek']['winner_role_name'])
         await member.add_roles(botw_winner_role)
         await member.send(f'Hi, your pick **{winner.idol}** won this week\'s BotW. Congratulations!\n'
-                          f'You may now post your pics and gfys in {botw_channel.mention}.\n'
-                          f'Don\'t forget to change the server icon using `.botw icon`'
-                          f' in {nominations_channel.mention}.')
+                          f'You may now post your pics and gfys in {botw_channel.mention}.')
+
+        if settings.botw_winner_changes.value:
+            await member.send(f'Don\'t forget to change the server name/icon using `.botw [name|icon]` '
+                              f'in {nominations_channel.mention}.')
 
     async def _remove_winner_role(self, guild: discord.Guild, winner: BotwWinner):
         member = winner.member
@@ -290,7 +310,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
 
     @tasks.loop(hours=1.0)
     async def _loop(self):
-        pendulum.set_test_now(pendulum.now('UTC').next(self.winner_day))
+        # pendulum.set_test_now(pendulum.now('UTC').next(self.winner_day))
         logger.info('Hourly loop running')
         now = pendulum.now('UTC')
 
@@ -313,9 +333,13 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
             # assign role on winner day
             elif now.day_of_week == self.winner_day and now.hour == 0:
                 if settings.botw_state.value not in (BotwState.SKIP, BotwState.DEFAULT):
-                    winner, previous_winner = sorted(self.get_past_winners(guild), key=lambda w: w.timestamp,
-                                                     reverse=True)[0:2]
-                    await self._remove_winner_role(guild, previous_winner)
+                    if len(self.get_past_winners(guild)) >= 2:
+                        winner, previous_winner = sorted(self.get_past_winners(guild), key=lambda w: w.timestamp,
+                                                         reverse=True)[0:2]
+                        await self._remove_winner_role(guild, previous_winner)
+                    else:
+                        winner = self.get_past_winners(guild)[0]
+
                     await self._assign_winner_role(guild, winner)
                 else:
                     logger.info(f'Skipping BotW winner role assignment in {guild}')

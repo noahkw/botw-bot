@@ -90,8 +90,8 @@ class GuildSettings:
 
         # BotW settings
         self.botw_enabled = SettingsItem('BotW enabled', botw_enabled)
-        self.botw_winner_changes = SettingsItem('BotW Winner may change server icon/name', botw_winner_changes)
-        self.botw_state = BotwStateItem('BotW state', botw_state)
+        self.botw_winner_changes = SettingsItem('BotW Winner may change server icon/name', botw_winner_changes or False)
+        self.botw_state = BotwStateItem('BotW state', botw_state or BotwState.DEFAULT)
         self.botw_channel = DiscordModelItem('BotW channel', botw_channel, guild.get_channel)
         self.botw_nominations_channel = DiscordModelItem('BotW nominations channel', botw_nominations_channel,
                                                          guild.get_channel)
