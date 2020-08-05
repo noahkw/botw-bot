@@ -15,7 +15,7 @@ class SettingsItem:
         self._value = value
 
     def add_to_embed(self, embed):
-        embed.add_field(name=self.name, value=self.value if self.value else 'not set')
+        embed.add_field(name=self.name, value=self.value if self.value is not None else 'not set')
 
     @property
     def value(self):
@@ -80,14 +80,17 @@ class GreeterItem(SettingsItem):
 class GuildSettings:
     __slots__ = (
         'guild', 'botw_enabled', 'botw_state', 'emoji_channel', 'prefix', 'join_greeter', 'leave_greeter',
-        'botw_channel', 'botw_nominations_channel')
+        'botw_channel', 'botw_nominations_channel', 'botw_winner_changes')
     __items = __slots__[1:]
 
     def __init__(self, guild, botw_enabled=False, botw_state=BotwState.DEFAULT, botw_channel=None,
-                 botw_nominations_channel=None, emoji_channel=None, prefix=None, join_greeter=None, leave_greeter=None):
+                 botw_nominations_channel=None, emoji_channel=None, prefix=None, join_greeter=None, leave_greeter=None,
+                 botw_winner_changes=False):
         self.guild = guild
 
+        # BotW settings
         self.botw_enabled = SettingsItem('BotW enabled', botw_enabled)
+        self.botw_winner_changes = SettingsItem('BotW Winner may change server icon/name', botw_winner_changes)
         self.botw_state = BotwStateItem('BotW state', botw_state)
         self.botw_channel = DiscordModelItem('BotW channel', botw_channel, guild.get_channel)
         self.botw_nominations_channel = DiscordModelItem('BotW nominations channel', botw_nominations_channel,

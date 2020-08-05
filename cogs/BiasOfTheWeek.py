@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import random
 
@@ -12,7 +13,7 @@ from const import CROSS_EMOJI
 from menu import Confirm, BotwWinnerListSource, SelectionMenu, IdolListSource
 from models import BotwWinner, BotwState
 from models import Idol, Nomination
-from util import ratio, ack, auto_help
+from util import ratio, ack, auto_help, BoolConverter
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,22 @@ def setup(bot):
 
 
 def has_winner_role():
-    def predicate(ctx):
-        return ctx.bot.config['biasoftheweek']['winner_role_name'] in [role.name for role in ctx.message.author.roles]
+    async def predicate(ctx):
+        settings_cog = ctx.bot.get_cog('Settings')
+        settings = await settings_cog.get_settings(ctx.guild)
+
+        return settings.botw_winner_changes.value and \
+               ctx.bot.config['biasoftheweek']['winner_role_name'] in [role.name for role in ctx.message.author.roles]
+
+    return commands.check(predicate)
+
+
+def botw_enabled():
+    async def predicate(ctx):
+        settings_cog = ctx.bot.get_cog('Settings')
+        settings = await settings_cog.get_settings(ctx.guild)
+
+        return settings.botw_enabled.value
 
     return commands.check(predicate)
 
@@ -81,8 +96,6 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
         guild = ctx.guild
         member = ctx.author
 
-        # self.get_nominations(guild)[member.id] = idol
-
         if old_idol:  # update old db entry
             nomination = self.get_nominations(guild)[member.id]
             nomination.idol = idol
@@ -96,11 +109,64 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
             await ctx.send(f'{ctx.author} nominates **{idol}**.')
 
     @auto_help
-    @commands.group(name='biasoftheweek', aliases=['botw'], brief='Organize Bias of the Week events')
+    @commands.group(name='biasoftheweek', aliases=['botw'], brief='Organize Bias of the Week events',
+                    invoke_without_command=True)
+    @botw_enabled()
     async def biasoftheweek(self, ctx):
         pass
 
+    @biasoftheweek.error
+    async def biasoftheweek_error(self, ctx, error):
+        if isinstance(error, commands.CheckFailure):
+            await ctx.send('BotW has not been enabled in this server.')
+
+    @biasoftheweek.command(brief='Sets up BotW in the server')
+    @commands.has_permissions(administrator=True)
+    async def setup(self, ctx):
+        settings_cog = self.bot.get_cog('Settings')
+
+        def check(m):
+            return m.channel == ctx.channel and m.author == ctx.author
+
+        channel_converter = commands.TextChannelConverter()
+
+        await ctx.send('Okay, let\'s set up Bias of the Week in this server. '
+                       'Which channel do you want winners to post in? (Reply with a mention or an ID)')
+
+        try:
+            botw_channel = await self.bot.wait_for('message', check=check, timeout=60.0)
+            botw_channel = await channel_converter.convert(ctx, botw_channel.content)
+
+            await ctx.send('What channel should I send the winner announcement to? (Reply with a mention or an ID)')
+            nominations_channel = await self.bot.wait_for('message', check=check, timeout=60.0)
+            nominations_channel = await channel_converter.convert(ctx, nominations_channel.content)
+
+            await ctx.send('Should winners be able to change the server icon and name? (yes/no)')
+            botw_winner_changes = await self.bot.wait_for('message', check=check, timeout=60.0)
+            botw_winner_changes = await BoolConverter().convert(ctx, botw_winner_changes.content)
+
+            print(botw_channel, nominations_channel, botw_winner_changes)
+        except asyncio.TimeoutError:
+            await ctx.send(f'Timed out.\nPlease restart the setup using `{ctx.prefix}botw setup`.')
+        except commands.CommandError as e:
+            await ctx.send(f'{e}\nPlease restart the setup using `{ctx.prefix}botw setup`.')
+        else:
+            await settings_cog.update(ctx.guild, 'botw_channel', botw_channel)
+            await settings_cog.update(ctx.guild, 'botw_nominations_channel', nominations_channel)
+            await settings_cog.update(ctx.guild, 'botw_winner_changes', botw_winner_changes)
+            await settings_cog.update(ctx.guild, 'botw_enabled', True)
+
+            await ctx.send(f'Bias of the Week is now enabled in this server! `{ctx.prefix}botw disable` to disable.')
+
+    @biasoftheweek.command(brief='Disable BotW in the server')
+    @commands.has_permissions(administrator=True)
+    async def disable(self, ctx):
+        settings_cog = self.bot.get_cog('Settings')
+        await settings_cog.update(ctx.guild, 'botw_enabled', False)
+        await ctx.send(f'Bias of the Week is now disabled in this server! `{ctx.prefix}botw setup` to enable it again.')
+
     @biasoftheweek.command()
+    @botw_enabled()
     async def nominate(self, ctx, group: commands.clean_content, name: commands.clean_content):
         idol = Idol(group, name)
         best_match = match_idol(idol,
@@ -119,7 +185,7 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
                           days=self.past_winners_time)]:  # check whether idol has won in the past
             raise commands.BadArgument(f'**{idol}** has already won in the past `{self.past_winners_time}` days. '
                                        f'Please nominate someone else.')
-        elif ctx.author.id in self.get_nominations(ctx.guild).keys():
+        elif ctx.author.id in self.get_nominations(ctx.guild):
             old_idol = self.get_nominations(ctx.guild)[ctx.author.id].idol
 
             confirm_override = await Confirm(f'Your current nomination is **{old_idol}**. '
@@ -135,12 +201,14 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
         await self.bot.db.delete(self.nominations_collection, document=nomination.id)
 
     @biasoftheweek.command(name='clearnomination')
+    @botw_enabled()
     @commands.has_permissions(administrator=True)
     @ack
     async def clear_nomination(self, ctx, member: discord.Member):
         await self._clear_nominations(ctx.guild, member)
 
     @biasoftheweek.command()
+    @botw_enabled()
     async def nominations(self, ctx):
         if len(nominations := self.get_nominations(ctx.guild).values()) > 0:
             embed = discord.Embed(title='Bias of the Week nominations')
@@ -152,12 +220,15 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
             await ctx.send('So far, no idols have been nominated.')
 
     @biasoftheweek.command()
+    @botw_enabled()
     @commands.has_permissions(administrator=True)
     async def winner(self, ctx, silent: bool = False):
         await self._pick_winner(ctx.guild, silent=silent)
 
     async def _pick_winner(self, guild: discord.Guild, silent=False):
-        member, pick = random.choice(list(self.get_nominations(guild).items()))
+        nomination = random.choice(list(self.get_nominations(guild).values()))
+        pick = nomination.idol
+        member = nomination.member
 
         settings_cog = self.bot.get_cog('Settings')
         settings = await settings_cog.get_settings(guild)
@@ -200,11 +271,13 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         await member.remove_roles(botw_winner_role)
 
     @biasoftheweek.command()
-    @commands.is_owner()
+    @botw_enabled()
+    @commands.has_permissions(administrator=True)
     async def skip(self, ctx):
         settings_cog = self.bot.get_cog('Settings')
         settings = await settings_cog.get_settings(ctx.guild)
         state = settings.botw_state.value
+
         if state == BotwState.WINNER_CHOSEN:
             raise commands.BadArgument('Can\'t skip because the current winner has not been notified yet.')
 
@@ -217,7 +290,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
 
     @tasks.loop(hours=1.0)
     async def _loop(self):
-        # pendulum.set_test_now(pendulum.now('UTC').next(self.winner_day))
+        pendulum.set_test_now(pendulum.now('UTC').next(self.winner_day))
         logger.info('Hourly loop running')
         now = pendulum.now('UTC')
 
@@ -225,7 +298,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
 
         for guild in self.bot.guilds:
             settings = await settings_cog.get_settings(guild)
-            if not settings.botw_enabled:
+            if not settings.botw_enabled.value:
                 continue
 
             # pick winner on announcement day
@@ -240,7 +313,8 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
             # assign role on winner day
             elif now.day_of_week == self.winner_day and now.hour == 0:
                 if settings.botw_state.value not in (BotwState.SKIP, BotwState.DEFAULT):
-                    winner, previous_winner = sorted(self.past_winners, key=lambda w: w.timestamp, reverse=True)[0:2]
+                    winner, previous_winner = sorted(self.get_past_winners(guild), key=lambda w: w.timestamp,
+                                                     reverse=True)[0:2]
                     await self._remove_winner_role(guild, previous_winner)
                     await self._assign_winner_role(guild, winner)
                 else:
@@ -253,6 +327,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         await self.bot.wait_until_ready()
 
     @biasoftheweek.command()
+    @botw_enabled()
     async def history(self, ctx):
         if len(past_winners := self.get_past_winners(ctx.guild)) > 0:
             past_winners = sorted(past_winners, key=lambda w: w.timestamp, reverse=True)
@@ -262,12 +337,14 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
             await ctx.send('So far there have been no winners.')
 
     @biasoftheweek.command(name='servername', aliases=['name'])
+    @botw_enabled()
     @has_winner_role()
     @ack
     async def server_name(self, ctx, *, name):
         await ctx.guild.edit(name=name)
 
     @biasoftheweek.command()
+    @botw_enabled()
     @has_winner_role()
     @ack
     async def icon(self, ctx):
@@ -288,6 +365,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
             logger.error(error)
 
     @biasoftheweek.command()
+    @botw_enabled()
     @commands.has_permissions(administrator=True)
     @ack
     async def addwinner(self, ctx, member: discord.Member, starting_day, group, name):
