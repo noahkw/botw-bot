@@ -190,7 +190,7 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
 
     @biasoftheweek.command(brief='Nominates an idol')
     @botw_enabled()
-    async def nominate(self, ctx, group: commands.clean_content, name: commands.clean_content):
+    async def nominate(self, ctx, group: commands.clean_content, *, name: commands.clean_content):
         """
         Nominates an idol for next week's Bias of the Week.
 
@@ -439,46 +439,16 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
 
         text = (await idols_attachment.read()).decode('UTF-8')
         lines = text.splitlines()
-        lines_tokenized = [line.split(' ') for line in lines]
+        lines_tokenized = [line.split('\t') for line in lines]
 
-        seen_groups = set()
+        with ctx.typing():
+            self.idols = set()
+            await self.bot.db.delete(self.idols_collection)
 
-        for tokens in lines_tokenized:
-            sublists = [(' '.join(tokens[:i]), ' '.join(tokens[i:])) for i in range(1, len(tokens))]
-
-            try:
-                for candidate in sublists:
-                    if (idol := Idol(*candidate)) in self.idols:
-                        seen_groups.add(idol.group)
-                        raise Exception()  # raise to exit outer loop
-            except Exception:
-                continue
-
-            group_candidates = set(token[0] for token in sublists)
-
-            if len(tokens) == 2:
-                # easy case
-                idol = Idol(*tokens)
-                seen_groups.add(idol.group)
-
-                self.idols.add(idol)
-                await self.bot.db.add(self.idols_collection, idol.to_dict())
-            elif group := group_candidates.intersection(seen_groups):
-                group = group.pop()  # want a string, not a set
-                name = [tokens[1] for tokens in sublists if tokens[0] == group].pop()
+            for tokens in lines_tokenized:
+                group, name = tokens
                 idol = Idol(group, name)
                 self.idols.add(idol)
                 await self.bot.db.add(self.idols_collection, idol.to_dict())
-            else:
-                correct = await self.prompt_idol_correction(ctx, sublists)
 
-                if correct is not None:
-                    # filter
-                    seen_groups.add(correct.group)
-                    self.idols.add(correct)
-                    await self.bot.db.add(self.idols_collection, correct.to_dict())
-
-    async def prompt_idol_correction(self, ctx, sublists):
-        pages = SelectionMenu(source=IdolListSource(sublists))
-        selection = await pages.prompt(ctx)
-        return Idol(selection[0], selection[1])
+        await ctx.send(f'Successfully loaded `{len(lines)}` idols.')
