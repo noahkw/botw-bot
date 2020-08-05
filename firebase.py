@@ -37,6 +37,18 @@ def transfer_initial_tags(guild_id):
         db.db.collection('tags').document(_id).update({'guild': guild_id})
 
 
+def transfer_initial_botw_winners(guild_id):
+    # Transfers ALL botw winners to the given guild id. Only use this when migrating from a build where botw was global
+    past_winners = db.db.collection('botw_winners').stream()
+    ids = []
+    for past_winner in past_winners:
+        print(past_winner.to_dict())
+        ids.append(past_winner.id)
+
+    for _id in ids:
+        db.db.collection('botw_winners').document(_id).update({'guild': guild_id})
+
+
 if __name__ == '__main__':
     config = ConfigParser()
     config.read('conf.ini')
@@ -44,7 +56,7 @@ if __name__ == '__main__':
     db = FirebaseDataStore(config['firebase']['key_file'], config['firebase']['db_name'], loop)
 
     parser = ArgumentParser(description='Firebase db utility script')
-    parser.add_argument('operation', choices=['backup', 'transfer_all_tags'])
+    parser.add_argument('operation', choices=['backup', 'transfer_all_tags', 'transfer_all_botw_winners'])
     args = parser.parse_args()
 
     if args.operation == 'backup':
@@ -54,3 +66,5 @@ if __name__ == '__main__':
             loop.run_until_complete(backup())
     elif args.operation == 'transfer_all_tags':
         transfer_initial_tags(601932891743846440)
+    elif args.operation == 'transfer_all_botw_winners':
+        transfer_initial_botw_winners(601932891743846440)

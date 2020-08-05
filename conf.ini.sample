@@ -14,8 +14,6 @@ past_winners_collection=botw_winners
 past_winners_time=180
 # [1, 7], 0=sunday, 6=saturday
 winner_day=3
-botw_channel=XXXXXXXXXXXXXXXXXX
-nominations_channel=XXXXXXXXXXXXXXXXXX
 
 [scheduler]
 jobs_collection=jobs

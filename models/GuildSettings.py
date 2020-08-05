@@ -15,7 +15,7 @@ class SettingsItem:
         self._value = value
 
     def add_to_embed(self, embed):
-        embed.add_field(name=self.name, value=self.value if self.value else 'not set')
+        embed.add_field(name=self.name, value=self.value if self.value is not None else 'not set')
 
     @property
     def value(self):
@@ -78,14 +78,24 @@ class GreeterItem(SettingsItem):
 
 
 class GuildSettings:
-    __slots__ = ('guild', 'botw_state', 'emoji_channel', 'prefix', 'join_greeter', 'leave_greeter',)
-    __items__ = __slots__[1:]
+    __slots__ = (
+        'guild', 'botw_enabled', 'botw_state', 'emoji_channel', 'prefix', 'join_greeter', 'leave_greeter',
+        'botw_channel', 'botw_nominations_channel', 'botw_winner_changes')
+    __items = __slots__[1:]
 
-    def __init__(self, guild, botw_state=BotwState.DEFAULT, emoji_channel=None, prefix=None,
-                 join_greeter=None, leave_greeter=None):
+    def __init__(self, guild, botw_enabled=False, botw_state=BotwState.DEFAULT, botw_channel=None,
+                 botw_nominations_channel=None, emoji_channel=None, prefix=None, join_greeter=None, leave_greeter=None,
+                 botw_winner_changes=False):
         self.guild = guild
 
-        self.botw_state = BotwStateItem('BotW state', botw_state)
+        # BotW settings
+        self.botw_enabled = SettingsItem('BotW enabled', botw_enabled)
+        self.botw_winner_changes = SettingsItem('BotW Winner may change server icon/name', botw_winner_changes or False)
+        self.botw_state = BotwStateItem('BotW state', botw_state or BotwState.DEFAULT)
+        self.botw_channel = DiscordModelItem('BotW channel', botw_channel, guild.get_channel)
+        self.botw_nominations_channel = DiscordModelItem('BotW nominations channel', botw_nominations_channel,
+                                                         guild.get_channel)
+
         self.emoji_channel = DiscordModelItem('Emoji channel', emoji_channel, guild.get_channel)
         self.prefix = SettingsItem('Prefix', prefix)
         self.join_greeter = GreeterItem('Join greeter', guild.get_channel, join_greeter if join_greeter else {})
@@ -93,7 +103,7 @@ class GuildSettings:
 
     def to_dict(self):
         return {
-            settings_item: getattr(self, settings_item).db_value() for settings_item in GuildSettings.__items__
+            settings_item: getattr(self, settings_item).db_value() for settings_item in GuildSettings.__items
         }
 
     def update(self, attr, *values):
@@ -104,13 +114,13 @@ class GuildSettings:
     @staticmethod
     def from_dict(guild, source):
         kwargs = {}
-        for item in GuildSettings.__items__:
+        for item in GuildSettings.__items:
             kwargs[item] = source.pop(item, None)
         return GuildSettings(guild, **kwargs)
 
     def to_embed(self):
         embed = Embed(title=f'Settings of {self.guild}')
 
-        for item in self.__items__:
+        for item in self.__items:
             getattr(self, item).add_to_embed(embed)
         return embed
