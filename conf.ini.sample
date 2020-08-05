@@ -48,6 +48,10 @@ cookies_file=ig_cookies.json
 [mirroring]
 mirrors_collection=mirrors
 
+[gfycat]
+client_id=X_XXXXXX
+client_secret=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
 [firebase]
 key_file=xxx-firebase-adminsdk-xxx-xxx.json
 db_name=xxx
