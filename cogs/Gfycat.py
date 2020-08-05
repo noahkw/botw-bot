@@ -30,12 +30,24 @@ class Gfycat(commands.Cog):
     async def gfycat(self, ctx):
         await ctx.send_help(self.gfycat)
 
-    @gfycat.command()
-    async def list(self, ctx, user_id):
-        gfys = await self.gfypy.get_user_feed(user_id, limit=-1)
+    async def send_gfy_list(self, ctx, gfys, user_id):
         await ctx.send(f'Found `{len(gfys)}` Gfys for user `{user_id}`.')
         pages = MenuPages(source=GfyListSource(gfys), clear_reactions_after=True)
         await pages.start(ctx)
+
+    @gfycat.command()
+    async def list(self, ctx, user_id):
+        with ctx.typing():
+            gfys = await self.gfypy.get_user_feed(user_id, limit=-1)
+
+        await self.send_gfy_list(ctx, gfys, user_id)
+
+    @gfycat.command()
+    async def top(self, ctx, user_id):
+        with ctx.typing():
+            gfys = await self.gfypy.get_user_feed(user_id, limit=-1, sort_by='views')
+
+        await self.send_gfy_list(ctx, gfys, user_id)
 
     async def cog_before_invoke(self, ctx):
         await ctx.trigger_typing()

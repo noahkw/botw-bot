@@ -108,10 +108,13 @@ class GfyListSource(menus.ListPageSource):
         super().__init__(data, per_page=1)
 
     async def format_page(self, menu, entries):
-        return f"""**Gfy** `{menu.current_page + 1} / {self.get_max_pages()}`
-*{entries['title']}*
+        content = f"""**Gfy** `{menu.current_page + 1} / {self.get_max_pages()}`
 
-{gfypy.const.GFYCAT_URL}/{entries["gfyId"]}"""
+**{entries['title']}**
+**Views**: `{entries['views']}` | **Likes**: `{entries['likes']}`
+{gfypy.const.GFYCAT_URL}/{entries['gfyId']}"""
+
+        return content
 
 
 class SelectionMenu(menus.MenuPages):
