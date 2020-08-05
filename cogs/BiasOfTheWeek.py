@@ -117,7 +117,7 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
                     invoke_without_command=True)
     @botw_enabled()
     async def biasoftheweek(self, ctx):
-        pass
+        await ctx.send_help(self.biasoftheweek)
 
     @biasoftheweek.command(brief='Sets up BotW in the server')
     @commands.has_permissions(administrator=True)
@@ -183,9 +183,15 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
         await settings_cog.update(ctx.guild, 'botw_enabled', False)
         await ctx.send(f'Bias of the Week is now disabled in this server! `{ctx.prefix}botw setup` to enable it again.')
 
-    @biasoftheweek.command()
+    @biasoftheweek.command(brief='Nominates an idol')
     @botw_enabled()
     async def nominate(self, ctx, group: commands.clean_content, name: commands.clean_content):
+        """
+        Nominates an idol for next week's Bias of the Week.
+
+        Example usage:
+        `{prefix}botw nominate "Red Velvet" "Irene"`
+        """
         idol = Idol(group, name)
         best_match = match_idol(idol,
                                 [winner.idol for winner in self.get_past_winners(ctx.guild)] +
@@ -218,14 +224,14 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
         nomination = self.get_nominations(guild).pop(member.id)
         await self.bot.db.delete(self.nominations_collection, document=nomination.id)
 
-    @biasoftheweek.command(name='clearnomination')
+    @biasoftheweek.command(name='clearnomination', brief='Clears a member\'s nomination')
     @botw_enabled()
     @commands.has_permissions(administrator=True)
     @ack
     async def clear_nomination(self, ctx, member: discord.Member):
         await self._clear_nominations(ctx.guild, member)
 
-    @biasoftheweek.command()
+    @biasoftheweek.command(brief='Displays the current nominations')
     @botw_enabled()
     async def nominations(self, ctx):
         if len(nominations := self.get_nominations(ctx.guild).values()) > 0:
@@ -237,10 +243,15 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
         else:
             await ctx.send('So far, no idols have been nominated.')
 
-    @biasoftheweek.command()
+    @biasoftheweek.command(brief='Manually picks a winner')
     @botw_enabled()
     @commands.has_permissions(administrator=True)
     async def winner(self, ctx, silent: bool = False):
+        """
+        Manually picks a winner.
+
+        Do not use unless you know what you are doing! It will probably result in the picked winner getting skipped!
+        """
         await self._pick_winner(ctx.guild, silent=silent)
 
     async def _pick_winner(self, guild: discord.Guild, silent=False):
@@ -290,7 +301,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         botw_winner_role = discord.utils.get(guild.roles, name=self.bot.config['biasoftheweek']['winner_role_name'])
         await member.remove_roles(botw_winner_role)
 
-    @biasoftheweek.command()
+    @biasoftheweek.command(brief='Skips next week\'s BotW draw')
     @botw_enabled()
     @commands.has_permissions(administrator=True)
     async def skip(self, ctx):
@@ -350,7 +361,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
     async def loop_before(self):
         await self.bot.wait_until_ready()
 
-    @biasoftheweek.command()
+    @biasoftheweek.command(brief='Displays past BotW winners')
     @botw_enabled()
     async def history(self, ctx):
         if len(past_winners := self.get_past_winners(ctx.guild)) > 0:
@@ -360,14 +371,14 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         else:
             await ctx.send('So far there have been no winners.')
 
-    @biasoftheweek.command(name='servername', aliases=['name'])
+    @biasoftheweek.command(name='servername', aliases=['name'], brief='Changes the server name')
     @botw_enabled()
     @has_winner_role()
     @ack
     async def server_name(self, ctx, *, name):
         await ctx.guild.edit(name=name)
 
-    @biasoftheweek.command()
+    @biasoftheweek.command(brief='Changes the server icon')
     @botw_enabled()
     @has_winner_role()
     @ack
@@ -388,11 +399,17 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
             await ctx.message.add_reaction(CROSS_EMOJI)
             logger.error(error)
 
-    @biasoftheweek.command()
+    @biasoftheweek.command(brief='Manually adds a past BotW winner')
     @botw_enabled()
     @commands.has_permissions(administrator=True)
     @ack
     async def addwinner(self, ctx, member: discord.Member, starting_day, group, name):
+        """
+        Manually adds a past BotW winner.
+
+        Example usage:
+        `{prefix}botw addwinner @MemberX 2020-08-05 "Red Velvet" "Irene"`
+        """
         day = parse(starting_day)
         day = pendulum.instance(day)
 
@@ -402,7 +419,7 @@ You will be assigned the role *{self.bot.config['biasoftheweek']['winner_role_na
         self.get_past_winners(ctx.guild).append(botw_winner)
         await self.bot.db.add(self.past_winners_collection, botw_winner.to_dict())
 
-    @biasoftheweek.command(name='load')
+    @biasoftheweek.command(name='load', brief='Parses a file containing idol names')
     @commands.is_owner()
     async def load_idols(self, ctx):
         try:
