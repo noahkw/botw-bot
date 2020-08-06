@@ -8,7 +8,7 @@ from discord.ext import commands
 from discord.utils import find
 
 from const import SHOUT_EMOJI
-from util import ack, git_version_label
+from util import ack, git_version_label, git_short_history
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,14 @@ class Utilities(commands.Cog):
         embed.add_field(name='Members', value=f'{members} total\n{users} unique\n{members_online} online')
         embed.add_field(name='Channels', value=f'{text_channels} text\n{voice_channels} voice')
         embed.add_field(name='Servers', value=servers)
+
+        await ctx.send(embed=embed)
+
+    @commands.command(brief='Shows the latest commits')
+    @commands.is_owner()
+    async def changelog(self, ctx, n=5):
+        embed = Embed(description=git_short_history(n)) \
+            .set_author(name=f'{self.bot.user.name} Changelog', icon_url=self.bot.user.avatar_url)
 
         await ctx.send(embed=embed)
 
