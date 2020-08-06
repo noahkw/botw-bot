@@ -94,7 +94,8 @@ class BotwBot(commands.Bot):
         self.config = configparser.ConfigParser()
         self.config.read(config_path)
         super().__init__(**kwargs, command_prefix=self.config['discord']['command_prefix'],
-                         help_command=EmbedHelpCommand())
+                         help_command=EmbedHelpCommand(),
+                         allowed_mentions=discord.AllowedMentions(everyone=False, users=True, roles=False))
         self.db = FirebaseDataStore(self.config['firebase']['key_file'], self.config['firebase']['db_name'], self.loop)
         self.add_checks()
 

@@ -1,15 +1,14 @@
 import logging
 import random
-import time
+import typing
 
 import discord
-import typing
 from discord import Embed
 from discord.ext import commands
 from discord.utils import find
 
-from const import SHOUT_EMOJI, CHECK_EMOJI
-from util import ack, git_version_label, git_short_history
+from const import SHOUT_EMOJI
+from util import ack, git_version_label
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +84,7 @@ class Utilities(commands.Cog):
             channel = ctx.channel
 
         try:
-            await channel.send(content)
+            await channel.send(content, allowed_mentions=discord.AllowedMentions(everyone=True, users=True, roles=True))
         except discord.Forbidden:
             await ctx.send(f'I don\'t have permission to send messages in {channel}.')
 
@@ -94,6 +93,7 @@ class Utilities(commands.Cog):
     @ack
     async def edit(self, ctx, message: discord.Message, *, content):
         try:
-            await message.edit(content=content)
+            await message.edit(content=content,
+                               allowed_mentions=discord.AllowedMentions(everyone=True, users=True, roles=True))
         except discord.Forbidden:
             await ctx.send(f'Couldn\'t edit the message. It\'s probably ancient.')
