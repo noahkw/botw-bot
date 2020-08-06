@@ -74,6 +74,10 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
             nomination = Nomination.from_dict(_nomination.to_dict(), self.bot, _nomination.id)
             member = nomination.member
             guild = nomination.guild
+            # ignore if guild is not in cache, i.e. bot is not in the guild anymore
+            if not guild:
+                continue
+
             self.get_nominations(guild)[member.id] = nomination
 
         logger.info(f'# Initial nominations from db: {len(self.nominations)}')
@@ -82,6 +86,10 @@ class BiasOfTheWeek(CustomCog, AinitMixin):
 
         for _past_winner in _past_winners:
             past_winner = BotwWinner.from_dict(_past_winner.to_dict(), self.bot)
+            # ignore if guild is not in cache, i.e. bot is not in the guild anymore
+            if not past_winner.guild:
+                continue
+
             self.get_past_winners(past_winner.guild).append(past_winner)
 
         self.idols = set([Idol.from_dict(idol.to_dict()) for idol in await self.bot.db.get(self.idols_collection)])
