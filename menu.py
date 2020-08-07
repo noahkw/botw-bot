@@ -117,6 +117,38 @@ class GfyListSource(menus.ListPageSource):
         return content
 
 
+class GfySourceEmpty(Exception):
+    pass
+
+
+class AsyncGfySource(menus.AsyncIteratorPageSource):
+    def __init__(self, iter):
+        super().__init__(iter, per_page=1)
+
+    async def _iterate(self, n):
+        it = self.iterator
+        cache = self._cache
+        for i in range(0, n):
+            try:
+                elem = await it.__anext__()
+            except StopAsyncIteration:
+                if i != 0:
+                    self._exhausted = True
+                else:
+                    raise GfySourceEmpty
+            else:
+                cache.append(elem)
+
+    async def format_page(self, menu, entry):
+        content = f"""**Gfy** `{menu.current_page + 1} / ∞`
+
+**{entry.title}**
+**Views**: `{entry.views}` | **Likes**: `{entry.likes}`
+{gfypy.const.GFYCAT_URL}/{entry.gfy_id}"""
+
+        return content
+
+
 class SelectionMenu(menus.MenuPages):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
