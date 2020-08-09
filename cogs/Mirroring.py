@@ -75,7 +75,7 @@ class Mirroring(CustomCog, AinitMixin):
         mirror.webhook = dest_webhook
 
         query = 'INSERT INTO mirrors (origin, destination, webhook, enabled) VALUES ($1, $2, $3, $4);'
-        await self.bot.db.pool.execute(query, *await mirror.to_tuple())
+        await self.bot.db.pool.execute(query, *mirror.to_tuple())
 
         self.append_mirror(mirror)
         await ctx.send(f'Added {mirror}')

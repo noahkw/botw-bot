@@ -58,5 +58,5 @@ class ChannelMirror:
         return f'<ChannelMirror _origin={repr(self._origin)} dest={repr(self._destination)} ' \
                f'_webhook={repr(self._webhook)} _enabled={self._enabled}>'
 
-    async def to_tuple(self):
+    def to_tuple(self):
         return self._origin, self._destination, self._webhook, self._enabled
