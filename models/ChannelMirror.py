@@ -1,36 +1,62 @@
-from discord import utils
+from typing import Optional
+
+from discord import Webhook
 
 
 class ChannelMirror:
-    def __init__(self, origin, dest, webhook, enabled=True):
-        self.origin = origin
-        self.dest = dest
-        self.webhook = webhook
-        self.enabled = enabled
+    def __init__(self, bot, origin, destination, webhook, enabled=True):
+        self._origin: int = origin
+        self._destination: int = destination
+        self._webhook: int = webhook
+        self._webhook_obj: Optional[Webhook] = None
+        self._enabled: int = enabled
+        self._bot = bot
+
+    @property
+    def origin(self):
+        return self._bot.get_channel(self._origin)
+
+    @property
+    def destination(self):
+        return self._bot.get_channel(self._destination)
+
+    @property
+    async def webhook(self):
+        if not self._webhook_obj:
+            self._webhook_obj = await self._bot.fetch_webhook(self._webhook)
+
+        return self._webhook_obj
+
+    @webhook.setter
+    def webhook(self, webhook: Webhook):
+        self._webhook = webhook.id
+        self._webhook_obj = webhook
+
+    @property
+    def enabled(self):
+        return self._enabled
 
     def __eq__(self, other):
         if not isinstance(other, ChannelMirror):
             return NotImplemented
-        return self.origin == other.origin and self.dest == other.dest
+        return self._origin == other._origin and self._destination == other._destination
 
     @staticmethod
     async def from_record(source, bot):
-        dest = bot.get_channel(source['destination'])
-        webhook = utils.find(lambda x: x.id == source['webhook'], await dest.webhooks())
-        mirror = ChannelMirror(bot.get_channel(source['origin']), dest, webhook, source['enabled'])
+        mirror = ChannelMirror(bot, **source)
 
-        if not webhook:  # notify owner that webhook has been deleted; mirror dead
-            await bot.get_user(bot.CREATOR_ID).send(f'Mirror\'s webhook has been deleted: {mirror}')
+        if not await mirror.webhook:  # notify owner that _webhook has been deleted; mirror dead
+            await bot.get_user(bot.CREATOR_ID).send(f'Mirror\'s _webhook has been deleted: {mirror}')
 
         return mirror
 
     def __str__(self):
         return f'channel mirror from {self.origin.mention}@`{self.origin.guild}` to ' \
-               f'{self.dest.mention}@`{self.dest.guild}`'
+               f'{self.destination.mention}@`{self.destination.guild}`'
 
     def __repr__(self):
-        return f'<ChannelMirror origin={repr(self.origin)} dest={repr(self.dest)} ' \
-               f'webhook={repr(self.webhook)} enabled={self.enabled}>'
+        return f'<ChannelMirror _origin={repr(self._origin)} dest={repr(self._destination)} ' \
+               f'_webhook={repr(self._webhook)} _enabled={self._enabled}>'
 
     async def to_tuple(self):
-        return self.origin.id, self.dest.id, self.webhook.id, self.enabled
+        return self._origin, self._destination, self._webhook, self._enabled

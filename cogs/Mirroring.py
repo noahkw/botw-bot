@@ -55,22 +55,23 @@ class Mirroring(CustomCog, AinitMixin):
         pass
 
     def append_mirror(self, mirror):
-        origin_mirrors = self.mirrors.setdefault(mirror.origin.id, [])
+        origin_mirrors = self.mirrors.setdefault(mirror._origin, [])
         origin_mirrors.append(mirror)
 
     @mirror.command()
-    async def add(self, ctx, origin: GlobalTextChannelConverter, dest: GlobalTextChannelConverter):
-        if origin == dest:
+    async def add(self, ctx, origin: GlobalTextChannelConverter, destination: GlobalTextChannelConverter):
+        if origin == destination:
             raise commands.BadArgument('Cannot mirror a channel to itself.')
-        elif dest.id in self.mirrors and origin.id in [mirror.dest.id for mirror in self.mirrors[dest.id]]:
+        elif destination.id in self.mirrors and origin.id in [mirror._destination for mirror in
+                                                              self.mirrors[destination.id]]:
             raise commands.BadArgument('This would create a circular mirror.')
 
-        mirror = ChannelMirror(origin, dest, None, True)
+        mirror = ChannelMirror(self.bot, origin.id, destination.id, None, True)
 
         if mirror in flatten(self.mirrors.values()):
             raise commands.BadArgument('This mirror already exists.')
 
-        dest_webhook = await dest.create_webhook(name=f'Mirror from {origin}@{origin.guild}')
+        dest_webhook = await destination.create_webhook(name=f'Mirror from {origin}@{origin.guild}')
         mirror.webhook = dest_webhook
 
         query = 'INSERT INTO mirrors (origin, destination, webhook, enabled) VALUES ($1, $2, $3, $4);'
@@ -81,22 +82,22 @@ class Mirroring(CustomCog, AinitMixin):
 
     @mirror.command(aliases=['delete'])
     @ack
-    async def remove(self, ctx, origin: GlobalTextChannelConverter, dest: GlobalTextChannelConverter):
+    async def remove(self, ctx, origin: GlobalTextChannelConverter, destination: GlobalTextChannelConverter):
         try:
             mirrors = self.mirrors[origin.id]
-            mirror = [m for m in mirrors if m.dest == dest].pop()
+            mirror = [m for m in mirrors if m._destination == destination.id].pop()
         except IndexError:
             raise commands.BadArgument('This mirror does not exist.')
         except KeyError:
             raise commands.BadArgument(f'Channel {origin.mention} has no mirrors.')
 
-        if mirror.webhook:
-            await mirror.webhook.delete()
+        if webhook := (await mirror.webhook):
+            await webhook.delete()
 
         mirrors.remove(mirror)
 
         query = 'DELETE FROM mirrors WHERE origin = $1 and destination = $2;'
-        await self.bot.db.pool.execute(query, origin.id, dest.id)
+        await self.bot.db.pool.execute(query, origin.id, destination.id)
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -112,5 +113,6 @@ class Mirroring(CustomCog, AinitMixin):
 
             author = message.author
             files = [await attachment.to_file() for attachment in message.attachments]
-            await mirror.webhook.send(message.clean_content, username=author.name, avatar_url=author.avatar_url,
-                                      files=files)
+            webhook = await mirror.webhook
+            await webhook.send(message.clean_content, username=author.name, avatar_url=author.avatar_url,
+                               files=files)
