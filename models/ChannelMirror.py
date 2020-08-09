@@ -55,8 +55,8 @@ class ChannelMirror:
                f'{self.destination.mention}@`{self.destination.guild}`'
 
     def __repr__(self):
-        return f'<ChannelMirror _origin={repr(self._origin)} dest={repr(self._destination)} ' \
-               f'_webhook={repr(self._webhook)} _enabled={self._enabled}>'
+        return f'<ChannelMirror origin={repr(self._origin)} destination={repr(self._destination)} ' \
+               f'webhook={repr(self._webhook)} _enabled={self._enabled}>'
 
     def to_tuple(self):
         return self._origin, self._destination, self._webhook, self._enabled

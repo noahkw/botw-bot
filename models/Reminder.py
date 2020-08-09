@@ -2,37 +2,32 @@ import pendulum
 
 
 class Reminder:
-    def __init__(self, id_, user, due, created, content, done=False):
-        self.id = id_
-        self.user = user
-        self.due = due
-        self.created = created
+    def __init__(self, bot, id, content, created, done, due, user):
+        self.id = id
+        self._user: int = user
+        self.due = pendulum.instance(due)
+        self.created = pendulum.instance(created)
         self.content = content
         self.done = done
+
+        self._bot = bot
+
+    @property
+    def user(self):
+        return self._bot.get_user(self._user)
 
     def __eq__(self, other):
         if not isinstance(other, Reminder):
             return NotImplemented
         return self.id == other.id
 
-    def to_dict(self):
-        return {
-            'user': self.user.id,
-            'due': self.due.timestamp(),
-            'created': self.created.timestamp(),
-            'content': self.content,
-            'done': self.done
-        }
-
     @staticmethod
-    def from_dict(source, bot, id_=None):
-        return Reminder(id_, bot.get_user(source['user']), pendulum.from_timestamp(source['due']),
-                        pendulum.from_timestamp(source['created']), source['content'],
-                        source['done'])
+    async def from_record(source, bot):
+        return Reminder(bot, **source)
 
-    def __str__(self):
-        return f"Reminder {self.id} created {self.created}: {self.user} at {self.due} to {self.content} " \
-               f"({'not ' if not self.done else ''}done)"
+    def __repr__(self):
+        return f'<Reminder id={repr(self.id)} user={self.user} due={repr(self.due)} ' \
+               f'created={repr(self.created)} content={self.content} done={self.done}>'
 
     def to_field(self):
         return {

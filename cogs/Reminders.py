@@ -61,7 +61,6 @@ def parse_date(date):
 class Reminders(CustomCog, AinitMixin):
     def __init__(self, bot):
         super().__init__(bot)
-        self.reminders_collection = self.bot.config['reminders']['reminders_collection']
         self.scheduler = TimedScheduler(prefer_utc=True)
         self.scheduler.start()
         self.shout_emoji = find(lambda e: e.name == SHOUT_EMOJI, self.bot.emojis)
@@ -69,16 +68,19 @@ class Reminders(CustomCog, AinitMixin):
         super(AinitMixin).__init__()
 
     async def _ainit(self):
-        self.reminders = [Reminder.from_dict(reminder.to_dict(), self.bot, reminder.id) for reminder in
-                          await self.bot.db.get(self.reminders_collection)]
-        self.reminders = [reminder for reminder in self.reminders if not reminder.done]
-        for reminder in self.reminders:
+        await self.bot.wait_until_ready()
+
+        query = "SELECT * FROM reminders WHERE NOT done;"
+        reminders = await self.bot.db.pool.fetch(query)
+
+        for _reminder in reminders:
+            reminder = await Reminder.from_record(_reminder, self.bot)
             if has_passed(reminder.due):
                 await self.remind_user(reminder, late=True)
             else:
                 self.scheduler.schedule(self.remind_user(reminder), reminder.due)
 
-        logger.info(f'# Initial reminders from db: {len(self.reminders)}')
+        logger.info(f'# Initial reminders from db: {len(reminders)}')
 
     def cog_unload(self):
         self.scheduler._task.cancel()
@@ -108,10 +110,15 @@ class Reminders(CustomCog, AinitMixin):
         now = pendulum.now('UTC')
         diff = parsed_date.diff_for_humans(now, True)
 
-        reminder = Reminder(None, ctx.author, parsed_date, now, what)
-        id_ = await self.bot.db.set_get_id(self.reminders_collection, reminder.to_dict())
-        reminder.id = id_
-        self.reminders.append(reminder)
+        values = (what, now, parsed_date, ctx.author.id)
+        query = """INSERT INTO reminders (content, created, done, due, "user")
+                   VALUES ($1, $2, FALSE, $3, $4)
+                   RETURNING id;
+                """
+        id_ = await self.bot.db.pool.fetchval(query, *values)
+
+        reminder = Reminder(self.bot, id_, what, now, False, parsed_date, ctx.author.id)
+
         self.scheduler.schedule(self.remind_user(reminder), parsed_date)
 
         await ctx.send(f'I\'ll remind you on `{parsed_date.to_cookie_string()}` (in {diff}): `{what}`.')
@@ -121,9 +128,12 @@ class Reminders(CustomCog, AinitMixin):
         """
         Lists your reminders
         """
-        user_reminders = [reminder for reminder in self.reminders if reminder.user == ctx.author and not reminder.done]
-        if len(user_reminders) > 0:
-            pages = MenuPages(source=ReminderListSource(user_reminders), clear_reactions_after=True)
+        query = """SELECT * FROM reminders WHERE NOT done and "user" = $1;"""
+        reminders = [Reminder.from_record(reminder, self.bot) for reminder in
+                     await self.bot.db.pool.fetch(query, ctx.author.id)]
+
+        if len(reminders) > 0:
+            pages = MenuPages(source=ReminderListSource(reminders), clear_reactions_after=True)
             await pages.start(ctx)
         else:
             await ctx.send('You have 0 pending reminders!')
@@ -147,14 +157,17 @@ class Reminders(CustomCog, AinitMixin):
                 try:
                     new_due = await self.prompt_snooze_time(reminder)
                     reminder.due = new_due
-                    await self.bot.db.update(self.reminders_collection, reminder.id, {'due': new_due.timestamp()})
+
+                    query = """UPDATE reminders SET due = $1 WHERE id = $2;"""
+                    await self.bot.db.pool.execute(query, new_due, reminder.id)
+
                     self.scheduler.schedule(self.remind_user(reminder), new_due)
                     return
                 except commands.BadArgument as ba:
                     await ctx.send(ba)
 
-        reminder.done = True
-        await self.bot.db.update(self.reminders_collection, reminder.id, {'done': True})
+        query = """UPDATE reminders SET done = TRUE WHERE id = $1;"""
+        await self.bot.db.pool.execute(query, reminder.id)
 
     async def prompt_snooze_time(self, reminder):
         user = reminder.user

@@ -74,7 +74,8 @@ class Mirroring(CustomCog, AinitMixin):
         dest_webhook = await destination.create_webhook(name=f'Mirror from {origin}@{origin.guild}')
         mirror.webhook = dest_webhook
 
-        query = 'INSERT INTO mirrors (origin, destination, webhook, enabled) VALUES ($1, $2, $3, $4);'
+        query = """INSERT INTO mirrors (origin, destination, webhook, enabled) 
+                   VALUES ($1, $2, $3, $4);"""
         await self.bot.db.pool.execute(query, *mirror.to_tuple())
 
         self.append_mirror(mirror)
@@ -96,7 +97,7 @@ class Mirroring(CustomCog, AinitMixin):
 
         mirrors.remove(mirror)
 
-        query = 'DELETE FROM mirrors WHERE origin = $1 and destination = $2;'
+        query = """DELETE FROM mirrors WHERE origin = $1 and destination = $2;"""
         await self.bot.db.pool.execute(query, origin.id, destination.id)
 
     @commands.Cog.listener()
