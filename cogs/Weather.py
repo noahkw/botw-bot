@@ -82,7 +82,7 @@ class Weather(commands.Cog):
         else:
             profiles = self.bot.get_cog('Profiles')
             profile = await profiles.get_profile(ctx.author)
-            location = profile.location.value
+            location = profile.location
             if location is not None:
                 await ctx.invoke(self.current, location=location)
             else:
@@ -144,7 +144,7 @@ class Weather(commands.Cog):
 
         # set location in profile to queried location
         profiles = self.bot.get_cog('Profiles')
-        await profiles.set(ctx.author, 'location', location)
+        await profiles.update(ctx.author, 'location', location)
 
     async def cog_before_invoke(self, ctx):
         await ctx.trigger_typing()
