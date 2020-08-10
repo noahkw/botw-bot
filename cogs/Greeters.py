@@ -28,6 +28,28 @@ class Greeters(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _add_greeter(self, ctx, channel, template, greeter_type):
+        query = """SELECT * FROM greeters WHERE guild = $1 AND type = $2;"""
+        row = await self.bot.db.pool.fetchrow(query, ctx.guild.id, greeter_type)
+
+        if channel and template:
+            # test the template string. will raise if a wrong placeholder is used
+            format_template(template, ctx.author)
+
+            query = """INSERT INTO greeters (channel, guild, template, type) 
+                       VALUES ($1, $2, $3, $4)
+                       ON CONFLICT (guild, type) DO UPDATE
+                       SET channel = $1, template = $3;"""
+            await self.bot.db.pool.execute(query, channel.id, ctx.guild.id, template, greeter_type)
+
+            await ctx.send(f'{greeter_type} greeter set to `{template}` in {channel.mention}.')
+        elif row and row['template']:
+            greeter_channel = self.bot.get_channel(row['channel'])
+            await ctx.send(
+                f'{greeter_type} greeter in {greeter_channel.mention}: `{row["template"]}`.')
+        else:
+            raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter=greeter_type))
+
     @auto_help
     @commands.group(aliases=['greeter'], invoke_without_command=True, brief='Configure greeters for the server')
     @commands.has_permissions(administrator=True)
@@ -52,20 +74,7 @@ class Greeters(commands.Cog):
         `{{number}}`: The number of members in the server
         `{{guild}}`: The server's name
         """
-        settings_cog = self.bot.get_cog('Settings')
-        settings = await settings_cog.get_settings(ctx.guild)
-
-        if channel and template:
-            # test the template string. will raise if a wrong placeholder is used
-            format_template(template, ctx.author)
-
-            await settings_cog.update(ctx.guild, 'join_greeter', channel, template)
-            await ctx.send(f'Join greeter set to `{template}` in {channel.mention}.')
-        elif settings.join_greeter.template:
-            await ctx.send(
-                f'Join greeter in {settings.join_greeter.channel.mention}: `{settings.join_greeter.template}`.')
-        else:
-            raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter='Join'))
+        await self._add_greeter(ctx, channel, template, 'join')
 
     @greeters.command(brief='Adds or displays the leave greeter')
     @commands.has_permissions(administrator=True)
@@ -85,26 +94,17 @@ class Greeters(commands.Cog):
         `{{number}}`: The number of members in the server
         `{{guild}}`: The server's name
         """
-        settings_cog = self.bot.get_cog('Settings')
-        settings = await settings_cog.get_settings(ctx.guild)
-
-        if channel and template:
-            # test the template string. will raise if a wrong placeholder is used
-            format_template(template, ctx.author)
-
-            await settings_cog.update(ctx.guild, 'leave_greeter', channel, template)
-            await ctx.send(f'Leave greeter set to `{template}` in {channel.mention}.')
-        elif settings.leave_greeter.template:
-            await ctx.send(
-                f'Leave greeter in {settings.leave_greeter.channel.mention}: `{settings.leave_greeter.template}`.')
-        else:
-            raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter='Leave'))
+        await self._add_greeter(ctx, channel, template, 'leave')
 
     async def send_greeter(self, greeter, member):
-        settings_cog = self.bot.get_cog('Settings')
-        settings = await settings_cog.get_settings(member.guild)
+        query = """SELECT channel, template FROM greeters
+                   WHERE guild = $1 and type = $2;"""
+        row = await self.bot.db.pool.fetchrow(query, member.guild.id, greeter)
+        if not row:
+            raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter=greeter))
 
-        channel, template = getattr(settings, self.GREETERS[greeter]).value
+        channel = self.bot.get_channel(row['channel'])
+        template = row['template']
         if not channel or not template:
             raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter=greeter))
 
@@ -127,7 +127,7 @@ class Greeters(commands.Cog):
 
     @greeters.command(brief='Disables the given greeter in the given channel')
     @commands.has_permissions(administrator=True)
-    async def disable(self, ctx, greeter, channel: discord.TextChannel):
+    async def disable(self, ctx, greeter):
         """
         Disables the given greeter in the given channel.
 
@@ -136,12 +136,17 @@ class Greeters(commands.Cog):
         """
         greeter = greeter.lower()
         if greeter in self.GREETERS:
-            settings_cog = self.bot.get_cog('Settings')
-            settings = await settings_cog.get_settings(ctx.guild)
-            old_template = getattr(settings, self.GREETERS[greeter]).template
+            query = """DELETE FROM greeters
+                       WHERE guild = $1 and type = $2
+                       RETURNING channel, template;"""
+            row = await self.bot.db.pool.fetchrow(query, ctx.guild.id, greeter)
+            if not row:
+                raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter=greeter))
 
-            await settings_cog.update(ctx.guild, self.GREETERS[greeter], None, None)
-            await ctx.send(f'The {greeter} greeter in {channel.mention} was reset. Old message: `{old_template}`.')
+            old_channel = self.bot.get_channel(row['channel'])
+            old_template = row['template']
+
+            await ctx.send(f'The {greeter} greeter in {old_channel.mention} was reset. Old message: `{old_template}`.')
         else:
             raise commands.BadArgument(self.GREETER_DOESNT_EXIST)
 
