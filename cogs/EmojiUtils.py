@@ -21,45 +21,26 @@ class EmojiUtils(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.cooldowns = {}
-        self.last_updates = {}
+        self.cooldowns = {}  # guild.id -> cooldown
+        self.last_updates = {}  # guild.id -> on_guild_emojis_update after obj
 
-    @auto_help
-    @commands.group(name='emoji', brief='Emoji related convenience commands')
-    @commands.has_permissions(administrator=True)
-    async def emoji(self, ctx):
-        pass
-
-    @emoji.command(name='list')
-    async def emoji_list(self, ctx, channel: discord.TextChannel):
-        await self.send_emoji_list(channel)
-
-    @commands.Cog.listener('on_guild_emojis_update')
-    async def on_guild_emojis_update(self, guild, before, after):
-        self.last_updates[guild] = after
-
-        if guild not in self.cooldowns:
-            self.cooldowns[guild] = Cooldown(self.UPDATE_FREQUENCY)
-
-        if self.cooldowns[guild].cooldown:
-            return
-        else:
-            async with self.cooldowns[guild]:
-                await self.update_emoji_list(guild)
-
-    async def send_emoji_list(self, channel, after=None):
+    async def _send_emoji_list(self, channel: discord.TextChannel, after=None):
         emojis = after if after else channel.guild.emojis
         emoji_sorted = sorted(emojis, key=lambda e: e.name)
         for emoji_chunk in chunker(emoji_sorted, self.SPLIT_MSG_AFTER):
             await channel.send(' '.join(str(e) for e in emoji_chunk))
 
-    async def update_emoji_list(self, guild):
-        settings_cog = self.bot.get_cog('Settings')
-        settings = await settings_cog.get_settings(guild)
-        emoji_channel = settings.emoji_channel.value
-        if emoji_channel is None:
+    async def _update_emoji_list(self, guild: discord.Guild):
+        query = """SELECT emoji_channel
+                   FROM emoji_settings
+                   WHERE guild = $1;"""
+        row = await self.bot.db.pool.fetchrow(query, guild.id)
+
+        if not row:
             logger.warning(f'Emoji channel for guild {guild} is not set. Skipping update')
             return
+
+        emoji_channel = self.bot.get_channel(row['emoji_channel'])
 
         # delete old messages containing emoji
         # need to use Message.delete to be able to delete messages older than 14 days
@@ -68,10 +49,55 @@ class EmojiUtils(commands.Cog):
 
         # get emoji that were added in the last NEW_EMOTE_THRESHOLD minutes
         now = pendulum.now('UTC')
-        recent_emoji = [emoji for emoji in self.last_updates[guild] if now.diff(pendulum.instance(
+        recent_emoji = [emoji for emoji in self.last_updates[guild.id] if now.diff(pendulum.instance(
             discord.utils.snowflake_time(emoji.id))).in_minutes() < self.NEW_EMOTE_THRESHOLD]
 
-        await self.send_emoji_list(emoji_channel, after=self.last_updates[guild])
+        await self._send_emoji_list(emoji_channel, after=self.last_updates[guild.id])
 
         if len(recent_emoji) > 0:
             await emoji_channel.send(f"Recently added: {''.join(str(e) for e in recent_emoji)}")
+
+    @auto_help
+    @commands.group(name='emoji', brief='Emoji related convenience commands')
+    @commands.has_permissions(administrator=True)
+    async def emoji(self, ctx):
+        await ctx.send_help(self.emoji)
+
+    @emoji.command(name='list', brief='Sends a list of the guild\'s emoji')
+    async def emoji_list(self, ctx, channel: discord.TextChannel):
+        await self._send_emoji_list(channel)
+
+    @emoji.command(name='channel', brief='Configures given channel for emoji updates')
+    async def channel(self, ctx, channel: discord.TextChannel):
+        """
+        Configures the given channel for emoji updates.
+        The bot will automatically keep an up-to-date list of emoji in this channel.
+
+        **Caution**: The bot will delete old messages in the channel, so
+        it is best to create a channel dedicated to showcasing emoji.
+        """
+        query = """INSERT INTO emoji_settings (guild, emoji_channel)
+                   VALUES ($1, $2)
+                   ON CONFLICT (guild) DO UPDATE
+                   SET emoji_channel = $2;"""
+
+        await self.bot.db.pool.execute(query, ctx.guild.id, channel.id)
+
+        await ctx.send(f'{channel.mention} will now receive emoji updates.')
+
+    @channel.error
+    async def er(self, ctx, err):
+        logger.exception(err)
+
+    @commands.Cog.listener('on_guild_emojis_update')
+    async def on_guild_emojis_update(self, guild, before, after):
+        self.last_updates[guild.id] = after
+
+        if guild.id not in self.cooldowns:
+            self.cooldowns[guild.id] = Cooldown(self.UPDATE_FREQUENCY)
+
+        if self.cooldowns[guild.id].cooldown:
+            return
+        else:
+            async with self.cooldowns[guild.id]:
+                await self._update_emoji_list(guild)
