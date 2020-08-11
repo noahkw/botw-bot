@@ -453,13 +453,16 @@ class BiasOfTheWeek(commands.Cog):
         await ctx.send(f'Successfully loaded `{len(lines)}` idols.')
 
     @biasoftheweek.command(brief='Displays the guild\'s BotW settings')
+    @botw_enabled()
+    @commands.has_permissions(administrator=True)
     async def settings(self, ctx):
         query = """SELECT *
                    FROM botw_settings
                    WHERE guild = $1;"""
         row = await self.bot.db.pool.fetchrow(query, ctx.guild.id)
 
-        embed = discord.Embed(title=f'BotW settings of {ctx.guild}') \
+        embed = discord.Embed(title=f'BotW settings of {ctx.guild}',
+                              description=f'Use `{ctx.prefix}botw setup` to change these.') \
             .set_thumbnail(url=ctx.guild.icon_url) \
             .add_field(name='Enabled', value=row['enabled']) \
             .add_field(name='BotW channel', value=self.bot.get_channel(row['botw_channel']).mention) \

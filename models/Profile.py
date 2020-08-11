@@ -28,21 +28,21 @@ class AvatarItem(ProfileItem):
 
 
 class Profile:
-    __slots__ = ('_bot', '_user', 'items',)
+    __slots__ = ('_bot', '_user', '_items',)
     ITEMS_DB = ('location',)
 
     def __init__(self, bot, user: User, location):
         self._user = user
         self._bot = bot
 
-        self.items = {
+        self._items = {
             'location': ProfileItem('Location', location, hidden=True),
             'avatar': AvatarItem(None, user.avatar_url, hidden=False),
             'created_at': ProfileItem('Joined Discord', user.created_at, hidden=False)
         }
 
     def __getattr__(self, item):
-        return self.items[item].value
+        return self._items[item].value
 
     @staticmethod
     def from_record(source, bot):
@@ -51,11 +51,11 @@ class Profile:
         return Profile(bot, user, *[source[key] for key in Profile.ITEMS_DB])
 
     def to_tuple(self):
-        return tuple([self._user.id] + [self.items[item].value for item in self.ITEMS_DB])
+        return tuple([self._user.id] + [self._items[item].value for item in self.ITEMS_DB])
 
     def to_embed(self):
         embed = Embed(title=f'Profile of {self._user}')
 
-        for item in self.items.values():
+        for item in self._items.values():
             item.add_to_embed(embed)
         return embed
