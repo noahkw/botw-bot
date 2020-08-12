@@ -71,7 +71,7 @@ class Reminders(CustomCog, AinitMixin):
         await self.bot.wait_until_ready()
 
         query = "SELECT * FROM reminders WHERE NOT done;"
-        reminders = await self.bot.db.pool.fetch(query)
+        reminders = await self.bot.pool.fetch(query)
 
         for _reminder in reminders:
             reminder = await Reminder.from_record(_reminder, self.bot)
@@ -115,7 +115,7 @@ class Reminders(CustomCog, AinitMixin):
                    VALUES ($1, $2, FALSE, $3, $4)
                    RETURNING id;
                 """
-        id_ = await self.bot.db.pool.fetchval(query, *values)
+        id_ = await self.bot.pool.fetchval(query, *values)
 
         reminder = Reminder(self.bot, id_, what, now, False, parsed_date, ctx.author.id)
 
@@ -130,7 +130,7 @@ class Reminders(CustomCog, AinitMixin):
         """
         query = """SELECT * FROM reminders WHERE NOT done and "user" = $1;"""
         reminders = [Reminder.from_record(reminder, self.bot) for reminder in
-                     await self.bot.db.pool.fetch(query, ctx.author.id)]
+                     await self.bot.pool.fetch(query, ctx.author.id)]
 
         if len(reminders) > 0:
             pages = MenuPages(source=ReminderListSource(reminders), clear_reactions_after=True)
@@ -159,7 +159,7 @@ class Reminders(CustomCog, AinitMixin):
                     reminder.due = new_due
 
                     query = """UPDATE reminders SET due = $1 WHERE id = $2;"""
-                    await self.bot.db.pool.execute(query, new_due, reminder.id)
+                    await self.bot.pool.execute(query, new_due, reminder.id)
 
                     self.scheduler.schedule(self.remind_user(reminder), new_due)
                     return
@@ -167,7 +167,7 @@ class Reminders(CustomCog, AinitMixin):
                     await ctx.send(ba)
 
         query = """UPDATE reminders SET done = TRUE WHERE id = $1;"""
-        await self.bot.db.pool.execute(query, reminder.id)
+        await self.bot.pool.execute(query, reminder.id)
 
     async def prompt_snooze_time(self, reminder):
         user = reminder.user

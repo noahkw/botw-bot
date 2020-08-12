@@ -50,7 +50,7 @@ class Tags(CustomCog, AinitMixin):
 
         query = """SELECT *
                    FROM tags;"""
-        _tags = await self.bot.db.pool.fetch(query)
+        _tags = await self.bot.pool.fetch(query)
 
         for _tag in _tags:
             tag = Tag.from_record(_tag, self.bot)
@@ -84,7 +84,7 @@ class Tags(CustomCog, AinitMixin):
         query = """UPDATE tags
                    SET use_count = use_count + 1
                    WHERE id = $1;"""
-        await self.bot.db.pool.execute(query, tag.id)
+        await self.bot.pool.execute(query, tag.id)
 
     @auto_help
     @commands.group(name='tags', aliases=['tag'], invoke_without_command=True, brief='Manage custom reactions')
@@ -116,7 +116,7 @@ class Tags(CustomCog, AinitMixin):
                        VALUES ($1, $2, $3, $4, $5, $6, 0)
                        RETURNING id;"""
             values = (pendulum.now('UTC'), ctx.author.id, ctx.guild.id, in_msg, reaction, trigger)
-            id_ = await self.bot.db.pool.fetchval(query, *values)
+            id_ = await self.bot.pool.fetchval(query, *values)
 
             self._get_tags(ctx.guild).append(Tag(self.bot, id_, *values, 0))
 
@@ -138,7 +138,7 @@ class Tags(CustomCog, AinitMixin):
             if confirm:
                 query = """DELETE FROM tags
                            WHERE id = $1;"""
-                await self.bot.db.pool.execute(query, selection.id)
+                await self.bot.pool.execute(query, selection.id)
 
                 self._get_tags(ctx.guild).remove(selection)
 
@@ -174,7 +174,7 @@ class Tags(CustomCog, AinitMixin):
             query = f"""UPDATE tags
                         SET {key} = $1
                         WHERE id = $2;"""
-            await self.bot.db.pool.execute(query, value, selection.id)
+            await self.bot.pool.execute(query, value, selection.id)
 
             await ctx.send(f'Tag `{selection.id}` was edited. Old {key}:\n{old_value}')
 

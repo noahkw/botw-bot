@@ -1,11 +1,8 @@
-import configparser
 import logging
 from collections import Counter
 
 import discord
 from discord.ext import commands
-
-from DataStore import PostgresDataStore
 
 
 def cmd_to_str(group=False):
@@ -100,15 +97,11 @@ class BotwBot(commands.Bot):
         'jishaku'
     ]
 
-    def __init__(self, config_path, **kwargs):
-        self.startup = True
-        self.config = configparser.ConfigParser()
-        self.config.read(config_path)
+    def __init__(self, config, **kwargs):
+        self.config = config
         super().__init__(**kwargs, command_prefix=self.config['discord']['command_prefix'],
                          help_command=EmbedHelpCommand(),
                          allowed_mentions=discord.AllowedMentions(everyone=False, users=True, roles=False))
-        postgres = self.config['postgres']
-        self.db = PostgresDataStore(postgres['user'], postgres['password'], postgres['db'], postgres['host'])
         self.add_checks()
 
         # ban after more than 5 commands in 10 seconds
@@ -130,7 +123,7 @@ class BotwBot(commands.Bot):
                                            ON CONFLICT (guild) DO UPDATE
                                            SET prefix = $2;"""
 
-                    await self.db.pool.execute(query, ctx.guild.id, prefix)
+                    await self.pool.execute(query, ctx.guild.id, prefix)
                     self.prefixes[ctx.guild.id] = prefix
                     await ctx.send(f'The prefix for this guild has been changed to `{prefix}`.')
                 else:
@@ -142,23 +135,20 @@ class BotwBot(commands.Bot):
 
     async def on_ready(self):
         await self.change_presence(activity=discord.Game('with Bini'))
-        if self.startup:
-            self.startup = False
-            await self.db._ainit()
 
-            # cache the guild prefixes
-            query = """SELECT *
-                       FROM prefixes;"""
+        # cache the guild prefixes
+        query = """SELECT *
+                   FROM prefixes;"""
 
-            rows = await self.db.pool.fetch(query)
-            for row in rows:
-                self.prefixes[row['guild']] = row['prefix']
+        rows = await self.pool.fetch(query)
+        for row in rows:
+            self.prefixes[row['guild']] = row['prefix']
 
-            for ext in self.INITIAL_EXTENSIONS:
-                ext_logger = logging.getLogger(ext)
-                ext_logger.setLevel(logging.INFO)
-                ext_logger.addHandler(handler)
-                self.load_extension(ext)
+        for ext in self.INITIAL_EXTENSIONS:
+            ext_logger = logging.getLogger(ext)
+            ext_logger.setLevel(logging.INFO)
+            ext_logger.addHandler(handler)
+            self.load_extension(ext)
 
         logger.info(f"Logged in as {self.user}. Whitelisted servers: {self.config.items('whitelisted_servers')}")
 
@@ -228,14 +218,8 @@ class BotwBot(commands.Bot):
         await super().process_commands(message)
 
 
-if __name__ == '__main__':
-    logger = logging.getLogger('discord')
-    logger.setLevel(logging.INFO)
-    handler = logging.FileHandler(filename='botw-bot.log', encoding='utf-8', mode='w')
-    handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-    logger.addHandler(handler)
-
-    botw_bot = BotwBot('conf.ini')
-    botw_bot.run()
-
-    logger.info('Cleaning up')
+logger = logging.getLogger('discord')
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler(filename='botw-bot.log', encoding='utf-8', mode='w')
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+logger.addHandler(handler)

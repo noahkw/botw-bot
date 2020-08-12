@@ -29,8 +29,10 @@ class Greeters(commands.Cog):
         self.bot = bot
 
     async def _add_greeter(self, ctx, channel, template, greeter_type):
-        query = """SELECT * FROM greeters WHERE guild = $1 AND type = $2;"""
-        row = await self.bot.db.pool.fetchrow(query, ctx.guild.id, greeter_type)
+        query = """SELECT * 
+                   FROM greeters 
+                   WHERE guild = $1 AND type = $2;"""
+        row = await self.bot.pool.fetchrow(query, ctx.guild.id, greeter_type)
 
         if channel and template:
             # test the template string. will raise if a wrong placeholder is used
@@ -40,7 +42,7 @@ class Greeters(commands.Cog):
                        VALUES ($1, $2, $3, $4)
                        ON CONFLICT (guild, type) DO UPDATE
                        SET channel = $1, template = $3;"""
-            await self.bot.db.pool.execute(query, channel.id, ctx.guild.id, template, greeter_type)
+            await self.bot.pool.execute(query, channel.id, ctx.guild.id, template, greeter_type)
 
             await ctx.send(f'{greeter_type} greeter set to `{template}` in {channel.mention}.')
         elif row and row['template']:
@@ -99,7 +101,7 @@ class Greeters(commands.Cog):
     async def send_greeter(self, greeter, member):
         query = """SELECT channel, template FROM greeters
                    WHERE guild = $1 and type = $2;"""
-        row = await self.bot.db.pool.fetchrow(query, member.guild.id, greeter)
+        row = await self.bot.pool.fetchrow(query, member.guild.id, greeter)
         if not row:
             raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter=greeter))
 
@@ -139,7 +141,7 @@ class Greeters(commands.Cog):
             query = """DELETE FROM greeters
                        WHERE guild = $1 and type = $2
                        RETURNING channel, template;"""
-            row = await self.bot.db.pool.fetchrow(query, ctx.guild.id, greeter)
+            row = await self.bot.pool.fetchrow(query, ctx.guild.id, greeter)
             if not row:
                 raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter=greeter))
 

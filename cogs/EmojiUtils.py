@@ -34,13 +34,13 @@ class EmojiUtils(commands.Cog):
         query = """SELECT emoji_channel
                    FROM emoji_settings
                    WHERE guild = $1;"""
-        row = await self.bot.db.pool.fetchrow(query, guild.id)
+        emoji_channel_id = await self.bot.pool.fetchval(query, guild.id)
 
-        if not row:
+        if not emoji_channel_id:
             logger.warning(f'Emoji channel for guild {guild} is not set. Skipping update')
             return
 
-        emoji_channel = self.bot.get_channel(row['emoji_channel'])
+        emoji_channel = self.bot.get_channel(emoji_channel_id)
 
         # delete old messages containing emoji
         # need to use Message.delete to be able to delete messages older than 14 days
@@ -58,7 +58,7 @@ class EmojiUtils(commands.Cog):
             await emoji_channel.send(f"Recently added: {''.join(str(e) for e in recent_emoji)}")
 
     @auto_help
-    @commands.group(name='emoji', brief='Emoji related convenience commands')
+    @commands.group(name='emoji', brief='Emoji related convenience commands', invoke_without_command=True)
     @commands.has_permissions(administrator=True)
     async def emoji(self, ctx):
         await ctx.send_help(self.emoji)
@@ -81,7 +81,7 @@ class EmojiUtils(commands.Cog):
                    ON CONFLICT (guild) DO UPDATE
                    SET emoji_channel = $2;"""
 
-        await self.bot.db.pool.execute(query, ctx.guild.id, channel.id)
+        await self.bot.pool.execute(query, ctx.guild.id, channel.id)
 
         await ctx.send(f'{channel.mention} will now receive emoji updates.')
 

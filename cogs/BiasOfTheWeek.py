@@ -26,7 +26,7 @@ def has_winner_role():
         query = """SELECT winner_changes
                    FROM botw_settings
                    WHERE guild = $1;"""
-        winner_changes = await ctx.bot.db.pool.fetchrow(query, ctx.guild.id)
+        winner_changes = await ctx.bot.pool.fetchval(query, ctx.guild.id)
 
         return winner_changes and ctx.bot.config['biasoftheweek']['winner_role_name'] in [role.name for role in
                                                                                           ctx.message.author.roles]
@@ -39,8 +39,8 @@ def botw_enabled():
         query = """SELECT enabled
                    FROM botw_settings
                    WHERE guild = $1;"""
-        row = await ctx.bot.db.pool.fetchrow(query, ctx.guild.id)
-        return row['enabled']
+        enabled = await ctx.bot.pool.fetchval(query, ctx.guild.id)
+        return enabled
 
     return commands.check(predicate)
 
@@ -59,7 +59,7 @@ class BiasOfTheWeek(commands.Cog):
                    FROM botw_nominations
                    WHERE guild = $1;"""
 
-        rows = await self.bot.db.pool.fetch(query, guild.id)
+        rows = await self.bot.pool.fetch(query, guild.id)
         return [Nomination.from_record(row, self.bot) for row in rows]
 
     async def _get_winners(self, guild: discord.Guild) -> List[BotwWinner]:
@@ -67,20 +67,20 @@ class BiasOfTheWeek(commands.Cog):
                    FROM botw_winners
                    WHERE guild = $1;"""
 
-        rows = await self.bot.db.pool.fetch(query, guild.id)
+        rows = await self.bot.pool.fetch(query, guild.id)
         return [BotwWinner.from_record(row, self.bot) for row in rows]
 
     async def _add_winner(self, guild: discord.Guild, date, idol: Idol, member: discord.Member):
         query = """INSERT INTO botw_winners (guild, date, idol_group, idol_name, member)
                    VALUES ($1, $2, $3, $4, $5);"""
-        await self.bot.db.pool.execute(query, guild.id, date, idol.group, idol.name, member.id)
+        await self.bot.pool.execute(query, guild.id, date, idol.group, idol.name, member.id)
 
     async def _set_state(self, guild: discord.Guild, state: BotwState):
         query = """UPDATE botw_settings
                    SET state = $1
                    WHERE guild = $2;"""
 
-        await self.bot.db.pool.execute(query, state.value, guild.id)
+        await self.bot.pool.execute(query, state.value, guild.id)
 
     async def _pick_winner(self, guild: discord.Guild, nominations: List[Nomination], silent=False):
         nomination = random.choice(nominations)
@@ -91,8 +91,8 @@ class BiasOfTheWeek(commands.Cog):
                    FROM botw_settings
                    WHERE guild = $1;"""
 
-        row = await self.bot.db.pool.fetchrow(query, guild.id)
-        nominations_channel = self.bot.get_channel(row['nominations_channel'])
+        nominations_channel_id = await self.bot.pool.fetchval(query, guild.id)
+        nominations_channel = self.bot.get_channel(nominations_channel_id)
 
         # Assign BotW winner role on next wednesday at 00:00 UTC
         now = pendulum.now('UTC')
@@ -112,7 +112,7 @@ class BiasOfTheWeek(commands.Cog):
                    FROM botw_settings
                    WHERE guild = $1;"""
 
-        row = await self.bot.db.pool.fetchrow(query, guild.id)
+        row = await self.bot.pool.fetchrow(query, guild.id)
 
         botw_channel = self.bot.get_channel(row['botw_channel'])
         nominations_channel = self.bot.get_channel(row['nominations_channel'])
@@ -146,7 +146,7 @@ class BiasOfTheWeek(commands.Cog):
                    ON CONFLICT (guild, member) DO UPDATE
                    SET idol_group = $2, idol_name = $3;"""
 
-        await self.bot.db.pool.execute(query, guild.id, idol.group, idol.name, member.id)
+        await self.bot.pool.execute(query, guild.id, idol.group, idol.name, member.id)
 
         await ctx.send(f'{ctx.author} nominates **{idol}** instead of **{old_idol}**.'
                        if old_idol else f'{ctx.author} nominates **{idol}**.')
@@ -156,12 +156,12 @@ class BiasOfTheWeek(commands.Cog):
             query = """DELETE FROM botw_nominations
                        WHERE guild = $1 AND member = $2;"""
 
-            await self.bot.db.pool.execute(query, guild.id, member.id)
+            await self.bot.pool.execute(query, guild.id, member.id)
         else:
             query = """DELETE FROM botw_nominations
                        WHERE guild = $1;"""
 
-            await self.bot.db.pool.execute(query, guild.id)
+            await self.bot.pool.execute(query, guild.id)
 
     async def cog_command_error(self, ctx, error):
         if hasattr(ctx.command, 'on_error'):
@@ -214,7 +214,7 @@ class BiasOfTheWeek(commands.Cog):
                            nominations_channel = $3,
                            winner_changes = $5;"""
 
-            await self.bot.db.pool.execute(query, botw_channel.id, True, nominations_channel.id,
+            await self.bot.pool.execute(query, botw_channel.id, True, nominations_channel.id,
                                            BotwState.DEFAULT.value, botw_winner_changes, ctx.guild.id)
 
             # create role
@@ -246,7 +246,7 @@ class BiasOfTheWeek(commands.Cog):
         query = """UPDATE botw_settings 
                    SET enabled = FALSE 
                    WHERE guild = $1;"""
-        await self.bot.db.pool.execute(query, ctx.guild.id)
+        await self.bot.pool.execute(query, ctx.guild.id)
 
         await ctx.send(f'Bias of the Week is now disabled in this server! `{ctx.prefix}botw setup` to re-enable it.')
 
@@ -266,7 +266,7 @@ class BiasOfTheWeek(commands.Cog):
                    ORDER BY SIMILARITY("group" || ' ' || name, $1) DESC
                    LIMIT 1;"""
 
-        if row := await self.bot.db.pool.fetchrow(query, str(idol)):
+        if row := await self.bot.pool.fetchrow(query, str(idol)):
             best_match = Idol.from_record(row)
 
             if not best_match == idol:
@@ -289,14 +289,14 @@ class BiasOfTheWeek(commands.Cog):
                               FROM botw_nominations
                               WHERE guild = $1 AND member = $2;"""
 
-        if await self.bot.db.pool.fetchrow(query_dupe, ctx.guild.id, idol.group, idol.name):
+        if await self.bot.pool.fetchval(query_dupe, ctx.guild.id, idol.group, idol.name):
             raise commands.BadArgument(f'**{idol}** has already been nominated. Please nominate someone else.')
-        elif await self.bot.db.pool.fetchrow(query_past_win, ctx.guild.id, idol.group, idol.name,
-                                             pendulum.now().subtract(days=self.past_winners_time)):
+        elif await self.bot.pool.fetchval(query_past_win, ctx.guild.id, idol.group, idol.name,
+                                          pendulum.now().subtract(days=self.past_winners_time)):
             # check whether idol has won in the past
             raise commands.BadArgument(f'**{idol}** has already won in the past `{self.past_winners_time}` days. '
                                        f'Please nominate someone else.')
-        elif row := await self.bot.db.pool.fetchrow(query_nomination, ctx.guild.id, ctx.author.id):
+        elif row := await self.bot.pool.fetchrow(query_nomination, ctx.guild.id, ctx.author.id):
             old_idol = Idol(row['idol_group'], row['idol_name'])
 
             confirm_override = await Confirm(f'Your current nomination is **{old_idol}**. '
@@ -356,8 +356,8 @@ class BiasOfTheWeek(commands.Cog):
         query = """SELECT state
                    FROM botw_settings
                    WHERE guild = $1;"""
-        row = await self.bot.db.pool.fetchrow(query, ctx.guild.id)
-        state = BotwState(row['state'])
+        state_val = await self.bot.pool.fetchval(query, ctx.guild.id)
+        state = BotwState(state_val)
 
         if state == BotwState.WINNER_CHOSEN:
             raise commands.BadArgument('Can\'t skip because the current winner has not been notified yet.')
@@ -444,11 +444,11 @@ class BiasOfTheWeek(commands.Cog):
         with ctx.typing():
             query_delete = """DELETE FROM idols 
                               WHERE TRUE;"""
-            await self.bot.db.pool.execute(query_delete)
+            await self.bot.pool.execute(query_delete)
 
             query_insert = """INSERT INTO idols ("group", name)
                               VALUES ($1, $2);"""
-            await self.bot.db.pool.executemany(query_insert, lines_tokenized)
+            await self.bot.pool.executemany(query_insert, lines_tokenized)
 
         await ctx.send(f'Successfully loaded `{len(lines)}` idols.')
 
@@ -459,7 +459,7 @@ class BiasOfTheWeek(commands.Cog):
         query = """SELECT *
                    FROM botw_settings
                    WHERE guild = $1;"""
-        row = await self.bot.db.pool.fetchrow(query, ctx.guild.id)
+        row = await self.bot.pool.fetchrow(query, ctx.guild.id)
 
         embed = discord.Embed(title=f'BotW settings of {ctx.guild}',
                               description=f'Use `{ctx.prefix}botw setup` to change these.') \
@@ -484,7 +484,7 @@ class BiasOfTheWeek(commands.Cog):
 
         # pick winner on announcement day
         if now.day_of_week == self.announcement_day and now.hour == 0:
-            rows = await self.bot.db.pool.fetch(query)
+            rows = await self.bot.pool.fetch(query)
             for guild_settings in rows:
                 guild = self.bot.get_guild(guild_settings['guild'])
                 nominations = await self._get_nominations(guild)
@@ -498,7 +498,7 @@ class BiasOfTheWeek(commands.Cog):
 
         # assign role on winner day
         elif now.day_of_week == self.winner_day and now.hour == 0:
-            rows = await self.bot.db.pool.fetch(query)
+            rows = await self.bot.pool.fetch(query)
             for guild_settings in rows:
                 guild = self.bot.get_guild(guild_settings['guild'])
                 state = BotwState(guild_settings['state'])

@@ -25,13 +25,15 @@ class Profiles(commands.Cog):
         profile = Profile(self.bot, user, None)
 
         query = """INSERT INTO profiles ("user", location) VALUES ($1, $2);"""
-        await self.bot.db.pool.execute(query, *profile.to_tuple())
+        await self.bot.pool.execute(query, *profile.to_tuple())
 
         return profile
 
     async def get_profile(self, user: discord.User):
-        query = 'SELECT * FROM profiles WHERE "user" = $1;'
-        row = await self.bot.db.pool.fetchrow(query, user.id)
+        query = """SELECT * 
+                   FROM profiles 
+                   WHERE "user" = $1;"""
+        row = await self.bot.pool.fetchrow(query, user.id)
 
         if not row:
             profile = await self._create_profile(user)
@@ -45,7 +47,7 @@ class Profiles(commands.Cog):
             raise commands.BadArgument(f'Can\'t update {item}')
 
         query = f"""UPDATE profiles SET {item} = $1 WHERE "user" = $2;"""
-        await self.bot.db.pool.execute(query, new_value, user.id)
+        await self.bot.pool.execute(query, new_value, user.id)
 
     @auto_help
     @commands.group(invoke_without_command=True, brief='View or edit profiles')
