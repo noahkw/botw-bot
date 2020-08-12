@@ -44,7 +44,8 @@ class Mirroring(CustomCog, AinitMixin):
 
         for _mirror in _mirrors:
             mirror = await ChannelMirror.from_record(_mirror, self.bot)
-            self.append_mirror(mirror)
+            if mirror:  # ignore mirrors that we can't access anymore
+                self.append_mirror(mirror)
 
         logger.info(f'# Initial mirrors from db: {len(self.mirrors)}')
 

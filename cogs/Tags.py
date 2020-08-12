@@ -54,7 +54,8 @@ class Tags(CustomCog, AinitMixin):
 
         for _tag in _tags:
             tag = Tag.from_record(_tag, self.bot)
-            self._get_tags(tag.guild).append(tag)
+            if tag.guild:  # ignore guilds that the bot is not in
+                self._get_tags(tag.guild).append(tag)
 
         logger.info(f'# Initial tags from db: {len(self.tags)}')
 

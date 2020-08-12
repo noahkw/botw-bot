@@ -1,5 +1,6 @@
 from typing import Optional
 
+import discord
 from discord import Webhook
 
 
@@ -45,8 +46,13 @@ class ChannelMirror:
     async def from_record(source, bot):
         mirror = ChannelMirror(bot, **source)
 
-        if not await mirror.webhook:  # notify owner that _webhook has been deleted; mirror dead
-            await bot.get_user(bot.CREATOR_ID).send(f'Mirror\'s _webhook has been deleted: {mirror}')
+        try:
+            if not await mirror.webhook:  # notify owner that _webhook has been deleted; mirror dead
+                await bot.get_user(bot.CREATOR_ID).send(f'Mirror\'s _webhook has been deleted: {mirror}')
+        except discord.Forbidden:
+            await bot.get_user(bot.CREATOR_ID).send(f'We don\'t have access to mirror\'s webhook: '
+                                                    f'```origin: {source["origin"]}, dest: {source["destination"]}```')
+            return None
 
         return mirror
 
