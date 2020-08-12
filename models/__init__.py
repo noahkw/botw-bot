@@ -1,6 +1,6 @@
+from .BotwState import *
 from .BotwWinner import *
 from .ChannelMirror import *
-from .GuildSettings import *
 from .Idol import *
 from .Nomination import Nomination
 from .Profile import *

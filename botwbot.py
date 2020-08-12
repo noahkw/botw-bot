@@ -83,10 +83,21 @@ class BotwBot(commands.Bot):
     CREATOR_ID = 207955387909931009
 
     INITIAL_EXTENSIONS = [
-        'cogs.BiasOfTheWeek', 'cogs.Utilities', 'cogs.Settings', 'cogs.Instagram',
-        'cogs.EmojiUtils', 'cogs.Tags', 'cogs.Trolling', 'cogs.WolframAlpha',
-        'cogs.Reminders', 'cogs.Weather', 'cogs.Profiles', 'cogs.Mirroring',
-        'cogs.Greeters', 'cogs.Fun', 'cogs.Gfycat', 'jishaku'
+        'cogs.BiasOfTheWeek',
+        'cogs.Utilities',
+        'cogs.Instagram',
+        'cogs.EmojiUtils',
+        'cogs.Tags',
+        'cogs.Trolling',
+        'cogs.WolframAlpha',
+        'cogs.Reminders',
+        'cogs.Weather',
+        'cogs.Profiles',
+        'cogs.Mirroring',
+        'cogs.Greeters',
+        'cogs.Fun',
+        'cogs.Gfycat',
+        'jishaku'
     ]
 
     def __init__(self, config_path, **kwargs):
@@ -105,22 +116,49 @@ class BotwBot(commands.Bot):
         self._spam_count = Counter()
         self.blacklist = set()
 
+        self.prefixes = {}  # guild.id -> prefix
+
+        def make_prefix_cmd():
+            @commands.command(brief='Sets the prefix for the current guild')
+            @commands.has_permissions(administrator=True)
+            async def prefix(ctx, prefix=None):
+                if not prefix:
+                    await ctx.send(f'The current prefix is `{self.prefixes[ctx.guild.id]}`.')
+                elif 1 <= len(prefix) <= 10:
+                    query = """INSERT INTO prefixes (guild, prefix)
+                                           VALUES ($1, $2)
+                                           ON CONFLICT (guild) DO UPDATE
+                                           SET prefix = $2;"""
+
+                    await self.db.pool.execute(query, ctx.guild.id, prefix)
+                    self.prefixes[ctx.guild.id] = prefix
+                    await ctx.send(f'The prefix for this guild has been changed to `{prefix}`.')
+                else:
+                    raise commands.BadArgument('The prefix has to be between 1 and 10 characters long.')
+
+            return prefix
+
+        self.add_command(make_prefix_cmd())
+
     async def on_ready(self):
         await self.change_presence(activity=discord.Game('with Bini'))
         if self.startup:
             self.startup = False
             await self.db._ainit()
+
+            # cache the guild prefixes
+            query = """SELECT *
+                       FROM prefixes;"""
+
+            rows = await self.db.pool.fetch(query)
+            for row in rows:
+                self.prefixes[row['guild']] = row['prefix']
+
             for ext in self.INITIAL_EXTENSIONS:
                 ext_logger = logging.getLogger(ext)
                 ext_logger.setLevel(logging.INFO)
                 ext_logger.addHandler(handler)
                 self.load_extension(ext)
-
-        query = "SELECT * FROM botw_nominations WHERE member = $1;"
-
-        # This returns a asyncpg.Record object, which is similar to a dict
-        row = await self.db.db.fetchrow(query, 231)
-        print(row)
 
         logger.info(f"Logged in as {self.user}. Whitelisted servers: {self.config.items('whitelisted_servers')}")
 
@@ -158,13 +196,7 @@ class BotwBot(commands.Bot):
         if not message.guild:
             return self.command_prefix
 
-        settings_cog = self.get_cog('Settings')
-        if not settings_cog:
-            return self.command_prefix
-
-        settings = await settings_cog.get_settings(message.guild)
-
-        prefix = settings.prefix.value if settings.prefix.value is not None else self.command_prefix
+        prefix = self.prefixes.setdefault(message.guild.id, self.command_prefix)
 
         return commands.when_mentioned_or(prefix)(self, message)
 
