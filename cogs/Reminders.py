@@ -144,10 +144,10 @@ class Reminders(CustomCog, AinitMixin):
 
         user = reminder.user
 
-        if late:
+        if user and late:
             await user.send(f'{self.shout_emoji} You told me to remind you some time ago. '
                             f'Sorry for being late:\n{reminder.content}')
-        else:
+        elif user:
             message = await user.send(f'{self.shout_emoji} You told me to remind you {diff} ago:\n{reminder.content}')
             ctx = await self.bot.get_context(message)
             ctx.author = user

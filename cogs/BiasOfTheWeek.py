@@ -163,6 +163,12 @@ class BiasOfTheWeek(commands.Cog):
 
             await self.bot.pool.execute(query, guild.id)
 
+    async def _disable(self, guild: int):
+        query = """UPDATE botw_settings 
+                   SET enabled = FALSE 
+                   WHERE guild = $1;"""
+        await self.bot.pool.execute(query, guild)
+
     async def cog_command_error(self, ctx, error):
         if hasattr(ctx.command, 'on_error'):
             return
@@ -215,7 +221,7 @@ class BiasOfTheWeek(commands.Cog):
                            winner_changes = $5;"""
 
             await self.bot.pool.execute(query, botw_channel.id, True, nominations_channel.id,
-                                           BotwState.DEFAULT.value, botw_winner_changes, ctx.guild.id)
+                                        BotwState.DEFAULT.value, botw_winner_changes, ctx.guild.id)
 
             # create role
             winner_role_name = self.bot.config['biasoftheweek']['winner_role_name']
@@ -243,11 +249,7 @@ class BiasOfTheWeek(commands.Cog):
     @biasoftheweek.command(brief='Disable BotW in the server')
     @commands.has_permissions(administrator=True)
     async def disable(self, ctx):
-        query = """UPDATE botw_settings 
-                   SET enabled = FALSE 
-                   WHERE guild = $1;"""
-        await self.bot.pool.execute(query, ctx.guild.id)
-
+        await self._disable(ctx.guild.id)
         await ctx.send(f'Bias of the Week is now disabled in this server! `{ctx.prefix}botw setup` to re-enable it.')
 
     @biasoftheweek.command(brief='Nominates an idol')
@@ -472,6 +474,12 @@ class BiasOfTheWeek(commands.Cog):
 
         await ctx.send(embed=embed)
 
+    @biasoftheweek.command(brief='Sets the BotW state in the server')
+    @commands.is_owner()
+    async def state(self, ctx, state):
+        state = BotwState(state)
+        await self._set_state(ctx.guild, state)
+
     @tasks.loop(hours=1.0)
     async def _loop(self):
         # pendulum.set_test_now(pendulum.now('UTC').next(self.winner_day))
@@ -487,6 +495,11 @@ class BiasOfTheWeek(commands.Cog):
             rows = await self.bot.pool.fetch(query)
             for guild_settings in rows:
                 guild = self.bot.get_guild(guild_settings['guild'])
+
+                if not guild:  # we're not in the guild anymore, disable botw
+                    await self._disable(guild_settings['guild'])
+                    continue
+
                 nominations = await self._get_nominations(guild)
                 state = BotwState(guild_settings['state'])
 
@@ -501,6 +514,11 @@ class BiasOfTheWeek(commands.Cog):
             rows = await self.bot.pool.fetch(query)
             for guild_settings in rows:
                 guild = self.bot.get_guild(guild_settings['guild'])
+
+                if not guild:  # we're not in the guild anymore, disable botw
+                    await self._disable(guild_settings['guild'])
+                    continue
+
                 state = BotwState(guild_settings['state'])
 
                 if state not in (BotwState.SKIP, BotwState.DEFAULT):
