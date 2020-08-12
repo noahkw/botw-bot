@@ -98,6 +98,8 @@ class BotwBot(commands.Bot):
     ]
 
     def __init__(self, config, **kwargs):
+        # the pool is attached by the launcher script
+        self.pool = None
         self.config = config
         super().__init__(**kwargs, command_prefix=self.config['discord']['command_prefix'],
                          help_command=EmbedHelpCommand(),

@@ -57,7 +57,7 @@ class Tags(CustomCog, AinitMixin):
             if tag.guild:  # ignore guilds that the bot is not in
                 self._get_tags(tag.guild).append(tag)
 
-        logger.info(f'# Initial tags from db: {len(self.tags)}')
+        logger.info(f'# Initial tags from db: {sum([len(guild_tags) for guild_tags in self.tags.values()])}')
 
     async def _get_tags_by_trigger(self, trigger, guild, fuzzy=75):
         if not fuzzy:
