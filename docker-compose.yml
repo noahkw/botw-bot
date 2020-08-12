@@ -10,7 +10,7 @@ services:
   db:
     image: postgres
     volumes:
-      - {DATA_DIR}/var/lib/postgresql/data
+      - {DATA_DIR}:/var/lib/postgresql/data
     restart: always
     environment:
       POSTGRES_PASSWORD: XXXXXXXXX
