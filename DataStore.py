@@ -6,9 +6,6 @@ from firebase_admin import credentials, firestore
 
 
 class DataStore(ABC):
-    def __init__(self):
-        pass
-
     @abstractmethod
     async def set(self, collection, document, val):
         pass
@@ -91,18 +88,3 @@ class FirebaseDataStore(DataStore):
 
     async def _get_collection(self, collection):
         return await self.loop.run_in_executor(self.executor, self.db.collection, collection)
-
-
-if __name__ == '__main__':
-    import configparser
-
-    config = configparser.ConfigParser()
-    config.read('conf.ini')
-
-    firebase_ds = FirebaseDataStore(config['firebase']['key_file'],
-                                    config['firebase']['db_name'])
-    firebase_ds.add('jobs', {
-        'func': 'somefunc',
-        'time': 234903284,
-        'args': ['arg1', 'arg2']
-    })

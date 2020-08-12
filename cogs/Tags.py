@@ -3,6 +3,8 @@ import logging
 import random
 import typing
 
+import discord
+import pendulum
 from discord.ext import commands
 from discord.ext.menus import MenuPages
 
@@ -23,11 +25,11 @@ class TagConverter(commands.Converter):
     async def convert(self, ctx, argument):
         cog = ctx.bot.get_cog('Tags')
         try:
-            tag = [tag for tag in cog.tags[ctx.guild] if tag.id == argument].pop()
+            tag = [tag for tag in cog._get_tags(ctx.guild) if tag.id == int(argument)].pop()
             return [tag]
         except IndexError:
             # argument was not an ID, search triggers
-            tags = await cog.get_tags_by_trigger(argument, ctx.guild)
+            tags = await cog._get_tags_by_trigger(argument, ctx.guild)
             if len(tags) > 0:
                 return tags
             else:
@@ -39,32 +41,50 @@ class Tags(CustomCog, AinitMixin):
 
     def __init__(self, bot):
         super().__init__(bot)
-        self.tags_collection = self.bot.config['tags']['tags_collection']
+        self.tags = {}
 
         super(AinitMixin).__init__()
 
     async def _ainit(self):
-        self.tags = {}
+        await self.bot.wait_until_ready()
 
-        for _tag in await self.bot.db.get(self.tags_collection):
-            tag = Tag.from_dict(_tag.to_dict(), self.bot, _tag.id)
-            self.tags.setdefault(tag.guild, []).append(tag)
+        query = """SELECT *
+                   FROM tags;"""
+        _tags = await self.bot.pool.fetch(query)
 
-        logger.info(f'# Initial tags from db: {len(self.tags)}')
+        for _tag in _tags:
+            tag = Tag.from_record(_tag, self.bot)
+            if tag.guild:  # ignore guilds that the bot is not in
+                self._get_tags(tag.guild).append(tag)
 
-    async def get_tags_by_trigger(self, trigger, guild, fuzzy=75):
+        logger.info(f'# Initial tags from db: {sum([len(guild_tags) for guild_tags in self.tags.values()])}')
+
+    async def _get_tags_by_trigger(self, trigger, guild, fuzzy=75):
         if not fuzzy:
-            tags = [tag for tag in self.get_tags(guild) if tag.trigger.lower() == trigger.lower()]
+            tags = [tag for tag in self._get_tags(guild) if tag.trigger.lower() == trigger.lower()]
         else:
-            tags = [tag for tag in self.get_tags(guild) if ratio(tag.trigger.lower(), trigger.lower()) > fuzzy]
+            tags = [tag for tag in self._get_tags(guild) if ratio(tag.trigger.lower(), trigger.lower()) > fuzzy]
         return tags
 
-    async def get_duplicates(self, trigger, reaction, guild):
-        return [tag for tag in self.get_tags(guild) if
+    async def _get_duplicates(self, trigger, reaction, guild):
+        return [tag for tag in self._get_tags(guild) if
                 (tag.trigger == trigger and tag.reaction == reaction and tag.guild == guild)]
 
-    def get_tags(self, guild):
-        return self.tags.setdefault(guild, [])
+    def _get_tags(self, guild: discord.Guild):
+        return self.tags.setdefault(guild.id, [])
+
+    async def _invoke_tag(self, channel, tag, info=False):
+        if info:
+            await channel.send(f'**{tag.trigger}** (`{tag.id}`) by {tag.creator}\n{tag.reaction}')
+        else:
+            await channel.send(tag.reaction)
+
+        tag.increment_use_count()
+
+        query = """UPDATE tags
+                   SET use_count = use_count + 1
+                   WHERE id = $1;"""
+        await self.bot.pool.execute(query, tag.id)
 
     @auto_help
     @commands.group(name='tags', aliases=['tag'], invoke_without_command=True, brief='Manage custom reactions')
@@ -73,7 +93,7 @@ class Tags(CustomCog, AinitMixin):
 
     @tag.command(aliases=['new', 'create'], brief='Adds a new tag')
     @ack
-    async def add(self, ctx, in_msg_trigger: typing.Optional[bool] = False, trigger: commands.clean_content = '', *,
+    async def add(self, ctx, in_msg: typing.Optional[bool] = False, trigger: commands.clean_content = '', *,
                   reaction: ReactionConverter):
         """
         Adds a new tag.
@@ -87,14 +107,18 @@ class Tags(CustomCog, AinitMixin):
         To scan the entire message for the trigger **haha**:
         `{prefix}tag add true haha stop laughing`
         """
-        tag = Tag(None, trigger, reaction, ctx.author, ctx.guild, in_msg_trigger=in_msg_trigger)
-        matches = await self.get_duplicates(trigger, reaction, ctx.guild)
+        matches = await self._get_duplicates(trigger, reaction, ctx.guild)
+
         if len(matches) > 0:
             raise commands.BadArgument(f'This tag already exists (`{matches[0].id}`).')
         else:
-            id_ = await self.bot.db.set_get_id(self.tags_collection, tag.to_dict())
-            tag.id = id_
-            self.get_tags(ctx.guild).append(tag)
+            query = """INSERT INTO tags (date, creator, guild, in_msg, reaction, trigger, use_count)
+                       VALUES ($1, $2, $3, $4, $5, $6, 0)
+                       RETURNING id;"""
+            values = (pendulum.now('UTC'), ctx.author.id, ctx.guild.id, in_msg, reaction, trigger)
+            id_ = await self.bot.pool.fetchval(query, *values)
+
+            self._get_tags(ctx.guild).append(Tag(self.bot, id_, *values, 0))
 
     @tag.command(aliases=['remove'])
     async def delete(self, ctx, tag: TagConverter):
@@ -112,12 +136,16 @@ class Tags(CustomCog, AinitMixin):
                                     f'trigger `{selection.trigger}` and reaction {selection.reaction}?').prompt(ctx)
 
             if confirm:
-                self.get_tags(ctx.guild).remove(selection)
-                await self.bot.db.delete(self.tags_collection, selection.id)
+                query = """DELETE FROM tags
+                           WHERE id = $1;"""
+                await self.bot.pool.execute(query, selection.id)
+
+                self._get_tags(ctx.guild).remove(selection)
+
                 await ctx.send(f'Tag `{selection.id}` was deleted.')
 
     @tag.command(aliases=['change'])
-    async def edit(self, ctx, tag: TagConverter, key, *, new_value: commands.clean_content):
+    async def edit(self, ctx, tag: TagConverter, key, *, value: commands.clean_content):
         if len(tag) == 1:
             selection = tag[0]
         else:
@@ -127,21 +155,27 @@ class Tags(CustomCog, AinitMixin):
         # only allow tag owner and admins to edit tags
         if selection.creator != ctx.author and not ctx.author.guild_permissions.administrator:
             raise commands.BadArgument('You\'re not this tag\'s owner.')
+
         elif key not in Tag.EDITABLE:
             raise commands.BadArgument(f'Cannot edit `{key}`. Valid choices: {", ".join(self.FORMATTED_KEYS)}.')
         else:
-            if key == 'in_msg_trigger':
-                new_value = await BoolConverter().convert(ctx, new_value)
+            if key == 'in_msg':
+                value = await BoolConverter().convert(ctx, value)
             elif key in ['trigger', 'reaction']:
                 # check whether we are creating a duplicate
-                matches = await self.get_duplicates(new_value if key == 'trigger' else selection.trigger,
-                                                    new_value if key == 'reaction' else selection.reaction, ctx.guild)
+                matches = await self._get_duplicates(value if key == 'trigger' else selection.trigger,
+                                                     value if key == 'reaction' else selection.reaction, ctx.guild)
                 if len(matches) > 0:
                     raise commands.BadArgument(f'This edit would create a duplicate of tag `{matches[0].id}`.')
 
             old_value = getattr(selection, key)
-            setattr(selection, key, new_value)
-            await self.bot.db.update(self.tags_collection, selection.id, {key: new_value})
+            setattr(selection, key, value)
+
+            query = f"""UPDATE tags
+                        SET {key} = $1
+                        WHERE id = $2;"""
+            await self.bot.pool.execute(query, value, selection.id)
+
             await ctx.send(f'Tag `{selection.id}` was edited. Old {key}:\n{old_value}')
 
     @tag.command(brief='Sends a list of all tags in the server to the channel')
@@ -151,12 +185,12 @@ class Tags(CustomCog, AinitMixin):
 
         `{prefix}tag list true` for the entire list via DM.
         """
-        if len(self.get_tags(ctx.guild)) > 0:
+        if len(self._get_tags(ctx.guild)) > 0:
             if dm:
-                menu = PseudoMenu(TagListSource(self.get_tags(ctx.guild), per_page=15), ctx.author)
+                menu = PseudoMenu(TagListSource(self._get_tags(ctx.guild), per_page=15), ctx.author)
                 await menu.start()
             else:
-                pages = MenuPages(source=TagListSource(self.get_tags(ctx.guild)), clear_reactions_after=True)
+                pages = MenuPages(source=TagListSource(self._get_tags(ctx.guild)), clear_reactions_after=True)
                 await pages.start(ctx)
         else:
             await ctx.send('Try to add a few tags first!')
@@ -172,10 +206,10 @@ class Tags(CustomCog, AinitMixin):
 
     @tag.command()
     async def random(self, ctx):
-        if len(self.get_tags(ctx.guild)) < 1:
+        if len(self._get_tags(ctx.guild)) < 1:
             await ctx.send('Try to add a few tags first!')
         else:
-            await self.invoke_tag(ctx, random.choice(self.get_tags(ctx.guild)), info=True)
+            await self._invoke_tag(ctx, random.choice(self._get_tags(ctx.guild)), info=True)
 
     @tag.command()
     async def search(self, ctx, *, tag: TagConverter):
@@ -199,10 +233,10 @@ class Tags(CustomCog, AinitMixin):
         # no arg defaults to splitting on whitespace
         tokens = message.content.lower().split()
         found_tags = []
-        for tag in self.get_tags(ctx.guild):
+        for tag in self._get_tags(ctx.guild):
             if tag.trigger.lower() == message.content.lower():
                 found_tags.append(tag)
-            elif tag.in_msg_trigger:
+            elif tag.in_msg:
                 tag_tokens = tag.trigger.lower().split()
                 sublists = ordered_sublists(tokens, len(tag_tokens))
                 if tag_tokens in sublists:
@@ -210,12 +244,4 @@ class Tags(CustomCog, AinitMixin):
 
         if len(found_tags) >= 1:
             chosen_tag = random.choice(found_tags)
-            await self.invoke_tag(message.channel, chosen_tag)
-
-    async def invoke_tag(self, channel, tag, info=False):
-        if info:
-            await channel.send(f'**{tag.trigger}** (*{tag.id}*) by {tag.creator}\n{tag.reaction}')
-        else:
-            await channel.send(tag.reaction)
-        tag.use_count += 1
-        await self.bot.db.update(self.tags_collection, tag.id, {'use_count': tag.use_count})
+            await self._invoke_tag(message.channel, chosen_tag)

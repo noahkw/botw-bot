@@ -2,8 +2,7 @@ from models.Idol import Idol
 
 
 class Nomination:
-    def __init__(self, id_, member, guild, idol):
-        self.id = id_
+    def __init__(self, member, guild, idol):
         self.member = member
         self.guild = guild
         self.idol = idol
@@ -15,19 +14,11 @@ class Nomination:
                 self.guild == other.guild and
                 self.idol == other.idol)
 
-    def to_dict(self):
-        return {
-            'member': self.member.id,
-            'guild': self.guild.id,
-            'idol': self.idol.to_dict()
-        }
-
     @staticmethod
-    def from_dict(source, bot, id_=None):
-        member = bot.get_user(source.pop('member', None))
-        guild = bot.get_guild(source.pop('guild', None))
-        idol = Idol.from_dict(source.pop('idol', None))
-        return Nomination(id_, member, guild, idol)
+    def from_record(source, bot):
+        guild = bot.get_guild(source['guild'])
+        member = bot.get_user(source['member'])
+        return Nomination(member, guild, Idol(source['idol_group'], source['idol_name']))
 
     def to_field(self):
         return {
@@ -36,7 +27,7 @@ class Nomination:
         }
 
     def __str__(self):
-        return f'Nomination ({self.id}) {self.member}, {self.idol}, in {self.guild}'
+        return f'Nomination {self.member}, {self.idol}, in {self.guild}'
 
     def __repr__(self):
         return f'<{str(self)}>'

@@ -69,6 +69,22 @@ def db():
     pass
 
 
+@db.command(short_help='initialize the db\'s tables. the database must exist prior to running this',
+            options_metavar='[options]')
+def init():
+    logger, config, creds = setup()
+
+    loop = asyncio.get_event_loop()
+    pool = create_pool(loop, logger, creds)
+
+    with open(r'migrations/schema_001.sql', 'r') as f:
+        query = f.read()
+
+    loop.run_until_complete(pool.execute(query))
+    print(f'the db was successfully initialized.')
+    logger.info(f'the db was successfully initialized.')
+
+
 @db.command(short_help='migrate to postgres', options_metavar='[options]')
 @click.argument('files', nargs=-1, metavar='[files]')
 def initial_migration(files):

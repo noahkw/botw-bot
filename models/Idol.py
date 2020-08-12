@@ -17,9 +17,9 @@ class Idol:
     def __hash__(self):
         return hash((self.group, self.name))
 
-    def to_dict(self):
-        return {'group': self.group, 'name': self.name}
+    def to_tuple(self):
+        return self.group, self.name
 
     @staticmethod
-    def from_dict(source):
-        return Idol(source['group'], source['name'])
+    def from_record(source):
+        return Idol(**source)

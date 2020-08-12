@@ -1,4 +1,4 @@
-from discord import Embed
+from discord import Embed, User
 
 
 class ProfileItem:
@@ -20,46 +20,42 @@ class ProfileItem:
     def value(self, value):
         self._value = value
 
-    def db_value(self):
-        return self.value
-
 
 class AvatarItem(ProfileItem):
-    def __init__(self, user, hidden=True):
-        super().__init__('Avatar', user, hidden)
-
     def add_to_embed(self, embed):
         if not self.hidden:
-            embed.set_image(url=self.value.avatar_url)
+            embed.set_image(url=self.value)
 
 
 class Profile:
-    __slots__ = ('user', 'location', 'avatar', 'created_at', )
-    __items__ = __slots__[1:]
-    __items_db__ = ('location', )
+    __slots__ = ('_bot', '_user', '_items',)
+    ITEMS_DB = ('location',)
 
-    def __init__(self, user, location=None):
-        self.user = user
+    def __init__(self, bot, user: User, location):
+        self._user = user
+        self._bot = bot
 
-        self.location = ProfileItem('Location', location, hidden=True)
-        self.avatar = AvatarItem(user, hidden=False)
-        self.created_at = ProfileItem('Joined Discord', user.created_at, hidden=False)
-
-    def to_dict(self):
-        return {
-            profile_item: getattr(self, profile_item).db_value() for profile_item in Profile.__items_db__
+        self._items = {
+            'location': ProfileItem('Location', location, hidden=True),
+            'avatar': AvatarItem(None, user.avatar_url, hidden=False),
+            'created_at': ProfileItem('Joined Discord', user.created_at, hidden=False)
         }
 
+    def __getattr__(self, item):
+        return self._items[item].value
+
     @staticmethod
-    def from_dict(user, source):
-        kwargs = {}
-        for item in Profile.__items_db__:
-            kwargs[item] = source.pop(item, None)
-        return Profile(user, **kwargs)
+    def from_record(source, bot):
+        user = bot.get_user(source['user'])
+
+        return Profile(bot, user, *[source[key] for key in Profile.ITEMS_DB])
+
+    def to_tuple(self):
+        return tuple([self._user.id] + [self._items[item].value for item in self.ITEMS_DB])
 
     def to_embed(self):
-        embed = Embed(title=f'Profile of {self.user}')
+        embed = Embed(title=f'Profile of {self._user}')
 
-        for item in self.__items__:
-            getattr(self, item).add_to_embed(embed)
+        for item in self._items.values():
+            item.add_to_embed(embed)
         return embed
