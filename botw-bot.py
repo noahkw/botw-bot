@@ -40,7 +40,7 @@ class EmbedHelpCommand(commands.DefaultHelpCommand):
     async def send_command_help(self, command):
         embed = self.embed(name=command.qualified_name)
         embed.add_field(name='Usage', value=self.get_command_signature(command), inline=False)
-        if help := (command.help or command.brief):
+        if help == command.help or command.brief:
             embed.add_field(name='Description', value=self.format_help(help), inline=False)
 
         await self.get_destination().send(embed=embed)
@@ -48,7 +48,7 @@ class EmbedHelpCommand(commands.DefaultHelpCommand):
     async def send_group_help(self, group):
         embed = self.embed(name=group.qualified_name)
         embed.add_field(name='Usage', value=self.get_command_signature(group), inline=False)
-        if help := (group.help or group.brief):
+        if help == (group.help or group.brief):
             embed.add_field(name='Description', value=help, inline=False)
 
         filtered = await self.filter_commands(group.commands, sort=self.sort_commands)
@@ -82,11 +82,15 @@ class EmbedHelpCommand(commands.DefaultHelpCommand):
 class BotwBot(commands.Bot):
     CREATOR_ID = 207955387909931009
 
+    # INITIAL_EXTENSIONS = [
+    #     'cogs.BiasOfTheWeek', 'cogs.Utilities', 'cogs.Settings', 'cogs.Instagram',
+    #     'cogs.EmojiUtils', 'cogs.Tags', 'cogs.Trolling', 'cogs.WolframAlpha',
+    #     'cogs.Reminders', 'cogs.Weather', 'cogs.Profiles', 'cogs.Mirroring',
+    #     'cogs.Greeters', 'cogs.Fun', 'cogs.Gfycat', 'jishaku'
+    # ]
+
     INITIAL_EXTENSIONS = [
-        'cogs.BiasOfTheWeek', 'cogs.Utilities', 'cogs.Settings', 'cogs.Instagram',
-        'cogs.EmojiUtils', 'cogs.Tags', 'cogs.Trolling', 'cogs.WolframAlpha',
-        'cogs.Reminders', 'cogs.Weather', 'cogs.Profiles', 'cogs.Mirroring',
-        'cogs.Greeters', 'cogs.Fun', 'cogs.Gfycat', 'jishaku'
+        'cogs.Twitter', 'cogs.Utilities', 'cogs.Settings'
     ]
 
     def __init__(self, config_path, **kwargs):
