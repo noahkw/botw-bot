@@ -12,6 +12,7 @@ async def backup():
                    ('reminders', 'reminders_collection'),
                    ('biasoftheweek', 'past_winners_collection'),
                    ('biasoftheweek', 'idols_collection'),
+                   ('biasoftheweek', 'nominations_collection'),
                    ('profiles', 'profiles_collection'),
                    ('settings', 'settings_collection'),
                    ('mirroring', 'mirrors_collection')]
