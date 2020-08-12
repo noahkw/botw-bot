@@ -21,7 +21,15 @@ async def backup():
 
     for collection in collections:
         module, coll = collection
-        objs = [obj.to_dict() for obj in await db.get(config[module][coll])]
+        objs = []
+        if coll == 'settings_collection':
+            # add guild ids for settings
+            for obj in await db.get(config[module][coll]):
+                d = obj.to_dict()
+                d['guild'] = int(obj.id)
+                objs.append(d)
+        else:
+            objs = [obj.to_dict() for obj in await db.get(config[module][coll])]
         with open(f'{module}.{coll}.{now}.backup', 'w+') as f:
             f.write(json.dumps(objs, sort_keys=True, indent=4))
 
