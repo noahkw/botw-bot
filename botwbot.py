@@ -5,7 +5,7 @@ from collections import Counter
 import discord
 from discord.ext import commands
 
-from DataStore import FirebaseDataStore
+from DataStore import PostgresDataStore
 
 
 def cmd_to_str(group=False):
@@ -89,13 +89,15 @@ class BotwBot(commands.Bot):
         'cogs.Greeters', 'cogs.Fun', 'cogs.Gfycat', 'jishaku'
     ]
 
-    def __init__(self, config, **kwargs):
+    def __init__(self, config_path, **kwargs):
         self.startup = True
-        self.config = config
+        self.config = configparser.ConfigParser()
+        self.config.read(config_path)
         super().__init__(**kwargs, command_prefix=self.config['discord']['command_prefix'],
                          help_command=EmbedHelpCommand(),
                          allowed_mentions=discord.AllowedMentions(everyone=False, users=True, roles=False))
-        self.db = FirebaseDataStore(self.config['firebase']['key_file'], self.config['firebase']['db_name'], self.loop)
+        postgres = self.config['postgres']
+        self.db = PostgresDataStore(postgres['user'], postgres['password'], postgres['db'], postgres['host'])
         self.add_checks()
 
         # ban after more than 5 commands in 10 seconds
@@ -107,11 +109,18 @@ class BotwBot(commands.Bot):
         await self.change_presence(activity=discord.Game('with Bini'))
         if self.startup:
             self.startup = False
+            await self.db._ainit()
             for ext in self.INITIAL_EXTENSIONS:
                 ext_logger = logging.getLogger(ext)
                 ext_logger.setLevel(logging.INFO)
                 ext_logger.addHandler(handler)
                 self.load_extension(ext)
+
+        query = "SELECT * FROM botw_nominations WHERE member = $1;"
+
+        # This returns a asyncpg.Record object, which is similar to a dict
+        row = await self.db.db.fetchrow(query, 231)
+        print(row)
 
         logger.info(f"Logged in as {self.user}. Whitelisted servers: {self.config.items('whitelisted_servers')}")
 
@@ -187,8 +196,14 @@ class BotwBot(commands.Bot):
         await super().process_commands(message)
 
 
-logger = logging.getLogger('discord')
-logger.setLevel(logging.INFO)
-handler = logging.FileHandler(filename='botw-bot.log', encoding='utf-8', mode='w')
-handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-logger.addHandler(handler)
+if __name__ == '__main__':
+    logger = logging.getLogger('discord')
+    logger.setLevel(logging.INFO)
+    handler = logging.FileHandler(filename='botw-bot.log', encoding='utf-8', mode='w')
+    handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+    logger.addHandler(handler)
+
+    botw_bot = BotwBot('conf.ini')
+    botw_bot.run()
+
+    logger.info('Cleaning up')

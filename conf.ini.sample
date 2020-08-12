@@ -55,3 +55,9 @@ client_secret=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 [firebase]
 key_file=xxx-firebase-adminsdk-xxx-xxx.json
 db_name=xxx
+
+[postgres]
+user=xxxx
+password=xxxx
+db=xxxx
+host=127.0.0.1

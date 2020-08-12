@@ -13,7 +13,7 @@ def setup(bot):
     bot.add_cog(Mirroring(bot))
 
 
-class TextChannelConverter(commands.Converter):
+class GlobalTextChannelConverter(commands.Converter):
     def __init__(self):
         self.text_channel_converter = commands.TextChannelConverter()
 
@@ -33,15 +33,17 @@ class Mirroring(CustomCog, AinitMixin):
     def __init__(self, bot):
         super().__init__(bot)
         self.mirrors = {}
-        self.mirrors_collection = self.bot.config['mirroring']['mirrors_collection']
 
         super(AinitMixin).__init__()
 
     async def _ainit(self):
-        _mirrors = await self.bot.db.get(self.mirrors_collection)
+        await self.bot.wait_until_ready()
+
+        query = "SELECT * FROM mirrors;"
+        _mirrors = await self.bot.db.pool.fetch(query)
 
         for _mirror in _mirrors:
-            mirror = await ChannelMirror.from_dict(_mirror.to_dict(), self.bot, _mirror.id)
+            mirror = await ChannelMirror.from_record(_mirror, self.bot)
             self.append_mirror(mirror)
 
         logger.info(f'# Initial mirrors from db: {len(self.mirrors)}')
@@ -53,50 +55,57 @@ class Mirroring(CustomCog, AinitMixin):
         pass
 
     def append_mirror(self, mirror):
-        if mirror.origin in self.mirrors:
-            self.mirrors[mirror.origin].append(mirror)
-        else:
-            self.mirrors[mirror.origin] = [mirror]
+        origin_mirrors = self.mirrors.setdefault(mirror.origin.id, [])
+        origin_mirrors.append(mirror)
 
     @mirror.command()
-    async def add(self, ctx, origin: TextChannelConverter, dest: TextChannelConverter):
+    async def add(self, ctx, origin: GlobalTextChannelConverter, dest: GlobalTextChannelConverter):
         if origin == dest:
             raise commands.BadArgument('Cannot mirror a channel to itself.')
+        elif dest.id in self.mirrors and origin.id in [mirror.dest.id for mirror in self.mirrors[dest.id]]:
+            raise commands.BadArgument('This would create a circular mirror.')
 
-        mirror = ChannelMirror(None, origin, dest, None, True)
+        mirror = ChannelMirror(origin, dest, None, True)
+
         if mirror in flatten(self.mirrors.values()):
             raise commands.BadArgument('This mirror already exists.')
 
         dest_webhook = await dest.create_webhook(name=f'Mirror from {origin}@{origin.guild}')
         mirror.webhook = dest_webhook
 
-        id_ = await self.bot.db.set_get_id(self.mirrors_collection, mirror.to_dict())
-        mirror.id = id_
+        query = 'INSERT INTO mirrors (origin, destination, webhook, enabled) VALUES ($1, $2, $3, $4);'
+        await self.bot.db.pool.execute(query, *await mirror.to_tuple())
 
         self.append_mirror(mirror)
-        await ctx.send(f'Added channel mirror from {origin.mention}@`{origin.guild}` to {dest.mention}@`{dest.guild}`')
+        await ctx.send(f'Added {mirror}')
 
     @mirror.command(aliases=['delete'])
     @ack
-    async def remove(self, ctx, origin: TextChannelConverter, dest: TextChannelConverter):
-        mirrors = self.mirrors[origin]
+    async def remove(self, ctx, origin: GlobalTextChannelConverter, dest: GlobalTextChannelConverter):
         try:
+            mirrors = self.mirrors[origin.id]
             mirror = [m for m in mirrors if m.dest == dest].pop()
         except IndexError:
             raise commands.BadArgument('This mirror does not exist.')
+        except KeyError:
+            raise commands.BadArgument(f'Channel {origin.mention} has no mirrors.')
+
+        if mirror.webhook:
+            await mirror.webhook.delete()
 
         mirrors.remove(mirror)
-        await mirror.webhook.delete()
-        await self.bot.db.delete(self.mirrors_collection, mirror.id)
+
+        query = 'DELETE FROM mirrors WHERE origin = $1 and destination = $2;'
+        await self.bot.db.pool.execute(query, origin.id, dest.id)
 
     @commands.Cog.listener()
     async def on_message(self, message):
         ctx = await self.bot.get_context(message)
 
-        if ctx.valid or message.author == self.bot.user or message.channel not in self.mirrors:
+        if ctx.valid or message.author == self.bot.user or message.channel.id not in self.mirrors:
             return
 
-        mirrors = self.mirrors[message.channel]
+        mirrors = self.mirrors[message.channel.id]
         for mirror in mirrors:
             if not mirror.enabled:
                 continue
