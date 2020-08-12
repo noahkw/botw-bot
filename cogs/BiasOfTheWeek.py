@@ -474,7 +474,7 @@ class BiasOfTheWeek(commands.Cog):
 
     @tasks.loop(hours=1.0)
     async def _loop(self):
-        pendulum.set_test_now(pendulum.now('UTC').next(self.winner_day))
+        # pendulum.set_test_now(pendulum.now('UTC').next(self.winner_day))
         logger.info('Hourly loop running')
         now = pendulum.now('UTC')
 

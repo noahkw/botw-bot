@@ -1,21 +1,44 @@
-import time
-
 import discord
 import pendulum
 
 
 class Tag:
-    EDITABLE = ['trigger', 'reaction', 'in_msg_trigger']
+    EDITABLE = ['trigger', 'reaction', 'in_msg']
 
-    def __init__(self, id_, trigger, reaction, creator, guild, in_msg_trigger=False, use_count=0, creation_date=None):
-        self.id = id_
+    def __init__(self, bot, id, date, creator, guild, in_msg, reaction, trigger, use_count):
+        self._id = id
         self.trigger = trigger
         self.reaction = reaction
-        self.creator = creator
-        self.guild = guild
-        self.in_msg_trigger = in_msg_trigger
-        self.use_count = use_count
-        self.creation_date = time.time() if creation_date is None else creation_date
+        self.in_msg = in_msg
+        self._creator: int = creator
+        self._guild: int = guild
+        self._use_count = use_count
+        self._date = pendulum.instance(date)
+        self._bot = bot
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def creator(self):
+        return self._bot.get_user(self._creator)
+
+    @property
+    def guild(self):
+        return self._bot.get_guild(self._guild)
+
+    @property
+    def use_count(self):
+        return self._use_count
+
+    def increment_use_count(self):
+        self._use_count += 1
+        return self._use_count
+
+    @property
+    def date(self):
+        return self._date
 
     def __str__(self):
         return f'({self.id}) {self.trigger} -> {self.reaction} (creator: {self.creator}, guild: {self.guild})'
@@ -29,29 +52,16 @@ class Tag:
         return str.lower(self.trigger) == str.lower(other.trigger) and str.lower(self.reaction) == str.lower(
             other.reaction) and self.guild == other.guild
 
-    def to_dict(self):
-        return {
-            'trigger': self.trigger,
-            'reaction': self.reaction,
-            'creator': self.creator.id,
-            'guild': self.guild.id,
-            'in_msg_trigger': self.in_msg_trigger,
-            'use_count': self.use_count,
-            'creation_date': self.creation_date
-        }
-
     def info_embed(self):
-        embed = discord.Embed(title=f'Tag `{self.id}`')
-        embed.add_field(name='Trigger', value=self.trigger)
-        embed.add_field(name='Reaction', value=self.reaction)
-        embed.add_field(name='Creator', value=self.creator.mention)
-        embed.add_field(name='Triggers in message', value=str(self.in_msg_trigger))
-        embed.add_field(name='Use Count', value=str(self.use_count))
-        embed.set_footer(text=f'Created on {pendulum.from_timestamp(self.creation_date).to_formatted_date_string()}')
+        embed = discord.Embed(title=f'Tag `{self.id}`') \
+            .add_field(name='Trigger', value=self.trigger) \
+            .add_field(name='Reaction', value=self.reaction) \
+            .add_field(name='Creator', value=self.creator.mention) \
+            .add_field(name='Triggers in message', value=str(self.in_msg)) \
+            .add_field(name='Use Count', value=str(self.use_count)) \
+            .set_footer(text=f'Created on {self.date.to_formatted_date_string()}')
         return embed
 
     @staticmethod
-    def from_dict(source, bot, id_=None):
-        return Tag(id_, source['trigger'], source['reaction'], bot.get_user(source['creator']),
-                   bot.get_guild(source['guild']), in_msg_trigger=source['in_msg_trigger'],
-                   use_count=source['use_count'], creation_date=source['creation_date'])
+    def from_record(source, bot):
+        return Tag(bot, *source)
