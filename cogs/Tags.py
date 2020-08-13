@@ -27,7 +27,7 @@ class TagConverter(commands.Converter):
         try:
             tag = [tag for tag in cog._get_tags(ctx.guild) if tag.id == int(argument)].pop()
             return [tag]
-        except IndexError:
+        except (IndexError, ValueError):  # either argument is not an ID or it wasn't found
             # argument was not an ID, search triggers
             tags = await cog._get_tags_by_trigger(argument, ctx.guild)
             if len(tags) > 0:
