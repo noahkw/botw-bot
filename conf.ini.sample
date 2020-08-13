@@ -33,6 +33,12 @@ emoji_channel=XXXXXXXXXXXXXXXXXX
 [wolframalpha]
 app_id=XXXXXX-XXXXXXXXXX
 
+[twitter]
+consumer_key = XXXXXXXXXXXX
+consumer_secret = XXXXXXXXXXXX
+access_token = XXXXXXXXXXXX
+access_token_secret = XXXXXXXXXXXX
+
 [openweathermap]
 app_id=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
