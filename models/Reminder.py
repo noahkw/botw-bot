@@ -22,7 +22,7 @@ class Reminder:
         return self.id == other.id
 
     @staticmethod
-    async def from_record(source, bot):
+    def from_record(source, bot):
         return Reminder(bot, **source)
 
     def __repr__(self):

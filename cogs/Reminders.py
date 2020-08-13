@@ -70,11 +70,13 @@ class Reminders(CustomCog, AinitMixin):
     async def _ainit(self):
         await self.bot.wait_until_ready()
 
-        query = "SELECT * FROM reminders WHERE NOT done;"
+        query = """SELECT *
+                   FROM reminders
+                   WHERE NOT done;"""
         reminders = await self.bot.pool.fetch(query)
 
         for _reminder in reminders:
-            reminder = await Reminder.from_record(_reminder, self.bot)
+            reminder = Reminder.from_record(_reminder, self.bot)
             if has_passed(reminder.due):
                 await self.remind_user(reminder, late=True)
             else:
@@ -113,8 +115,7 @@ class Reminders(CustomCog, AinitMixin):
         values = (what, now, parsed_date, ctx.author.id)
         query = """INSERT INTO reminders (content, created, done, due, "user")
                    VALUES ($1, $2, FALSE, $3, $4)
-                   RETURNING id;
-                """
+                   RETURNING id;"""
         id_ = await self.bot.pool.fetchval(query, *values)
 
         reminder = Reminder(self.bot, id_, what, now, False, parsed_date, ctx.author.id)
@@ -128,7 +129,9 @@ class Reminders(CustomCog, AinitMixin):
         """
         Lists your reminders
         """
-        query = """SELECT * FROM reminders WHERE NOT done and "user" = $1;"""
+        query = """SELECT *
+                   FROM reminders 
+                   WHERE NOT done and "user" = $1;"""
         reminders = [Reminder.from_record(reminder, self.bot) for reminder in
                      await self.bot.pool.fetch(query, ctx.author.id)]
 
