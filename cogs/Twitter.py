@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from io import BytesIO
 import peony
 from peony import EventStream, PeonyClient, event_handler, events
 import re
@@ -8,8 +7,7 @@ import discord
 from discord import File
 from discord.ext import commands
 from cogs import CustomCog, AinitMixin
-
-from util import auto_help
+from util import auto_help, ack
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +94,8 @@ class Twitter(CustomCog, AinitMixin):
         await ctx.send_help(self.twitter)
 
     @twitter.command(brief='Enable Twitter pic posting on server')
-    @commands.has_permissions(administrator=True)
+    # @commands.has_permissions(administrator=True)
+    @ack
     async def enable(self, ctx, type_of_server):
         """
         Enables Twitter pic posting on the server, must specify the type of server
@@ -120,7 +119,8 @@ class Twitter(CustomCog, AinitMixin):
 
     @add.command(name='channel', brief='Add a channel for a member\'s pictures or videos to be posted in')
     @twitter_enabled()
-    @commands.has_permissions(administrator=True)
+    # @commands.has_permissions(administrator=True)
+    @ack
     async def add_channel(self, ctx, type_of_channel: commands.clean_content, channel: discord.TextChannel, name: commands.clean_content):
         """
         Associates a member with a specific channel to have their pictures or videos posted in.
@@ -140,7 +140,8 @@ class Twitter(CustomCog, AinitMixin):
 
     @add.command(name='tag', brief='Add a tag for a member\'s pictures or videos to be filtered with')
     @twitter_enabled()
-    @commands.has_permissions(administrator=True)
+    # @commands.has_permissions(administrator=True)
+    @ack
     async def add_tag(self, ctx, tag: commands.clean_content, member: commands.clean_content):
         """
         Associates a hashtag with a member to filter tweets into their specified channels.
@@ -154,7 +155,8 @@ class Twitter(CustomCog, AinitMixin):
 
     @add.command(name='account', brief='Add a twitter account for the server to follow')
     @twitter_enabled()
-    @commands.has_permissions(administrator=True)
+    # @commands.has_permissions(administrator=True)
+    @ack
     async def add_account(self, ctx, account: commands.clean_content):
         """
         Adds a twitter account for a server to follow, to be filtered by associated tags and members into channels
@@ -225,15 +227,20 @@ class Twitter(CustomCog, AinitMixin):
         tweet_date= f'{tweet_date[2:4]}{tweet_date[5:7]}{tweet_date[8:10]}'
 
 
-        date_6=re.compile('\d\d\d\d\d\d')
-        date_8=re.compile('\d\d\d\d\d\d\d\d')
-        date_6_result=date_6.match(tweet.text)
-        date_8_result=date_8.match(tweet.text)
+        # date_6=re.compile('\d\d\d\d\d\d')
+        # date_8=re.compile('\d\d\d\d\d\d\d\d')
+        # date_6_result=date_6.match(tweet.text)
+        # date_8_result=date_8.match(tweet.text)
 
-        if date_6_result:
-            date=date_6_result.group()
-        elif date_8_result:
-            date=date_8_result.group()[-5]
+        date_re=re.compile('(\s+|^)(\d{6}|\d{8})\s+')
+        date_result=date_re.match(tweet.text)
+
+        # if date_6_result:
+        #     date=date_6_result.group()
+        # elif date_8_result:
+        #     date=date_8_result.group()[-5]
+        if date_result:
+            date=date_result.group(2)
         else:
             date=tweet_date
 
