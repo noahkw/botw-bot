@@ -202,7 +202,7 @@ class BotwBot(commands.Bot):
         bucket = self.spam_cd.get_bucket(message)
         retry_after = bucket.update_rate_limit()
 
-        if retry_after:
+        if retry_after and message.author.id != self.owner_id:
             await message.channel.send(
                 f'{message.author.mention}, stop spamming and retry when this message is deleted!',
                 delete_after=retry_after + 5)

@@ -32,15 +32,34 @@ def guild_has_tags():
 
 
 class TagConverter(commands.Converter):
-    async def convert(self, ctx, argument):
+    def __init__(self, prompt_selection=True):
+        """
+        :param prompt_selection: Whether to prompt the user to select exactly one tag.
+        """
+        self.prompt = prompt_selection
+
+    async def convert(self, ctx, argument) -> typing.Union[Tag, typing.List[Tag]]:
+        """
+        :return: A single tag if self.prompt, a list of tags whose triggers match otherwise
+        :raises commands.BadArgument: if no matching tag was found
+        """
+
         cog = ctx.bot.get_cog('Tags')
         try:
             tag = [tag for tag in cog._get_tags(ctx.guild) if tag.id == int(argument)].pop()
-            return [tag]
+            return tag
         except (IndexError, ValueError):  # either argument is not an ID or it wasn't found
             # argument was not an ID, search triggers
             tags = await cog._get_tags_by_trigger(argument, ctx.guild)
-            if len(tags) > 0:
+
+            if len(tags) == 1:
+                return tags.pop()
+            elif len(tags) > 0 and self.prompt:
+                await ctx.send('Choose a tag by reacting with the corresponding number.', delete_after=10)
+                pages = SelectionMenu(source=TagListSource(tags))
+                selection = await pages.prompt(ctx)
+                return selection
+            elif len(tags) > 0:
                 return tags
             else:
                 raise commands.BadArgument(f'Tag {argument} could not be found.')
@@ -48,7 +67,6 @@ class TagConverter(commands.Converter):
 
 class Tags(CustomCog, AinitMixin):
     FORMATTED_KEYS = [f'`{key}`' for key in Tag.EDITABLE]
-    ADD_SOME_TAGS = 'Try to add a few tags first.'
 
     def __init__(self, bot):
         super().__init__(bot)
@@ -133,38 +151,26 @@ class Tags(CustomCog, AinitMixin):
 
     @tag.command(aliases=['remove'])
     async def delete(self, ctx, tag: TagConverter):
-        if len(tag) == 1:
-            selection = tag[0]
-        else:
-            pages = SelectionMenu(source=TagListSource(tag))
-            selection = await pages.prompt(ctx)
-
         # only allow tag owner and admins to delete tags
-        if selection.creator != ctx.author and not ctx.author.guild_permissions.administrator:
+        if tag.creator != ctx.author and not ctx.author.guild_permissions.administrator:
             raise commands.BadArgument('You\'re not this tag\'s owner.')
         else:
-            confirm = await Confirm(f'Are you sure you want to delete the tag with ID {selection.id}, '
-                                    f'trigger `{selection.trigger}` and reaction {selection.reaction}?').prompt(ctx)
+            confirm = await Confirm(f'Are you sure you want to delete the tag with ID {tag.id}, '
+                                    f'trigger `{tag.trigger}` and reaction {tag.reaction}?').prompt(ctx)
 
             if confirm:
                 query = """DELETE FROM tags
                            WHERE id = $1;"""
-                await self.bot.pool.execute(query, selection.id)
+                await self.bot.pool.execute(query, tag.id)
 
-                self._get_tags(ctx.guild).remove(selection)
+                self._get_tags(ctx.guild).remove(tag)
 
-                await ctx.send(f'Tag `{selection.id}` was deleted.')
+                await ctx.send(f'Tag `{tag.id}` was deleted.')
 
     @tag.command(aliases=['change'])
     async def edit(self, ctx, tag: TagConverter, key, *, value: commands.clean_content):
-        if len(tag) == 1:
-            selection = tag[0]
-        else:
-            pages = SelectionMenu(source=TagListSource(tag))
-            selection = await pages.prompt(ctx)
-
         # only allow tag owner and admins to edit tags
-        if selection.creator != ctx.author and not ctx.author.guild_permissions.administrator:
+        if tag.creator != ctx.author and not ctx.author.guild_permissions.administrator:
             raise commands.BadArgument('You\'re not this tag\'s owner.')
 
         elif key not in Tag.EDITABLE:
@@ -174,20 +180,20 @@ class Tags(CustomCog, AinitMixin):
                 value = await BoolConverter().convert(ctx, value)
             elif key in ['trigger', 'reaction']:
                 # check whether we are creating a duplicate
-                matches = await self._get_duplicates(value if key == 'trigger' else selection.trigger,
-                                                     value if key == 'reaction' else selection.reaction, ctx.guild)
+                matches = await self._get_duplicates(value if key == 'trigger' else tag.trigger,
+                                                     value if key == 'reaction' else tag.reaction, ctx.guild)
                 if len(matches) > 0:
                     raise commands.BadArgument(f'This edit would create a duplicate of tag `{matches[0].id}`.')
 
-            old_value = getattr(selection, key)
-            setattr(selection, key, value)
+            old_value = getattr(tag, key)
+            setattr(tag, key, value)
 
             query = f"""UPDATE tags
                         SET {key} = $1
                         WHERE id = $2;"""
-            await self.bot.pool.execute(query, value, selection.id)
+            await self.bot.pool.execute(query, value, tag.id)
 
-            await ctx.send(f'Tag `{selection.id}` was edited. Old {key}:\n{old_value}')
+            await ctx.send(f'Tag `{tag.id}` was edited. Old {key}:\n{old_value}')
 
     @guild_has_tags()
     @auto_help
@@ -215,30 +221,20 @@ class Tags(CustomCog, AinitMixin):
         menu = PseudoMenu(TagListSource(self._get_tags(ctx.guild), per_page=15), ctx.author)
         await menu.start()
 
-    @tag.command()
+    @tag.command(aliases=['search'])
     async def info(self, ctx, *, tag: TagConverter):
-        if len(tag) == 1:
-            await ctx.send(embed=tag[0].info_embed())
-        else:
-            pages = SelectionMenu(source=TagListSource(tag))
-            selection = await pages.prompt(ctx)
-            await ctx.send(embed=selection.info_embed())
+        await ctx.send(embed=tag.info_embed())
 
     @guild_has_tags()
     @tag.command()
     async def random(self, ctx):
         await self._invoke_tag(ctx, random.choice(self._get_tags(ctx.guild)), info=True)
 
-    @tag.command()
-    async def search(self, ctx, *, tag: TagConverter):
-        pages = MenuPages(source=TagListSource(tag), clear_reactions_after=True)
-        await pages.start(ctx)
-
     @list.error
     @random.error
     async def guild_has_no_tags_error(self, ctx, error):
-        print(error)
-        print(self.ADD_SOME_TAGS)
+        if isinstance(error, commands.CheckFailure):
+            await ctx.send('Try to add a few tags first.')
 
     @commands.Cog.listener('on_message')
     async def on_message(self, message):
