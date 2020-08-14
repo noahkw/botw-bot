@@ -1,5 +1,8 @@
 import discord
 import pendulum
+import re
+
+IMAGE_URL_REGEX = r'https?:\/\/.*\.(jpe?g|png|gif)'
 
 
 class Tag:
@@ -60,6 +63,10 @@ class Tag:
             .add_field(name='Triggers in message', value=str(self.in_msg)) \
             .add_field(name='Use Count', value=str(self.use_count)) \
             .set_footer(text=f'Created on {self.date.to_formatted_date_string()}')
+
+        if re.search(IMAGE_URL_REGEX, self.reaction):
+            embed.set_image(url=self.reaction)
+
         return embed
 
     @staticmethod
