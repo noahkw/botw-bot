@@ -11,7 +11,7 @@ from discord.ext.menus import MenuPages
 from cogs import CustomCog, AinitMixin
 from menu import Confirm, TagListSource, PseudoMenu, SelectionMenu, DetailTagListSource
 from models import Tag
-from util import ordered_sublists, ratio, ack, auto_help
+from util import ordered_sublists, ratio, auto_help
 from util.converters import ReactionConverter, BoolConverter
 
 logger = logging.getLogger(__name__)
@@ -245,8 +245,8 @@ class Tags(CustomCog, AinitMixin):
         menu = PseudoMenu(TagListSource(self._get_tags(ctx.guild), per_page=15), ctx.author)
         await menu.start()
 
-    @tag.command(aliases=['search'], brief='Displays some info about a tag')
-    async def info(self, ctx, *, tag: TagConverter):
+    @tag.group(aliases=['search'], brief='Displays some info about a tag', invoke_without_command=True)
+    async def info(self, ctx, *, tag: TagConverter(prompt_selection=False)):
         """
         Displays some info about a tag.
 
@@ -257,7 +257,22 @@ class Tags(CustomCog, AinitMixin):
         Query by trigger:
         `{prefix}tag info haha`
         """
-        await ctx.send(embed=tag.info_embed())
+        if type(tag) is list:
+            await ctx.send('Choose a tag by reacting with the corresponding number.', delete_after=10)
+            pages = SelectionMenu(source=TagListSource(tag))
+            selection = await pages.prompt(ctx)
+        else:
+            selection = tag
+
+        await ctx.send(embed=selection.info_embed())
+
+    @info.command(name='detail')
+    async def info_detail(self, ctx, *, tag: TagConverter(prompt_selection=False)):
+        if type(tag) is list:
+            pages = SelectionMenu(source=DetailTagListSource(tag))
+            await pages.prompt(ctx)
+        else:
+            await ctx.send(embed=tag.info_embed())
 
     @guild_has_tags()
     @tag.command(brief='Sends a random tag')
