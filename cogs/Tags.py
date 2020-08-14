@@ -121,7 +121,6 @@ class Tags(CustomCog, AinitMixin):
         await ctx.invoke(self.list, dm=args)
 
     @tag.command(aliases=['new', 'create'], brief='Adds a new tag')
-    @ack
     async def add(self, ctx, in_msg: typing.Optional[bool] = False, trigger: commands.clean_content = '', *,
                   reaction: ReactionConverter):
         """
@@ -149,8 +148,20 @@ class Tags(CustomCog, AinitMixin):
 
             self._get_tags(ctx.guild).append(Tag(self.bot, id_, *values, 0))
 
-    @tag.command(aliases=['remove'])
+            await ctx.send(f'Tag `{id_}` has been created.')
+
+    @tag.command(aliases=['remove'], brief='Deletes given tag')
     async def delete(self, ctx, tag: TagConverter):
+        """
+        Deletes the given tag.
+
+        Example usage:
+        Deletion by ID:
+        `{prefix}tag delete 45`
+
+        Deletion by trigger:
+        `{prefix}tag delete haha`
+        """
         # only allow tag owner and admins to delete tags
         if tag.creator != ctx.author and not ctx.author.guild_permissions.administrator:
             raise commands.BadArgument('You\'re not this tag\'s owner.')
@@ -167,8 +178,21 @@ class Tags(CustomCog, AinitMixin):
 
                 await ctx.send(f'Tag `{tag.id}` was deleted.')
 
-    @tag.command(aliases=['change'])
+    @tag.command(aliases=['change'], brief='Edits given tag')
     async def edit(self, ctx, tag: TagConverter, key, *, value: commands.clean_content):
+        """
+        Edits the given tag.
+
+        Example usage:
+        Make the tag `haha` trigger on parts of the message:
+        `{prefix}tag edit haha in_msg true`
+
+        Make the tag `haha` trigger on `hehe` instead:
+        `{prefix}tag edit haha trigger hehe`
+
+        Change `haha`'s reaction to `stop laughing`:
+        `{prefix}tag edit haha reaction stop laughing`
+        """
         # only allow tag owner and admins to edit tags
         if tag.creator != ctx.author and not ctx.author.guild_permissions.administrator:
             raise commands.BadArgument('You\'re not this tag\'s owner.')
@@ -221,12 +245,22 @@ class Tags(CustomCog, AinitMixin):
         menu = PseudoMenu(TagListSource(self._get_tags(ctx.guild), per_page=15), ctx.author)
         await menu.start()
 
-    @tag.command(aliases=['search'])
+    @tag.command(aliases=['search'], brief='Displays some info about a tag')
     async def info(self, ctx, *, tag: TagConverter):
+        """
+        Displays some info about a tag.
+
+        Example usage:
+        Query by ID:
+        `{prefix}tag info 45`
+
+        Query by trigger:
+        `{prefix}tag info haha`
+        """
         await ctx.send(embed=tag.info_embed())
 
     @guild_has_tags()
-    @tag.command()
+    @tag.command(brief='Sends a random tag')
     async def random(self, ctx):
         await self._invoke_tag(ctx, random.choice(self._get_tags(ctx.guild)), info=True)
 
