@@ -9,7 +9,7 @@ from discord.ext import commands
 from discord.ext.menus import MenuPages
 
 from cogs import CustomCog, AinitMixin
-from menu import Confirm, TagListSource, PseudoMenu, SelectionMenu
+from menu import Confirm, TagListSource, PseudoMenu, SelectionMenu, DetailTagListSource
 from models import Tag
 from util import ordered_sublists, ratio, ack, auto_help
 from util.converters import ReactionConverter, BoolConverter
@@ -19,6 +19,16 @@ logger = logging.getLogger(__name__)
 
 def setup(bot):
     bot.add_cog(Tags(bot))
+
+
+def guild_has_tags():
+    async def predicate(ctx):
+        cog = ctx.bot.get_cog('Tags')
+        guild_tags = cog._get_tags(ctx.guild)
+
+        return len(guild_tags) > 0
+
+    return commands.check(predicate)
 
 
 class TagConverter(commands.Converter):
@@ -38,6 +48,7 @@ class TagConverter(commands.Converter):
 
 class Tags(CustomCog, AinitMixin):
     FORMATTED_KEYS = [f'`{key}`' for key in Tag.EDITABLE]
+    ADD_SOME_TAGS = 'Try to add a few tags first.'
 
     def __init__(self, bot):
         super().__init__(bot)
@@ -178,22 +189,31 @@ class Tags(CustomCog, AinitMixin):
 
             await ctx.send(f'Tag `{selection.id}` was edited. Old {key}:\n{old_value}')
 
-    @tag.command(brief='Sends a list of all tags in the server to the channel')
-    async def list(self, ctx, dm=False):
+    @guild_has_tags()
+    @auto_help
+    @tag.group(brief='Sends a list of all tags in the server', invoke_without_command=True)
+    async def list(self, ctx):
         """
-        Sends a list of all tags in the server to the channel.
+        Sends a list of all tags in the server.
+        """
+        pages = MenuPages(source=TagListSource(self._get_tags(ctx.guild)), clear_reactions_after=True)
+        await pages.start(ctx)
 
-        `{prefix}tag list true` for the entire list via DM.
+    @list.command(name='detail', brief='Sends a detailed list')
+    async def list_detail(self, ctx):
         """
-        if len(self._get_tags(ctx.guild)) > 0:
-            if dm:
-                menu = PseudoMenu(TagListSource(self._get_tags(ctx.guild), per_page=15), ctx.author)
-                await menu.start()
-            else:
-                pages = MenuPages(source=TagListSource(self._get_tags(ctx.guild)), clear_reactions_after=True)
-                await pages.start(ctx)
-        else:
-            await ctx.send('Try to add a few tags first!')
+        Sends a detailed list of all tags in the server.
+        """
+        pages = MenuPages(source=DetailTagListSource(self._get_tags(ctx.guild)), clear_reactions_after=True)
+        await pages.start(ctx)
+
+    @list.command(name='dm', brief='Sends the list via DM')
+    async def list_dm(self, ctx):
+        """
+        Sends a list of all tags in the server via DM.
+        """
+        menu = PseudoMenu(TagListSource(self._get_tags(ctx.guild), per_page=15), ctx.author)
+        await menu.start()
 
     @tag.command()
     async def info(self, ctx, *, tag: TagConverter):
@@ -204,17 +224,21 @@ class Tags(CustomCog, AinitMixin):
             selection = await pages.prompt(ctx)
             await ctx.send(embed=selection.info_embed())
 
+    @guild_has_tags()
     @tag.command()
     async def random(self, ctx):
-        if len(self._get_tags(ctx.guild)) < 1:
-            await ctx.send('Try to add a few tags first!')
-        else:
-            await self._invoke_tag(ctx, random.choice(self._get_tags(ctx.guild)), info=True)
+        await self._invoke_tag(ctx, random.choice(self._get_tags(ctx.guild)), info=True)
 
     @tag.command()
     async def search(self, ctx, *, tag: TagConverter):
         pages = MenuPages(source=TagListSource(tag), clear_reactions_after=True)
         await pages.start(ctx)
+
+    @list.error
+    @random.error
+    async def guild_has_no_tags_error(self, ctx, error):
+        print(error)
+        print(self.ADD_SOME_TAGS)
 
     @commands.Cog.listener('on_message')
     async def on_message(self, message):

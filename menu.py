@@ -69,6 +69,17 @@ class TagListSource(menus.ListPageSource):
         return embed
 
 
+class DetailTagListSource(menus.ListPageSource):
+    def __init__(self, data, per_page=1):
+        super().__init__(data, per_page=per_page)
+
+    async def format_page(self, menu, entry):
+        embed = entry.info_embed()
+        embed.title = f'Tag `{entry.id}` ({menu.current_page + 1} / {self.get_max_pages()})'
+
+        return embed
+
+
 class ReminderListSource(menus.ListPageSource):
     def __init__(self, data):
         super().__init__(data, per_page=5)
