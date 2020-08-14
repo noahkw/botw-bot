@@ -107,17 +107,8 @@ class BiasOfTheWeek(commands.Cog):
         await self._add_winner(guild, now, pick, member)
         await self._clear_nominations(guild, member)
 
-    async def _assign_winner_role(self, guild: discord.Guild, winner: BotwWinner):
-        query = """SELECT *
-                   FROM botw_settings
-                   WHERE guild = $1;"""
-
-        row = await self.bot.pool.fetchrow(query, guild.id)
-
-        botw_channel = self.bot.get_channel(row['botw_channel'])
-        nominations_channel = self.bot.get_channel(row['nominations_channel'])
-        winner_changes = row['winner_changes']
-
+    async def _assign_winner_role(self, guild: discord.Guild, winner: BotwWinner, botw_channel: discord.TextChannel,
+                                  nominations_channel: discord.TextChannel, winner_changes: bool):
         member = winner.member
         logger.info(f'Assigning winner role to {member} in {guild}')
         member = guild.get_member(member.id)
@@ -168,6 +159,14 @@ class BiasOfTheWeek(commands.Cog):
                    SET enabled = FALSE 
                    WHERE guild = $1;"""
         await self.bot.pool.execute(query, guild)
+
+    async def _set_channel_name(self, channel: discord.TextChannel, winner: BotwWinner):
+        try:
+            # try to edit the channel name, pass if we're not allowed to
+            channel_name = f'botw-{winner.idol}-{winner.member.name}'
+            await channel.edit(name=channel_name)
+        except discord.Forbidden:
+            pass
 
     async def cog_command_error(self, ctx, error):
         if hasattr(ctx.command, 'on_error'):
@@ -531,7 +530,12 @@ class BiasOfTheWeek(commands.Cog):
                     else:
                         winner = past_winners[0]
 
-                    await self._assign_winner_role(guild, winner)
+                    botw_channel = self.bot.get_channel(guild_settings['botw_channel'])
+                    nominations_channel = self.bot.get_channel(guild_settings['nominations_channel'])
+                    winner_changes = guild_settings['winner_changes']
+
+                    await self._set_channel_name(botw_channel, winner)
+                    await self._assign_winner_role(guild, winner, botw_channel, nominations_channel, winner_changes)
                 else:
                     logger.info(f'Skipping BotW winner role assignment in {guild}')
 
