@@ -1,6 +1,7 @@
 import pendulum
 
 from models.Idol import Idol
+from util import safe_mention
 
 
 class BotwWinner:
@@ -20,7 +21,7 @@ class BotwWinner:
 
     @staticmethod
     def from_record(source, bot):
-        guild = bot.get_user(source['guild'])
+        guild = bot.get_guild(source['guild'])
         member = bot.get_user(source['member'])
         return BotwWinner(member, guild, Idol(source['idol_group'], source['idol_name']), source['date'])
 
@@ -30,7 +31,7 @@ class BotwWinner:
         year = self.date.year
         return {
             'name': f'{year}-{week}',
-            'value': f'{self.idol} by {self.member.mention}'
+            'value': f'{self.idol} by {safe_mention(self.member)}'
         }
 
     def __str__(self):

@@ -45,6 +45,10 @@ def botw_enabled():
     return commands.check(predicate)
 
 
+class NoWinnerException(Exception):
+    pass
+
+
 class BiasOfTheWeek(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -87,12 +91,29 @@ class BiasOfTheWeek(commands.Cog):
         pick = nomination.idol
         member = nomination.member
 
+        nominations.remove(nomination)
+        await self._clear_nominations(guild, nomination._member)
+
+        while not nomination.member and len(nominations) > 0:
+            # member is not in cache, try to pick another winner
+            nomination = random.choice(nominations)
+            pick = nomination.idol
+            member = nomination.member
+
+            nominations.remove(nomination)
+            await self._clear_nominations(guild, nomination._member)
+
         query = """SELECT nominations_channel
                    FROM botw_settings
                    WHERE guild = $1;"""
 
         nominations_channel_id = await self.bot.pool.fetchval(query, guild.id)
         nominations_channel = self.bot.get_channel(nominations_channel_id)
+
+        # could not pick a winner, notify
+        if not nomination.member:
+            await nominations_channel.send('Could not pick a winner for this week\'s BotW.')
+            raise NoWinnerException
 
         # Assign BotW winner role on next wednesday at 00:00 UTC
         now = pendulum.now('UTC')
@@ -105,7 +126,6 @@ class BiasOfTheWeek(commands.Cog):
                                        f'{assign_date.to_cookie_string()}.')
 
         await self._add_winner(guild, now, pick, member)
-        await self._clear_nominations(guild, member)
 
     async def _assign_winner_role(self, guild: discord.Guild, winner: BotwWinner, botw_channel: discord.TextChannel,
                                   nominations_channel: discord.TextChannel, winner_changes: bool):
@@ -142,12 +162,12 @@ class BiasOfTheWeek(commands.Cog):
         await ctx.send(f'{ctx.author} nominates **{idol}** instead of **{old_idol}**.'
                        if old_idol else f'{ctx.author} nominates **{idol}**.')
 
-    async def _clear_nominations(self, guild: discord.Guild, member: discord.Member = None):
+    async def _clear_nominations(self, guild: discord.Guild, member: int = None):
         if member:
             query = """DELETE FROM botw_nominations
                        WHERE guild = $1 AND member = $2;"""
 
-            await self.bot.pool.execute(query, guild.id, member.id)
+            await self.bot.pool.execute(query, guild.id, member)
         else:
             query = """DELETE FROM botw_nominations
                        WHERE guild = $1;"""
@@ -323,7 +343,7 @@ class BiasOfTheWeek(commands.Cog):
             if confirm:
                 await self._clear_nominations(ctx.guild)
         else:
-            await self._clear_nominations(ctx.guild, member)
+            await self._clear_nominations(ctx.guild, member.id)
 
     @biasoftheweek.command(brief='Displays the current nominations')
     @botw_enabled()
@@ -503,8 +523,11 @@ class BiasOfTheWeek(commands.Cog):
                 state = BotwState(guild_settings['state'])
 
                 if state not in (BotwState.SKIP, BotwState.WINNER_CHOSEN) and len(nominations) > 0:
-                    await self._pick_winner(guild, nominations)
-                    await self._set_state(guild, BotwState.WINNER_CHOSEN)
+                    try:
+                        await self._pick_winner(guild, nominations)
+                        await self._set_state(guild, BotwState.WINNER_CHOSEN)
+                    except NoWinnerException:
+                        logger.info(f'Could not pick a valid winner in {guild}')
                 else:
                     logger.info(f'Skipping BotW winner selection in {guild}')
 
@@ -526,7 +549,10 @@ class BiasOfTheWeek(commands.Cog):
                     if len(past_winners) >= 2:
                         winner, previous_winner = sorted(past_winners, key=lambda w: w.date,
                                                          reverse=True)[0:2]
-                        await self._remove_winner_role(guild, previous_winner)
+                        try:  # remove previous winner's role if possible
+                            await self._remove_winner_role(guild, previous_winner)
+                        except (discord.Forbidden, discord.HTTPException):
+                            pass
                     else:
                         winner = past_winners[0]
 
@@ -535,7 +561,12 @@ class BiasOfTheWeek(commands.Cog):
                     winner_changes = guild_settings['winner_changes']
 
                     await self._set_channel_name(botw_channel, winner)
-                    await self._assign_winner_role(guild, winner, botw_channel, nominations_channel, winner_changes)
+
+                    try:  # assign winner role if possible
+                        await self._assign_winner_role(guild, winner, botw_channel, nominations_channel, winner_changes)
+                    except (discord.Forbidden, AttributeError):
+                        await nominations_channel.send(f'Couldn\'t assign the winner role to {winner.member}. '
+                                                       f'They either left or I am not allowed to assign roles.')
                 else:
                     logger.info(f'Skipping BotW winner role assignment in {guild}')
 

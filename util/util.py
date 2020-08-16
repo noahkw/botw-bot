@@ -3,6 +3,8 @@ import re
 import subprocess
 from random import getrandbits
 
+import discord
+import typing
 from PIL import Image, ImageDraw
 
 
@@ -119,3 +121,10 @@ def draw_rotated_text(image, angle, xy, text, fill, *args, **kwargs):
     # paste the appropriate color, with the text transparency mask
     color_image = Image.new('RGBA', image.size, fill)
     image.paste(color_image, mask)
+
+
+def safe_mention(user: typing.Union[discord.Member, discord.User, discord.TextChannel]):
+    if user:
+        return user.mention
+    else:
+        return'*Unknown member*'
