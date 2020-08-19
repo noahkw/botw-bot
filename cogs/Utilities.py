@@ -100,6 +100,9 @@ class Utilities(commands.Cog):
     @commands.has_permissions(administrator=True)
     @ack
     async def edit(self, ctx, message: discord.Message, *, content):
+        if not message.guild == ctx.guild:
+            await ctx.send('Can\'t edit messages in other servers.')
+
         try:
             await message.edit(content=content,
                                allowed_mentions=discord.AllowedMentions(everyone=True, users=True, roles=True))
