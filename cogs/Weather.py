@@ -115,7 +115,7 @@ class Weather(commands.Cog):
             'wind_deg': current['wind_deg'],
             'wind_speed': current['wind_speed'],
             'clouds': current['clouds'],
-            'uvi': current['uvi'],
+            'uvi': current.pop('uvi', 'N/A'),
             'rain': current['rain']['1h'] if 'rain' in current and '1h' in current['rain'] else 0,
             'snow': current['snow']['1h'] if 'snow' in current and '1h' in current['snow'] else 0,
             'icon': f"http://openweathermap.org/img/wn/{current['weather'][0]['icon']}.png",
