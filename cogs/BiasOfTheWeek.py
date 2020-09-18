@@ -58,6 +58,9 @@ class BiasOfTheWeek(commands.Cog):
         self.announcement_day = divmod((self.winner_day - 3), 7)[1]
         self._loop.start()
 
+    def cog_unload(self):
+        self._loop.stop()
+
     async def _get_nominations(self, guild: discord.Guild) -> List[Nomination]:
         query = """SELECT *
                    FROM botw_nominations
