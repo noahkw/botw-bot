@@ -105,7 +105,7 @@ class Mirroring(CustomCog, AinitMixin):
     async def on_message(self, message):
         ctx = await self.bot.get_context(message)
 
-        if ctx.valid or message.author == self.bot.user or message.channel.id not in self.mirrors:
+        if ctx.valid or message.channel.id not in self.mirrors:
             return
 
         mirrors = self.mirrors[message.channel.id]

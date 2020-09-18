@@ -110,7 +110,7 @@ class Instagram(commands.Cog):
     @commands.Cog.listener('on_message')
     async def on_message(self, message):
         ctx = await self.bot.get_context(message)
-        if ctx.valid or not ctx.guild:
+        if ctx.valid or not ctx.guild or message.webhook_id:
             return
 
         results = regex.finditer(self.URL_REGEX, message.content)
