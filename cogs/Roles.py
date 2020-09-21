@@ -110,7 +110,7 @@ class Roles(CustomCog, AinitMixin):
                 query_role = """INSERT INTO roles (guild, role, clear_after, active)
                                 VALUES ($1, $2, $3, TRUE);"""
                 try:
-                    await connection.execute(query_role, ctx.guild.id, role.id, clear_after if clear_after else -1)
+                    await connection.execute(query_role, ctx.guild.id, role.id, clear_after)
                 except asyncpg.exceptions.UniqueViolationError:
                     raise commands.BadArgument(f'{role.mention} is already self-assignable.')
 
@@ -150,5 +150,5 @@ class Roles(CustomCog, AinitMixin):
         rows = await self.bot.pool.fetch(query_aliases, role.id)
 
         aliases = [f"`{row['alias']}`" for row in rows]
-        await ctx.send(f'Role: {role.mention}, clears after: {row["clear_after"]} hours.'
+        await ctx.send(f'Role: {role.mention}, clears after: {row["clear_after"] or "∞"} hours.'
                        f'\nAliases: {", ".join(aliases)}')
