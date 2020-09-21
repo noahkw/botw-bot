@@ -38,7 +38,7 @@ class Utilities(commands.Cog):
         for ext in self.bot.INITIAL_EXTENSIONS:
             self.bot.reload_extension(ext)
 
-    @commands.command(brief='Makes the bot choose between 2+ things')
+    @commands.command(aliases=['pick'], brief='Makes the bot choose between 2+ things')
     async def choose(self, ctx, *args: commands.clean_content):
         if len(args) < 2:
             await ctx.send('I want at least two things to choose from!')
