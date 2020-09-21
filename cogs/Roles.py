@@ -60,19 +60,22 @@ class Roles(commands.Cog):
     @roles.command()
     @commands.has_permissions(administrator=True)
     async def create(self, ctx, role: discord.Role, clear_after: typing.Optional[int], *aliases):
-        try:
-            async with self.bot.pool.acquire() as connection:
-                async with connection.transaction():
-                    query_role = """INSERT INTO roles (guild, role, clear_after, active)
-                                    VALUES ($1, $2, $3, TRUE);"""
-                    await self.bot.pool.execute(query_role, ctx.guild.id, role.id, clear_after if clear_after else -1)
-                    for alias in aliases + (role.name,):
-                        query_alias = """INSERT INTO role_aliases (role, guild, alias)
-                                         VALUES ($1, $2, $3);"""
-                        await self.bot.pool.execute(query_alias, role.id, ctx.guild.id, alias)
-        except asyncpg.exceptions.UniqueViolationError:
-            raise commands.BadArgument(f'Either the role {role.mention} is already self-assignable '
-                                       f'or one of the aliases is already used by another role.')
+        async with self.bot.pool.acquire() as connection:
+            async with connection.transaction():
+                query_role = """INSERT INTO roles (guild, role, clear_after, active)
+                                VALUES ($1, $2, $3, TRUE);"""
+                try:
+                    await connection.execute(query_role, ctx.guild.id, role.id, clear_after if clear_after else -1)
+                except asyncpg.exceptions.UniqueViolationError:
+                    raise commands.BadArgument(f'{role.mention} is already self-assignable.')
+
+                for alias in aliases + (role.name,):
+                    query_alias = """INSERT INTO role_aliases (role, guild, alias)
+                                     VALUES ($1, $2, $3);"""
+                    try:
+                        await connection.execute(query_alias, role.id, ctx.guild.id, alias)
+                    except asyncpg.exceptions.UniqueViolationError:
+                        raise commands.BadArgument(f'The alias `{alias}` is already in use.')
 
         await ctx.send(f'{role.mention} is now self-assignable.')
 
