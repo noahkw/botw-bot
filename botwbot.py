@@ -94,6 +94,7 @@ class BotwBot(commands.Bot):
         'cogs.Greeters',
         'cogs.Fun',
         'cogs.Gfycat',
+        'cogs.Roles',
         'jishaku'
     ]
 
@@ -138,13 +139,14 @@ class BotwBot(commands.Bot):
     async def on_ready(self):
         await self.change_presence(activity=discord.Game('with Bini'))
 
-        # cache the guild prefixes
-        query = """SELECT *
-                   FROM prefixes;"""
+        if self.pool:
+            # cache the guild prefixes
+            query = """SELECT *
+                       FROM prefixes;"""
 
-        rows = await self.pool.fetch(query)
-        for row in rows:
-            self.prefixes[row['guild']] = row['prefix']
+            rows = await self.pool.fetch(query)
+            for row in rows:
+                self.prefixes[row['guild']] = row['prefix']
 
         for ext in self.INITIAL_EXTENSIONS:
             ext_logger = logging.getLogger(ext)
