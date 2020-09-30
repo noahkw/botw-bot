@@ -146,7 +146,7 @@ class Instagram(commands.Cog):
         with open(self.cookies_file, 'r') as f:
             cookies = json.load(f)
 
-        self.session.cookie_jar.update_cookies(cookies=cookies)
+        self.session.cookie_jar.force_update_cookies(cookies=cookies)
 
         await ctx.send(f'Loaded {len(self.session.cookie_jar)} cookies')
 
