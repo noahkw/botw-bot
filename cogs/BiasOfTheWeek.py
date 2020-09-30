@@ -331,11 +331,20 @@ class BiasOfTheWeek(commands.Cog):
         else:
             await self._set_nomination(ctx, idol)
 
-    @biasoftheweek.command(brief='Clears a member\'s nomination')
+    @biasoftheweek.command(brief='Clears your nomination')
+    @botw_enabled()
+    @ack
+    async def clear(self, ctx):
+        """
+        Clears your nomination.
+        """
+        await self._clear_nominations(ctx.guild, ctx.author.id)
+
+    @biasoftheweek.command(aliases=['clearall'], brief='Clears a member\'s nomination')
     @botw_enabled()
     @commands.has_permissions(administrator=True)
     @ack
-    async def clear(self, ctx, member: discord.Member = None):
+    async def clearother(self, ctx, member: discord.Member = None):
         """
         Clears a member's nomination.
         Clears all of the guild's nominations if no member was specified.
