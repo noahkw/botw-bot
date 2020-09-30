@@ -21,6 +21,18 @@ def setup(bot):
     bot.add_cog(Instagram(bot))
 
 
+class InstagramException(Exception):
+    pass
+
+
+class InstagramSpamException(InstagramException):
+    pass
+
+
+class InstagramContentException(InstagramException):
+    pass
+
+
 class Instagram(commands.Cog):
     URL_REGEX = r"https?://www.instagram.com/(p|tv)/(.*?)/"
 
@@ -48,6 +60,12 @@ class Instagram(commands.Cog):
 
         async with self.session.get(url, params=params, headers=headers) as response:
             data = await response.json()
+            
+            if 'spam' in data:
+                raise InstagramSpamException
+            elif 'graphql' not in data:
+                raise InstagramContentException
+
             data = data['graphql']['shortcode_media']
 
         media_type = data['__typename']
@@ -62,8 +80,11 @@ class Instagram(commands.Cog):
                     media['node']['__typename'] == 'GraphImage' else media['node']['video_url'] for media in media]
 
     async def show_media(self, ctx, url):
-        media = await self.get_media(url)
-        if len(media) == 0:
+        try:
+            media = await self.get_media(url)
+        except InstagramSpamException:
+            raise commands.BadArgument('We are being rate limited by Instagram. Try again later.')
+        except InstagramContentException:
             raise commands.BadArgument('This Instagram post contains no images or videos.')
 
         files = []
@@ -121,7 +142,10 @@ class Instagram(commands.Cog):
             if confirm:
                 async with ctx.typing():
                     for url in urls:
-                        await self.show_media(ctx, url)
+                        try:
+                            await self.show_media(ctx, url)
+                        except commands.BadArgument as error:
+                            await ctx.send(error)
 
     async def cog_before_invoke(self, ctx):
         await ctx.trigger_typing()
