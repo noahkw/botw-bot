@@ -58,7 +58,8 @@ class Gfycat(CustomCog, AinitMixin):
         super(AinitMixin).__init__()
 
     async def _ainit(self):
-        await self.gfypy.authenticate()
+        pass
+        # await self.gfypy.authenticate()
 
     def cog_unload(self):
         asyncio.create_task(self.gfypy.close())
