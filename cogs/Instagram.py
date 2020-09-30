@@ -3,12 +3,15 @@ import json
 import logging
 from io import BytesIO
 from os.path import basename
+from typing import Optional
 from urllib.parse import urlparse
 
 import aiohttp
+from aiohttp.typedefs import LooseCookies
 from discord import File
 from discord.ext import commands
 from regex import regex
+from yarl import URL
 
 from const import INSPECT_EMOJI
 from menu import SimpleConfirm
@@ -33,16 +36,33 @@ class InstagramContentException(InstagramException):
     pass
 
 
+class OneTimeCookieJar(aiohttp.CookieJar):
+    def __init__(self, *, unsafe: bool = False, loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
+        super().__init__(unsafe=unsafe, loop=loop)
+        self._initial_cookies_loaded = False
+
+    def update_cookies(self, cookies: LooseCookies, response_url: URL = URL()) -> None:
+        if not self._initial_cookies_loaded:
+            super().update_cookies(cookies, response_url)
+
+        self._initial_cookies_loaded = True
+
+    def force_update_cookies(self, cookies: LooseCookies, response_url: URL = URL()) -> None:
+        super().update_cookies(cookies, response_url)
+
+
 class Instagram(commands.Cog):
     URL_REGEX = r"https?://www.instagram.com/(p|tv)/(.*?)/"
 
     def __init__(self, bot):
         self.bot = bot
-        self.session = aiohttp.ClientSession()
+        self.session = aiohttp.ClientSession(cookie_jar=OneTimeCookieJar())
 
         self.cookies_file = self.bot.config['instagram']['cookies_file']
         with open(self.cookies_file, 'r') as f:
-            self.session.cookie_jar.update_cookies(cookies=json.load(f))
+            cookies = json.load(f)
+
+        self.session.cookie_jar.update_cookies(cookies=cookies)
 
         logger.info(f'Loaded {len(self.session.cookie_jar)} cookies')
 
@@ -60,7 +80,7 @@ class Instagram(commands.Cog):
 
         async with self.session.get(url, params=params, headers=headers) as response:
             data = await response.json()
-            
+
             if 'spam' in data:
                 raise InstagramSpamException
             elif 'graphql' not in data:
@@ -124,7 +144,9 @@ class Instagram(commands.Cog):
     @commands.is_owner()
     async def reload(self, ctx):
         with open(self.cookies_file, 'r') as f:
-            self.session.cookie_jar.update_cookies(cookies=json.load(f))
+            cookies = json.load(f)
+
+        self.session.cookie_jar.update_cookies(cookies=cookies)
 
         await ctx.send(f'Loaded {len(self.session.cookie_jar)} cookies')
 
