@@ -102,8 +102,12 @@ class BotwBot(commands.Bot):
         # the pool is attached by the launcher script
         self.pool = None
         self.config = config
+
+        intents = discord.Intents.default()
+        intents.members = True
+
         super().__init__(**kwargs, command_prefix=self.config['discord']['command_prefix'],
-                         help_command=EmbedHelpCommand(),
+                         help_command=EmbedHelpCommand(), intents=intents,
                          allowed_mentions=discord.AllowedMentions(everyone=False, users=True, roles=False))
         self.add_checks()
 
