@@ -5,10 +5,12 @@ services:
     volumes:
       - {CLONE_DIR}:/app
     restart: always
+    depends_on:
+      - "db"
     environment:
       - PYTHONUNBUFFERED=1
   db:
-    image: postgres
+    image: postgres:12
     volumes:
       - {DATA_DIR}:/var/lib/postgresql/data
     restart: always
