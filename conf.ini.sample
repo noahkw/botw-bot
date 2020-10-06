@@ -52,6 +52,10 @@ mirrors_collection=mirrors
 client_id=X_XXXXXX
 client_secret=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
+[bitly]
+access_token = XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+domain = bit.ly
+
 [firebase]
 key_file=xxx-firebase-adminsdk-xxx-xxx.json
 db_name=xxx

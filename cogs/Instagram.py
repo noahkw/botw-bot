@@ -7,6 +7,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import aiohttp
+import yarl
 from aiohttp.typedefs import LooseCookies
 from discord import File
 from discord.ext import commands
@@ -113,7 +114,7 @@ class Instagram(commands.Cog):
         files = []
 
         for url in media:
-            async with self.session.get(url) as response:
+            async with self.session.get(yarl.URL(url, encoded=True)) as response:
                 filename = basename(urlparse(url).path)
                 bytes = BytesIO(await response.read())
 
@@ -121,7 +122,11 @@ class Instagram(commands.Cog):
                 if self.FILESIZE_MIN < filesize < self.FILESIZE_MAX:
                     files.append(File(bytes, filename=filename))
                 else:
-                    urls.append(url)
+                    shortener_cog = self.bot.get_cog('UrlShortener')
+                    if shortener_cog:
+                        shortened_url = await shortener_cog.shorten_url(url)
+
+                    urls.append(shortened_url or url)
 
         # remove discord's default instagram embed
         await ctx.message.edit(suppress=True)

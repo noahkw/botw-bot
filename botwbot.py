@@ -95,6 +95,7 @@ class BotwBot(commands.Bot):
         'cogs.Fun',
         'cogs.Gfycat',
         'cogs.Roles',
+        'cogs.UrlShortener',
         'jishaku'
     ]
 
@@ -170,7 +171,7 @@ class BotwBot(commands.Bot):
         error = getattr(error, 'original', error)
 
         if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument, commands.MissingPermissions,
-                              commands.DisabledCommand)):
+                              commands.DisabledCommand, commands.CommandOnCooldown)):
             await ctx.send(error)
             return
 
