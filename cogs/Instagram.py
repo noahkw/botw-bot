@@ -53,6 +53,8 @@ class OneTimeCookieJar(aiohttp.CookieJar):
 
 class Instagram(commands.Cog):
     URL_REGEX = r"https?://www.instagram.com/(p|tv)/(.*?)/"
+    FILESIZE_MIN = 10**3
+    FILESIZE_MAX = 8 * 10**6  # 8 MB
 
     def __init__(self, bot):
         self.bot = bot
@@ -107,19 +109,29 @@ class Instagram(commands.Cog):
         except InstagramContentException:
             raise commands.BadArgument('This Instagram post contains no images or videos.')
 
+        urls = []
         files = []
 
         for url in media:
             async with self.session.get(url) as response:
                 filename = basename(urlparse(url).path)
-                file = File(BytesIO(await response.read()), filename=filename)
-                files.append(file)
+                bytes = BytesIO(await response.read())
+
+                filesize = bytes.getbuffer().nbytes
+                if self.FILESIZE_MIN < filesize < self.FILESIZE_MAX:
+                    files.append(File(bytes, filename=filename))
+                else:
+                    urls.append(url)
 
         # remove discord's default instagram embed
         await ctx.message.edit(suppress=True)
 
-        chunks = chunker(files, 10)
-        for chunk in chunks:
+        url_chunks = chunker(urls, 5)
+        for chunk in url_chunks:
+            await ctx.send('\n'.join(chunk))
+
+        file_chunks = chunker(files, 10)
+        for chunk in file_chunks:
             await ctx.send(files=chunk)
 
     @auto_help
