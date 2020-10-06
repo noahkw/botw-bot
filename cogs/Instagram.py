@@ -122,11 +122,7 @@ class Instagram(commands.Cog):
                 if self.FILESIZE_MIN < filesize < self.FILESIZE_MAX:
                     files.append(File(bytes, filename=filename))
                 else:
-                    shortener_cog = self.bot.get_cog('UrlShortener')
-                    if shortener_cog:
-                        shortened_url = await shortener_cog.shorten_url(url)
-
-                    urls.append(shortened_url or url)
+                    urls.append(url)
 
         # remove discord's default instagram embed
         await ctx.message.edit(suppress=True)
