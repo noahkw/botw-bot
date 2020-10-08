@@ -29,6 +29,10 @@ class InstagramException(Exception):
     pass
 
 
+class InstagramLoginException(InstagramException):
+    pass
+
+
 class InstagramSpamException(InstagramException):
     pass
 
@@ -82,7 +86,10 @@ class Instagram(commands.Cog):
         }
 
         async with self.session.get(url, params=params, headers=headers) as response:
-            data = await response.json()
+            try:
+                data = await response.json()
+            except aiohttp.ContentTypeError:
+                raise InstagramLoginException
 
             if 'spam' in data:
                 raise InstagramSpamException
@@ -109,6 +116,10 @@ class Instagram(commands.Cog):
             raise commands.BadArgument('We are being rate limited by Instagram. Try again later.')
         except InstagramContentException:
             raise commands.BadArgument('This Instagram post contains no images or videos.')
+        except InstagramLoginException:
+            owner = self.bot.get_user(self.bot.owner_id)
+            await owner.send(f'Instagram broke! Msg: {ctx.message.jump_url}')
+            raise commands.BadArgument(f'Instagram broke :poop: Bot owner has been notified.')
 
         urls = []
         files = []
