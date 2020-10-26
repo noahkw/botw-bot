@@ -108,3 +108,7 @@ class Utilities(commands.Cog):
                                allowed_mentions=discord.AllowedMentions(everyone=True, users=True, roles=True))
         except discord.Forbidden:
             await ctx.send(f'Couldn\'t edit the message. It\'s probably ancient.')
+
+    @commands.command(brief='Sends the guild\'s member count')
+    async def members(self, ctx):
+        await ctx.send(f'Member count: `{ctx.guild.member_count}`.')
