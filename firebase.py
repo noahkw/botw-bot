@@ -8,72 +8,79 @@ from DataStore import FirebaseDataStore
 
 
 async def backup():
-    collections = [('tags', 'tags_collection'),
-                   ('reminders', 'reminders_collection'),
-                   ('biasoftheweek', 'past_winners_collection'),
-                   ('biasoftheweek', 'idols_collection'),
-                   ('biasoftheweek', 'nominations_collection'),
-                   ('profiles', 'profiles_collection'),
-                   ('settings', 'settings_collection'),
-                   ('mirroring', 'mirrors_collection')]
+    collections = [
+        ("tags", "tags_collection"),
+        ("reminders", "reminders_collection"),
+        ("biasoftheweek", "past_winners_collection"),
+        ("biasoftheweek", "idols_collection"),
+        ("biasoftheweek", "nominations_collection"),
+        ("profiles", "profiles_collection"),
+        ("settings", "settings_collection"),
+        ("mirroring", "mirrors_collection"),
+    ]
 
     now = int(time.time())
 
     for collection in collections:
         module, coll = collection
         objs = []
-        if coll == 'settings_collection':
+        if coll == "settings_collection":
             # add guild ids for settings
             for obj in await db.get(config[module][coll]):
                 d = obj.to_dict()
-                d['guild'] = int(obj.id)
+                d["guild"] = int(obj.id)
                 objs.append(d)
         else:
             objs = [obj.to_dict() for obj in await db.get(config[module][coll])]
-        with open(f'{module}.{coll}.{now}.backup', 'w+') as f:
+        with open(f"{module}.{coll}.{now}.backup", "w+") as f:
             f.write(json.dumps(objs, sort_keys=True, indent=4))
 
 
 def transfer_initial_tags(guild_id):
     # Transfers ALL tags to the given guild id. Only use this when migrating from a build where tags were global
-    tags = db.db.collection('tags').stream()
+    tags = db.db.collection("tags").stream()
     ids = []
     for tag in tags:
         print(tag.to_dict())
         ids.append(tag.id)
 
     for _id in ids:
-        db.db.collection('tags').document(_id).update({'guild': guild_id})
+        db.db.collection("tags").document(_id).update({"guild": guild_id})
 
 
 def transfer_initial_botw_winners(guild_id):
     # Transfers ALL botw winners to the given guild id. Only use this when migrating from a build where botw was global
-    past_winners = db.db.collection('botw_winners').stream()
+    past_winners = db.db.collection("botw_winners").stream()
     ids = []
     for past_winner in past_winners:
         print(past_winner.to_dict())
         ids.append(past_winner.id)
 
     for _id in ids:
-        db.db.collection('botw_winners').document(_id).update({'guild': guild_id})
+        db.db.collection("botw_winners").document(_id).update({"guild": guild_id})
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     config = ConfigParser()
-    config.read('conf.ini')
+    config.read("conf.ini")
     loop = asyncio.get_event_loop()
-    db = FirebaseDataStore(config['firebase']['key_file'], config['firebase']['db_name'], loop)
+    db = FirebaseDataStore(
+        config["firebase"]["key_file"], config["firebase"]["db_name"], loop
+    )
 
-    parser = ArgumentParser(description='Firebase db utility script')
-    parser.add_argument('operation', choices=['backup', 'transfer_all_tags', 'transfer_all_botw_winners'])
+    parser = ArgumentParser(description="Firebase db utility script")
+    parser.add_argument(
+        "operation",
+        choices=["backup", "transfer_all_tags", "transfer_all_botw_winners"],
+    )
     args = parser.parse_args()
 
-    if args.operation == 'backup':
+    if args.operation == "backup":
         if loop.is_running():
             asyncio.create_task(backup())
         else:
             loop.run_until_complete(backup())
-    elif args.operation == 'transfer_all_tags':
+    elif args.operation == "transfer_all_tags":
         transfer_initial_tags(601932891743846440)
-    elif args.operation == 'transfer_all_botw_winners':
+    elif args.operation == "transfer_all_botw_winners":
         transfer_initial_botw_winners(601932891743846440)

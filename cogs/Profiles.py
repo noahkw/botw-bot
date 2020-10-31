@@ -30,8 +30,8 @@ class Profiles(commands.Cog):
         return profile
 
     async def get_profile(self, user: discord.User):
-        query = """SELECT * 
-                   FROM profiles 
+        query = """SELECT *
+                   FROM profiles
                    WHERE "user" = $1;"""
         row = await self.bot.pool.fetchrow(query, user.id)
 
@@ -44,19 +44,19 @@ class Profiles(commands.Cog):
 
     async def update(self, user: discord.User, item, new_value):
         if item not in Profile.ITEMS_DB:
-            raise commands.BadArgument(f'Can\'t update {item}')
+            raise commands.BadArgument(f"Can't update {item}")
 
         query = f"""UPDATE profiles SET {item} = $1 WHERE "user" = $2;"""
         await self.bot.pool.execute(query, new_value, user.id)
 
     @auto_help
-    @commands.group(invoke_without_command=True, brief='View or edit profiles')
+    @commands.group(invoke_without_command=True, brief="View or edit profiles")
     async def profile(self, ctx, user: discord.User = None):
         user = user or ctx.author
         profile = await self.get_profile(user)
         await ctx.send(embed=profile.to_embed())
 
-    @profile.command(name='location')
+    @profile.command(name="location")
     async def location(self, ctx, *, location: commands.clean_content):
-        await self.update(ctx.author, 'location', location)
-        await ctx.send(f'Successfully set your location to `{location}`.')
+        await self.update(ctx.author, "location", location)
+        await ctx.send(f"Successfully set your location to `{location}`.")

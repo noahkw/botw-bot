@@ -37,7 +37,8 @@ class FirebaseDataStore(DataStore):
         cred = credentials.Certificate(key_file)
 
         firebase_admin.initialize_app(
-            cred, {'databaseURL': f'https://{db_name}.firebaseio.com'})
+            cred, {"databaseURL": f"https://{db_name}.firebaseio.com"}
+        )
 
         self.db = firestore.client()
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
@@ -84,7 +85,11 @@ class FirebaseDataStore(DataStore):
 
     async def _get_doc_ref(self, collection, document):
         collection = await self._get_collection(collection)
-        return await self.loop.run_in_executor(self.executor, collection.document, document)
+        return await self.loop.run_in_executor(
+            self.executor, collection.document, document
+        )
 
     async def _get_collection(self, collection):
-        return await self.loop.run_in_executor(self.executor, self.db.collection, collection)
+        return await self.loop.run_in_executor(
+            self.executor, self.db.collection, collection
+        )

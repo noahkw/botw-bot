@@ -1,8 +1,19 @@
-from .BotwState import *
-from .BotwWinner import *
-from .ChannelMirror import *
-from .Idol import *
+from .BotwState import BotwState
+from .BotwWinner import BotwWinner
+from .ChannelMirror import ChannelMirror
+from .Idol import Idol
 from .Nomination import Nomination
-from .Profile import *
-from .Reminder import *
-from .Tag import *
+from .Profile import Profile
+from .Reminder import Reminder
+from .Tag import Tag
+
+__all__ = (
+    "BotwState",
+    "BotwWinner",
+    "ChannelMirror",
+    "Idol",
+    "Nomination",
+    "Profile",
+    "Reminder",
+    "Tag",
+)

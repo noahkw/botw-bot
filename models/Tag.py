@@ -4,13 +4,15 @@ import re
 
 from util import safe_mention
 
-IMAGE_URL_REGEX = r'https?:\/\/.*\.(jpe?g|png|gif)'
+IMAGE_URL_REGEX = r"https?:\/\/.*\.(jpe?g|png|gif)"
 
 
 class Tag:
-    EDITABLE = ['trigger', 'reaction', 'in_msg']
+    EDITABLE = ["trigger", "reaction", "in_msg"]
 
-    def __init__(self, bot, id, date, creator, guild, in_msg, reaction, trigger, use_count):
+    def __init__(
+        self, bot, id, date, creator, guild, in_msg, reaction, trigger, use_count
+    ):
         self._id = id
         self.trigger = trigger
         self.reaction = reaction
@@ -46,25 +48,30 @@ class Tag:
         return self._date
 
     def __str__(self):
-        return f'({self.id}) {self.trigger} -> {self.reaction} (creator: {self.creator}, guild: {self.guild})'
+        return f"({self.id}) {self.trigger} -> {self.reaction} (creator: {self.creator}, guild: {self.guild})"
 
     def to_list_element(self, index):
-        return f'*{index + 1}*. `{self.id}`: *{self.trigger}* by {self.creator}'
+        return f"*{index + 1}*. `{self.id}`: *{self.trigger}* by {self.creator}"
 
     def __eq__(self, other):
         if not isinstance(other, Tag):
             return NotImplemented
-        return str.lower(self.trigger) == str.lower(other.trigger) and str.lower(self.reaction) == str.lower(
-            other.reaction) and self.guild == other.guild
+        return (
+            str.lower(self.trigger) == str.lower(other.trigger)
+            and str.lower(self.reaction) == str.lower(other.reaction)
+            and self.guild == other.guild
+        )
 
     def info_embed(self):
-        embed = discord.Embed(title=f'Tag `{self.id}`') \
-            .add_field(name='Trigger', value=self.trigger) \
-            .add_field(name='Reaction', value=self.reaction) \
-            .add_field(name='Creator', value=safe_mention(self.creator)) \
-            .add_field(name='Triggers in message', value=str(self.in_msg)) \
-            .add_field(name='Use Count', value=str(self.use_count)) \
-            .set_footer(text=f'Created on {self.date.to_formatted_date_string()}')
+        embed = (
+            discord.Embed(title=f"Tag `{self.id}`")
+            .add_field(name="Trigger", value=self.trigger)
+            .add_field(name="Reaction", value=self.reaction)
+            .add_field(name="Creator", value=safe_mention(self.creator))
+            .add_field(name="Triggers in message", value=str(self.in_msg))
+            .add_field(name="Use Count", value=str(self.use_count))
+            .set_footer(text=f"Created on {self.date.to_formatted_date_string()}")
+        )
 
         if re.search(IMAGE_URL_REGEX, self.reaction):
             embed.set_image(url=self.reaction)

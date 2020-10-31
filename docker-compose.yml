@@ -3,7 +3,7 @@ services:
   botw-bot:
     image: docker.pkg.github.com/noahkw/botw-bot/botw-bot:latest
     volumes:
-      - {CLONE_DIR}:/app
+      - ${BOTW_BOT_CLONE_DIR}:/app
     restart: always
     depends_on:
       - "db"
@@ -12,7 +12,7 @@ services:
   db:
     image: postgres:12
     volumes:
-      - {DATA_DIR}:/var/lib/postgresql/data
+      - ${BOTW_BOT_PG_DATA_DIR}:/var/lib/postgresql/data
     restart: always
     environment:
       POSTGRES_PASSWORD: XXXXXXXXX

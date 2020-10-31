@@ -1,5 +1,5 @@
-def strip_list(l):
-    return [x.strip() for x in l]
+def strip_list(list_):
+    return [x.strip() for x in list_]
 
 
 class DNFParser:
@@ -12,10 +12,10 @@ class DNFParser:
             return []
 
         # First, split on OR terms to get all AND terms/terminals
-        and_terms = self._exp.split('or')
+        and_terms = self._exp.split("or")
 
         # Then split on AND
-        terminalized = [and_term.split('and') for and_term in and_terms]
+        terminalized = [and_term.split("and") for and_term in and_terms]
 
         # remove leading and trailing whitespace from the terminals
         terminalized_stripped = list(map(strip_list, terminalized))
@@ -25,7 +25,9 @@ class DNFParser:
         return terminals
 
     def evaluate(self, collection):
-        return any([self._evaluate_and_term(and_term, collection) for and_term in self._parsed])
+        return any(
+            [self._evaluate_and_term(and_term, collection) for and_term in self._parsed]
+        )
 
     @staticmethod
     def _evaluate_and_term(and_term, collection):
@@ -34,7 +36,7 @@ class DNFParser:
 
 class Terminal:
     def __init__(self, content):
-        if content[0] == '!':
+        if content[0] == "!":
             self.content = content[1:]
             self.negated = True
         else:
@@ -55,18 +57,18 @@ class Terminal:
         return f'<"{self.content}", neg: {self.negated}>'
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_sets = [
-        {'tree', 'car', 'wall'},
-        {'tree', 'car'},
-        {'2020', 'car', 'person'},
-        {'tree', 'person'},
-        {'tree man'}
+        {"tree", "car", "wall"},
+        {"tree", "car"},
+        {"2020", "car", "person"},
+        {"tree", "person"},
+        {"tree man"},
     ]
 
-    test_string = 'tree and !person or 2020 or tree man'
+    test_string = "tree and !person or 2020 or tree man"
 
     parser = DNFParser(test_string)
     for i, test_set in enumerate(test_sets):
         if parser.evaluate(test_set):
-            print(f'Match found in test set {i}!')
+            print(f"Match found in test set {i}!")

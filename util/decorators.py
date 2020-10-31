@@ -4,8 +4,6 @@ from discord.ext import commands
 
 from const import CHECK_EMOJI
 
-__ALL__ = ('auto_help', 'ack')
-
 
 async def _call_help(ctx):
     """Shows help for this group."""
@@ -14,9 +12,9 @@ async def _call_help(ctx):
 
 def auto_help(func):
     if not isinstance(func, commands.Group):
-        raise TypeError('bad deco order')
+        raise TypeError("bad deco order")
 
-    cmd = commands.Command(_call_help, name='help', hidden=True)
+    cmd = commands.Command(_call_help, name="help", hidden=True)
     func.add_command(cmd)
     return func
 

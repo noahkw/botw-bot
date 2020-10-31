@@ -29,7 +29,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 --
 -- TOC entry 3037 (class 0 OID 0)
 -- Dependencies: 2
--- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: 
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner:
 --
 
 COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
@@ -436,4 +436,3 @@ ALTER TABLE ONLY public.tags
 --
 -- PostgreSQL database dump complete
 --
-

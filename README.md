@@ -20,14 +20,14 @@ Current modules:
 For an overview of all commands inside each module, see https://github.com/noahkw/botw-bot/wiki.
 
 ## Setup (docker)
-Clone the repo: `git clone git@github.com:noahkw/botw-bot.git` 
+Clone the repo: `git clone git@github.com:noahkw/botw-bot.git`
 
 Pull the docker image: `docker pull docker.pkg.github.com/noahkw/botw-bot/botw-bot:latest`
 
 Rename `conf.ini.sample` to `conf.ini` and change it according to your use case.
-Most of the defaults should be fine, but make sure to enter your **token**, 
-**server id** for the whitelist, **Wolfram Alpha app id**, **OpenWeatherMap app id**, 
-**Instagram cookie file path**, **Gfycat client id and secret**, 
+Most of the defaults should be fine, but make sure to enter your **token**,
+**server id** for the whitelist, **Wolfram Alpha app id**, **OpenWeatherMap app id**,
+**Instagram cookie file path**, **Gfycat client id and secret**,
 and the path to your **firebase key file**.
 
 Replace `{CLONE_DIR}` with the absolute path of the cloned repo in `docker-compose.yml`.

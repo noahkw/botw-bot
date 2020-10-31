@@ -18,9 +18,9 @@ def chunker(iterable, n, return_index=False):
     """
     for i in range(0, len(iterable), n):
         if return_index:
-            yield i, iterable[i:i + n]
+            yield i, iterable[i : i + n]
         else:
-            yield iterable[i:i + n]
+            yield iterable[i : i + n]
 
 
 def ordered_sublists(superlist, n):
@@ -31,7 +31,7 @@ def ordered_sublists(superlist, n):
     :return: the individual sublists
     """
     for i in range(0, len(superlist) - n + 1):
-        yield superlist[i:i + n]
+        yield superlist[i : i + n]
 
 
 def random_bool():
@@ -39,16 +39,17 @@ def random_bool():
 
 
 def mock_case(msg):
-    return ''.join([c.swapcase() if random_bool() else c for c in msg])
+    return "".join([c.swapcase() if random_bool() else c for c in msg])
 
 
 def remove_broken_emoji(msg):
-    return re.sub(r'<(a)*:[\w]+:([0-9]+)>( )*', '', msg)
+    return re.sub(r"<(a)*:[\w]+:([0-9]+)>( )*", "", msg)
 
 
 def has_passed(date):
     import pendulum
-    return date.timestamp() < pendulum.now('UTC').timestamp()
+
+    return date.timestamp() < pendulum.now("UTC").timestamp()
 
 
 def celsius_to_fahrenheit(temp):
@@ -72,20 +73,30 @@ class Cooldown:
         self.cooldown = False
 
 
-def flatten(l):
-    return [item for sublist in l for item in sublist]
+def flatten(list_):
+    return [item for sublist in list_ for item in sublist]
 
 
 def git_version_label():
-    return subprocess.check_output(['git', 'describe', '--tags', '--long']).decode('ascii').strip()
+    return (
+        subprocess.check_output(["git", "describe", "--tags", "--long"])
+        .decode("ascii")
+        .strip()
+    )
 
 
 def git_short_history(n):
-    return subprocess.check_output(['git', 'log', f'-{n}', '--pretty=format:`%h`: %s (%ar)']).decode('ascii').strip()
+    return (
+        subprocess.check_output(
+            ["git", "log", f"-{n}", "--pretty=format:`%h`: %s (%ar)"]
+        )
+        .decode("ascii")
+        .strip()
+    )
 
 
 def draw_rotated_text(image, angle, xy, text, fill, *args, **kwargs):
-    """ Draw text at an angle into an image, takes the same arguments
+    """Draw text at an angle into an image, takes the same arguments
         as Image.text() except for:
 
     :param image: Image to write text into
@@ -97,7 +108,7 @@ def draw_rotated_text(image, angle, xy, text, fill, *args, **kwargs):
 
     # build a transparency mask large enough to hold the text
     mask_size = (max_dim * 2, max_dim * 2)
-    mask = Image.new('L', mask_size, 0)
+    mask = Image.new("L", mask_size, 0)
 
     # add text to mask
     draw = ImageDraw.Draw(mask)
@@ -108,10 +119,10 @@ def draw_rotated_text(image, angle, xy, text, fill, *args, **kwargs):
         rotated_mask = mask.rotate(angle)
     else:
         # rotate an an enlarged mask to minimize jaggies
-        bigger_mask = mask.resize((max_dim * 4, max_dim * 4),
-                                  resample=Image.BICUBIC)
+        bigger_mask = mask.resize((max_dim * 4, max_dim * 4), resample=Image.BICUBIC)
         rotated_mask = bigger_mask.rotate(angle).resize(
-            mask_size, resample=Image.LANCZOS)
+            mask_size, resample=Image.LANCZOS
+        )
 
     # crop the mask to match image
     mask_xy = (max_dim - xy[0], max_dim - xy[1])
@@ -119,7 +130,7 @@ def draw_rotated_text(image, angle, xy, text, fill, *args, **kwargs):
     mask = rotated_mask.crop(b_box)
 
     # paste the appropriate color, with the text transparency mask
-    color_image = Image.new('RGBA', image.size, fill)
+    color_image = Image.new("RGBA", image.size, fill)
     image.paste(color_image, mask)
 
 
@@ -127,4 +138,4 @@ def safe_mention(user: typing.Union[discord.Member, discord.User, discord.TextCh
     if user:
         return user.mention
     else:
-        return'*Unknown member*'
+        return "*Unknown member*"

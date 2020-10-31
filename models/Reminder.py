@@ -26,11 +26,10 @@ class Reminder:
         return Reminder(bot, **source)
 
     def __repr__(self):
-        return f'<Reminder id={repr(self.id)} user={self.user} due={repr(self.due)} ' \
-               f'created={repr(self.created)} content={self.content} done={self.done}>'
+        return (
+            f"<Reminder id={repr(self.id)} user={self.user} due={repr(self.due)} "
+            f"created={repr(self.created)} content={self.content} done={self.done}>"
+        )
 
     def to_field(self):
-        return {
-            'name': self.due.to_cookie_string(),
-            'value': self.content
-        }
+        return {"name": self.due.to_cookie_string(), "value": self.content}

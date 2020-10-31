@@ -47,22 +47,32 @@ class ChannelMirror:
         mirror = ChannelMirror(bot, **source)
 
         try:
-            if not await mirror.webhook:  # notify owner that _webhook has been deleted; mirror dead
-                await bot.get_user(bot.CREATOR_ID).send(f'Mirror\'s _webhook has been deleted: {mirror}')
+            if (
+                not await mirror.webhook
+            ):  # notify owner that _webhook has been deleted; mirror dead
+                await bot.get_user(bot.CREATOR_ID).send(
+                    f"Mirror's _webhook has been deleted: {mirror}"
+                )
         except discord.Forbidden:
-            await bot.get_user(bot.CREATOR_ID).send(f'We don\'t have access to mirror\'s webhook: '
-                                                    f'```origin: {source["origin"]}, dest: {source["destination"]}```')
+            await bot.get_user(bot.CREATOR_ID).send(
+                f"We don't have access to mirror's webhook: "
+                f'```origin: {source["origin"]}, dest: {source["destination"]}```'
+            )
             return None
 
         return mirror
 
     def __str__(self):
-        return f'channel mirror from {self.origin.mention}@`{self.origin.guild}` to ' \
-               f'{self.destination.mention}@`{self.destination.guild}`'
+        return (
+            f"channel mirror from {self.origin.mention}@`{self.origin.guild}` to "
+            f"{self.destination.mention}@`{self.destination.guild}`"
+        )
 
     def __repr__(self):
-        return f'<ChannelMirror origin={repr(self._origin)} destination={repr(self._destination)} ' \
-               f'webhook={repr(self._webhook)} _enabled={self._enabled}>'
+        return (
+            f"<ChannelMirror origin={repr(self._origin)} destination={repr(self._destination)} "
+            f"webhook={repr(self._webhook)} _enabled={self._enabled}>"
+        )
 
     def to_tuple(self):
         return self._origin, self._destination, self._webhook, self._enabled

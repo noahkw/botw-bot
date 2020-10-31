@@ -34,10 +34,10 @@ class Trolling(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.bot.add_listener(self.on_message, 'on_message')
-        self.poop_role_name = self.bot.config['trolling']['poop_role_name']
+        self.bot.add_listener(self.on_message, "on_message")
+        self.poop_role_name = self.bot.config["trolling"]["poop_role_name"]
 
-    @commands.command(brief='Mocks (spongetexts) a message')
+    @commands.command(brief="Mocks (spongetexts) a message")
     async def mock(self, ctx, *, message: MessageOrStringConverter = None):
         if isinstance(message, str):
             await ctx.send(mock_case(remove_broken_emoji(message)))
@@ -45,10 +45,16 @@ class Trolling(commands.Cog):
             await ctx.send(mock_case(remove_broken_emoji(message.clean_content)))
         else:
             valid_msg_content = None
-            async for msg in ctx.message.channel.history(limit=Trolling.MOCK_HISTORY_LOOKBACK):
+            async for msg in ctx.message.channel.history(
+                limit=Trolling.MOCK_HISTORY_LOOKBACK
+            ):
                 msg_ctx = await self.bot.get_context(msg)
                 content = remove_broken_emoji(msg.clean_content)
-                if msg.author != self.bot.user and not msg_ctx.valid and len(content) > 0:
+                if (
+                    msg.author != self.bot.user
+                    and not msg_ctx.valid
+                    and len(content) > 0
+                ):
                     valid_msg_content = content
                     break
             if valid_msg_content and len(valid_msg_content) > 0:
@@ -67,9 +73,8 @@ class Trolling(commands.Cog):
         if message.author.bot or not message.guild:
             return
 
-        if self.poop_role_name in [
-            role.name for role in message.author.roles
-        ]:
+        if self.poop_role_name in [role.name for role in message.author.roles]:
             await message.delete()
             await message.channel.send(
-                f"{message.author.name}: {mock_case(remove_broken_emoji(message.clean_content))}")
+                f"{message.author.name}: {mock_case(remove_broken_emoji(message.clean_content))}"
+            )

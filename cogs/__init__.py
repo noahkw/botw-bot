@@ -3,7 +3,7 @@ import logging
 
 from discord.ext.commands import Cog
 
-logger = logging.getLogger('discord')
+logger = logging.getLogger("discord")
 
 
 class AinitMixin:
@@ -17,7 +17,7 @@ class AinitMixin:
     async def _ainit_and_ready(self):
         await self._ainit()
         self._ready.set()
-        logger.info('Cog %s is ready', self.__class__.__name__)
+        logger.info("Cog %s is ready", self.__class__.__name__)
 
     async def _ainit(self):
         """
