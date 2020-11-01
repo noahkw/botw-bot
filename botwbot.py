@@ -114,29 +114,9 @@ class EmbedHelpCommand(commands.DefaultHelpCommand):
 class BotwBot(commands.Bot):
     CREATOR_ID = 207955387909931009
 
-    INITIAL_EXTENSIONS = [
-        "cogs.BiasOfTheWeek",
-        "cogs.Utilities",
-        "cogs.Instagram",
-        "cogs.EmojiUtils",
-        "cogs.Tags",
-        "cogs.Trolling",
-        "cogs.WolframAlpha",
-        "cogs.Reminders",
-        "cogs.Weather",
-        "cogs.Profiles",
-        "cogs.Mirroring",
-        "cogs.Greeters",
-        "cogs.Fun",
-        "cogs.Gfycat",
-        "cogs.Roles",
-        "cogs.UrlShortener",
-        "jishaku",
-    ]
-
     def __init__(self, config, **kwargs):
-        # the pool is attached by the launcher script
-        self.pool = None
+        # the Session is attached by the launcher script
+        self.Session = None
         self.config = config
 
         intents = discord.Intents.default()
@@ -198,11 +178,11 @@ class BotwBot(commands.Bot):
                 for guild_settings in settings:
                     self.prefixes[guild_settings.guild_id] = guild_settings.prefix
 
-        for ext in self.INITIAL_EXTENSIONS:
+        for ext in self.config["enabled_cogs"]:
             self.load_extension(ext)
 
         logger.info(
-            f"Logged in as {self.user}. Whitelisted servers: {self.config.items('whitelisted_servers')}"
+            f"Logged in as {self.user}. Whitelisted servers: {self.config['whitelisted_servers'].keys()}"
         )
 
     async def on_disconnect(self):
@@ -236,10 +216,7 @@ class BotwBot(commands.Bot):
             return ctx.guild is not None or await self.is_owner(ctx.author)
 
         async def whitelisted_server(ctx):
-            server_ids = [
-                int(server)
-                for key, server in ctx.bot.config.items("whitelisted_servers")
-            ]
+            server_ids = ctx.bot.config["whitelisted_servers"].values()
             return ctx.guild is None or ctx.guild.id in server_ids
 
         self.add_check(globally_block_dms)

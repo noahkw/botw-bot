@@ -133,6 +133,7 @@ dmypy.json
 
 # Config
 conf.ini
+config.yml
 
 # vscode
 .vscode/

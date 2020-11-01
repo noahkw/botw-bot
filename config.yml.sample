@@ -1,0 +1,41 @@
+discord:
+  token: 'XXXXXXXXXXXXXXXXXXXXXXXX.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX'
+  command_prefix: '.'
+whitelisted_servers:
+  server1: XXXXXXXXXXXXXXXXXX
+  server2: XXXXXXXXXXXXXXXXXX
+  server3: XXXXXXXXXXXXXXXXXX
+postgres:
+  connection_string: 'postgresql+asyncpg://user:pw@localhost:5432/db'
+enabled_cogs:
+  - 'cogs.BiasOfTheWeek'
+  - 'cogs.Utilities'
+  - 'cogs.Instagram'
+  - 'cogs.EmojiUtils'
+  - 'cogs.Tags'
+  - 'cogs.Trolling'
+  - 'cogs.WolframAlpha'
+  - 'cogs.Reminders'
+  - 'cogs.Weather'
+  - 'cogs.Profiles'
+  - 'cogs.Mirroring'
+  - 'cogs.Greeters'
+  - 'cogs.Fun'
+  - 'cogs.Gfycat'
+  - 'cogs.Roles'
+  - 'cogs.UrlShortener'
+  - 'jishaku'
+cogs:
+  biasoftheweek:
+    winner_role_name: 'BotW-Winner'
+    past_winners_time: 180
+    winner_day: 3
+  wolframalpha:
+   app_id: 'XXXXXX-XXXXXXXXXX'
+  openweathermap:
+    app_id: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+  instagram:
+    cookies_file: 'ig_cookies.json'
+  gfycat:
+    client_id: 'X_XXXXXX'
+    client_secret: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'

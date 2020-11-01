@@ -1,14 +1,24 @@
 import asyncio
-import configparser
 import logging
 import sys
 
 import click as click
+import yaml
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from botwbot import BotwBot
 from models.base import Base
+
+
+def load_config(config_file):
+    with open(config_file, "r") as stream:
+        try:
+            config = yaml.safe_load(stream)
+        except yaml.YAMLError as e:
+            print(e)
+
+    return config
 
 
 def setup():
@@ -20,8 +30,7 @@ def setup():
     )
     logger.addHandler(handler)
 
-    config = configparser.ConfigParser()
-    config.read("conf.ini")
+    config = load_config("config.yml")
     postgres = config["postgres"]
 
     return logger, config, postgres
@@ -41,7 +50,7 @@ def create_engine(logger, connection_string):
 async def init_db(engine):
     async with engine.begin() as conn:
         # TODO: don't drop_all in prod
-        # await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
 
