@@ -5,7 +5,7 @@ from .Idol import Idol
 from .Nomination import Nomination
 from .Profile import Profile
 from .Reminder import Reminder
-from .Tag import Tag
+from .tag import Tag
 
 __all__ = (
     "BotwState",

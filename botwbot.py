@@ -4,6 +4,12 @@ from collections import Counter
 import discord
 from discord.ext import commands
 
+import db
+from models.guild_settings import GuildSettings
+
+
+logger = logging.getLogger(__name__)
+
 
 def cmd_to_str(group=False):
     newline = "\n" if group else " "
@@ -165,16 +171,14 @@ class BotwBot(commands.Bot):
                         f"The current prefix is `{self.prefixes[ctx.guild.id]}`."
                     )
                 elif 1 <= len(prefix) <= 10:
-                    query = """INSERT INTO prefixes (guild, prefix)
-                                           VALUES ($1, $2)
-                                           ON CONFLICT (guild) DO UPDATE
-                                           SET prefix = $2;"""
-
-                    await self.pool.execute(query, ctx.guild.id, prefix)
-                    self.prefixes[ctx.guild.id] = prefix
-                    await ctx.send(
-                        f"The prefix for this guild has been changed to `{prefix}`."
-                    )
+                    async with ctx.bot.Session() as session:
+                        settings = GuildSettings(guild_id=ctx.guild.id, prefix=prefix)
+                        await session.merge(settings)
+                        await session.commit()
+                        self.prefixes[ctx.guild.id] = prefix
+                        await ctx.send(
+                            f"The prefix for this guild has been changed to `{prefix}`."
+                        )
                 else:
                     raise commands.BadArgument(
                         "The prefix has to be between 1 and 10 characters long."
@@ -187,19 +191,14 @@ class BotwBot(commands.Bot):
     async def on_ready(self):
         await self.change_presence(activity=discord.Game("with Bini"))
 
-        if self.pool:
+        if self.Session:
             # cache the guild prefixes
-            query = """SELECT *
-                       FROM prefixes;"""
-
-            rows = await self.pool.fetch(query)
-            for row in rows:
-                self.prefixes[row["guild"]] = row["prefix"]
+            async with self.Session() as session:
+                settings = await db.get_guild_settings(session)
+                for guild_settings in settings:
+                    self.prefixes[guild_settings.guild_id] = guild_settings.prefix
 
         for ext in self.INITIAL_EXTENSIONS:
-            ext_logger = logging.getLogger(ext)
-            ext_logger.setLevel(logging.INFO)
-            ext_logger.addHandler(handler)
             self.load_extension(ext)
 
         logger.info(
@@ -286,12 +285,3 @@ class BotwBot(commands.Bot):
             self._spam_count.pop(message.author.id, None)
 
         await super().process_commands(message)
-
-
-logger = logging.getLogger("discord")
-logger.setLevel(logging.INFO)
-handler = logging.FileHandler(filename="botw-bot.log", encoding="utf-8", mode="w")
-handler.setFormatter(
-    logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s")
-)
-logger.addHandler(handler)
