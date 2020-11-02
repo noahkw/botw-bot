@@ -50,7 +50,7 @@ def create_engine(logger, connection_string):
 async def init_db(engine):
     async with engine.begin() as conn:
         # TODO: don't drop_all in prod
-        await conn.run_sync(Base.metadata.drop_all)
+        # await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
 

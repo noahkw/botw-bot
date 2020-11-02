@@ -1,3 +1,7 @@
+from functools import partial
+
+import pendulum
+from sqlalchemy import TypeDecorator, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.inspection import inspect
 
@@ -15,3 +19,17 @@ def __repr__(self):
 
 
 Base.__repr__ = __repr__
+
+
+class PendulumDateTime(TypeDecorator):
+    impl = DateTime(timezone=True)
+
+    def process_bind_param(self, value, dialect):
+        return value
+
+    def process_result_value(self, value, dialect):
+        return pendulum.instance(value)
+
+    @staticmethod
+    def now():
+        return partial(pendulum.now, "UTC")
