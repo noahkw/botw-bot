@@ -56,7 +56,7 @@ class Weather(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.app_id = self.bot.config["openweathermap"]["app_id"]
+        self.app_id = self.bot.config["cogs"]["weather"]["app_id"]
         self.session = aiohttp.ClientSession()
 
     async def _make_request(self, method, route):
@@ -71,29 +71,7 @@ class Weather(commands.Cog):
                 content = await response.json()
                 raise OpenWeatherMapApiException(content["message"])
 
-    def cog_unload(self):
-        asyncio.create_task(self.session.close())
-
-    @auto_help
-    @commands.group(
-        name="weather",
-        invoke_without_command=True,
-        brief="Query OpenWeatherMap for weather info",
-    )
-    async def weather(self, ctx, *, args=None):
-        if args:
-            await ctx.invoke(self.current, location=args)
-        else:
-            profiles = self.bot.get_cog("Profiles")
-            profile = await profiles.get_profile(ctx.author)
-            location = profile.location
-            if location is not None:
-                await ctx.invoke(self.current, location=location)
-            else:
-                await ctx.send_help(self.weather)
-
-    @weather.command()
-    async def current(self, ctx, *, location):
+    async def _send_current_weather(self, session, ctx, location):
         response = await self._make_request(
             "get",
             f"{Weather.CURRENT_WEATHER_API_URL}?appid={self.app_id}&q={location}&units=metric",
@@ -165,7 +143,34 @@ class Weather(commands.Cog):
 
         # set location in profile to queried location
         profiles = self.bot.get_cog("Profiles")
-        await profiles.update(ctx.author, "location", location)
+        await profiles.update(session, ctx.author, "location", location)
+        await session.commit()
+
+    def cog_unload(self):
+        asyncio.create_task(self.session.close())
+
+    @auto_help
+    @commands.group(
+        name="weather",
+        invoke_without_command=True,
+        brief="Query OpenWeatherMap for weather info",
+    )
+    async def weather(self, ctx, *, args=None):
+        if args:
+            await ctx.invoke(self.current, location=args)
+        else:
+            async with self.bot.Session() as session:
+                profiles = self.bot.get_cog("Profiles")
+                profile = await profiles.get_profile(session, ctx.author)
+                if (location := profile.location) is not None:
+                    await self._send_current_weather(session, ctx, location)
+                else:
+                    await ctx.send_help(self.weather)
+
+    @weather.command()
+    async def current(self, ctx, *, location):
+        async with self.bot.Session() as session:
+            await self._send_current_weather(session, ctx, location)
 
     async def cog_before_invoke(self, ctx):
         await ctx.trigger_typing()

@@ -20,7 +20,7 @@ IMAGE_URL_REGEX = r"https?:\/\/.*\.(jpe?g|png|gif)"
 
 class Tag(Base):
     __tablename__ = "tags"
-    EDITABLE = ["trigger", "reaction", "in_msg"]
+    EDITABLE = frozenset(["trigger", "reaction", "in_msg"])
 
     tag_id = Column(Integer, primary_key=True)
     trigger = Column(String, nullable=False)

@@ -1,5 +1,6 @@
 from sqlalchemy import select
 
+from models.profile import Profile
 from models.guild_settings import GuildSettings
 from models.tag import Tag
 from models.reminder import Reminder
@@ -45,3 +46,10 @@ async def get_mirrors(session):
     result = (await session.execute(statement)).all()
 
     return [r for (r,) in result]
+
+
+async def get_profile(session, user_id):
+    statement = select(Profile).where(Profile._user == user_id)
+    result = (await session.execute(statement)).one()
+
+    return result[0] if result else None

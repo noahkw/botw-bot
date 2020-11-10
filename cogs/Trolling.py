@@ -34,8 +34,7 @@ class Trolling(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.bot.add_listener(self.on_message, "on_message")
-        self.poop_role_name = self.bot.config["trolling"]["poop_role_name"]
+        self.poop_role_name = self.bot.config["cogs"]["trolling"]["poop_role_name"]
 
     @commands.command(brief="Mocks (spongetexts) a message")
     async def mock(self, ctx, *, message: MessageOrStringConverter = None):
@@ -69,6 +68,7 @@ class Trolling(commands.Cog):
         else:
             logger.exception(error)
 
+    @commands.Cog.listener("on_message")
     async def on_message(self, message):
         if message.author.bot or not message.guild:
             return
