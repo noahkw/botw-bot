@@ -3,6 +3,7 @@ from sqlalchemy import select
 from models.guild_settings import GuildSettings
 from models.tag import Tag
 from models.reminder import Reminder
+from models.channel_mirror import ChannelMirror
 
 
 async def get_guild_settings(session):
@@ -37,3 +38,10 @@ async def get_reminder(session, reminder_id):
     result = (await session.execute(statement)).one()
 
     return result[0] if result else None
+
+
+async def get_mirrors(session):
+    statement = select(ChannelMirror)
+    result = (await session.execute(statement)).all()
+
+    return [r for (r,) in result]
