@@ -1,7 +1,4 @@
-from .BotwState import BotwState
-from .BotwWinner import BotwWinner
-from .Idol import Idol
-from .Nomination import Nomination
+from .botw import BotwState, BotwWinner, Nomination, Idol
 from .tag import Tag
 from .guild_settings import GuildSettings, EmojiSettings
 from .reminder import Reminder
