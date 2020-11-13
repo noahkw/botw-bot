@@ -3,6 +3,8 @@ from inspect import Parameter
 
 from discord.ext import commands
 
+from models.greeter import GreeterType
+
 
 class BoolConverter(commands.Converter):
     async def convert(self, ctx, argument):
@@ -13,6 +15,15 @@ class BoolConverter(commands.Converter):
             return False
         else:
             raise commands.BadArgument(lowered + " is not a recognized boolean option")
+
+
+class GreeterTypeConverter(commands.Converter):
+    async def convert(self, ctx, argument):
+        lowered = argument.lower()
+        try:
+            return GreeterType(lowered)
+        except ValueError:
+            raise commands.BadArgument(f"Greeter type '{argument}' does not exist")
 
 
 class ReactionConverter(commands.Converter):

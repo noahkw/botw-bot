@@ -3,7 +3,10 @@ import logging
 import discord
 from discord.ext import commands
 
+import db
+from models import Greeter, GreeterType
 from util import auto_help
+from util.converters import GreeterTypeConverter
 
 logger = logging.getLogger(__name__)
 
@@ -28,37 +31,40 @@ def format_template(template, member: discord.Member):
 
 class Greeters(commands.Cog):
     GREETER_NOT_SET = "{greeter} greeter has not been configured for this server."
-    GREETER_DOESNT_EXIST = "This type of greeter does not exist."
-    GREETERS = {"join": "join_greeter", "leave": "leave_greeter"}
 
     def __init__(self, bot):
         self.bot = bot
 
-    async def _add_greeter(self, ctx, channel, template, greeter_type):
-        query = """SELECT *
-                   FROM greeters
-                   WHERE guild = $1 AND type = $2;"""
-        row = await self.bot.pool.fetchrow(query, ctx.guild.id, greeter_type)
+        Greeter.inject_bot(bot)
 
+    async def _add_greeter(
+        self,
+        session,
+        ctx,
+        channel: discord.TextChannel,
+        template,
+        greeter_type: GreeterType,
+    ):
         if channel and template:
             # test the template string. will raise if a wrong placeholder is used
             format_template(template, ctx.author)
 
-            query = """INSERT INTO greeters (channel, guild, template, type)
-                       VALUES ($1, $2, $3, $4)
-                       ON CONFLICT (guild, type) DO UPDATE
-                       SET channel = $1, template = $3;"""
-            await self.bot.pool.execute(
-                query, channel.id, ctx.guild.id, template, greeter_type
+            greeter = Greeter(
+                _guild=ctx.guild.id,
+                _channel=channel.id,
+                template=template,
+                type=greeter_type,
             )
+            await session.merge(greeter)
 
             await ctx.send(
                 f"{greeter_type} greeter set to `{template}` in {channel.mention}."
             )
-        elif row and row["template"]:
-            greeter_channel = self.bot.get_channel(row["channel"])
+        elif (
+            current_greeter := await db.get_greeter(session, ctx.guild.id, greeter_type)
+        ) and current_greeter.template:
             await ctx.send(
-                f'{greeter_type} greeter in {greeter_channel.mention}: `{row["template"]}`.'
+                f"{greeter_type} greeter in {current_greeter.channel.mention}: `{current_greeter.template}`."
             )
         else:
             raise commands.BadArgument(
@@ -93,7 +99,9 @@ class Greeters(commands.Cog):
         `{{number}}`: The number of members in the server
         `{{guild}}`: The server's name
         """
-        await self._add_greeter(ctx, channel, template, "join")
+        async with self.bot.Session() as session:
+            await self._add_greeter(session, ctx, channel, template, GreeterType.JOIN)
+            await session.commit()
 
     @greeters.command(brief="Adds or displays the leave greeter")
     @commands.has_permissions(administrator=True)
@@ -113,76 +121,79 @@ class Greeters(commands.Cog):
         `{{number}}`: The number of members in the server
         `{{guild}}`: The server's name
         """
-        await self._add_greeter(ctx, channel, template, "leave")
+        async with self.bot.Session() as session:
+            await self._add_greeter(session, ctx, channel, template, GreeterType.LEAVE)
+            await session.commit()
 
-    async def send_greeter(self, greeter, member):
-        query = """SELECT channel, template FROM greeters
-                   WHERE guild = $1 and type = $2;"""
-        row = await self.bot.pool.fetchrow(query, member.guild.id, greeter)
-        if not row:
-            raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter=greeter))
+    async def send_greeter(
+        self, session, greeter_type: GreeterType, member: discord.Member
+    ):
+        greeter = await db.get_greeter(session, member.guild.id, greeter_type)
 
-        channel = self.bot.get_channel(row["channel"])
-        template = row["template"]
-        if not channel or not template:
-            raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter=greeter))
+        if not greeter:
+            raise commands.BadArgument(
+                self.GREETER_NOT_SET.format(greeter=greeter_type)
+            )
 
-        await channel.send(format_template(template, member))
+        if not greeter.channel or not greeter.template:
+            raise commands.BadArgument(
+                self.GREETER_NOT_SET.format(greeter=greeter_type)
+            )
+
+        await greeter.channel.send(format_template(greeter.template, member))
 
     @greeters.command(brief="Tests the given greeter")
     @commands.has_permissions(administrator=True)
-    async def test(self, ctx, greeter):
+    async def test(self, ctx, greeter_type: GreeterTypeConverter):
         """
         Tests the given greeter.
 
         Example usage:
         `{prefix}greeter test join`
         """
-        greeter = greeter.lower()
-        if greeter in self.GREETERS:
-            await self.send_greeter(greeter, ctx.author)
-        else:
-            raise commands.BadArgument(self.GREETER_DOESNT_EXIST)
+        async with self.bot.Session() as session:
+            await self.send_greeter(session, greeter_type, ctx.author)
 
     @greeters.command(brief="Disables the given greeter in the given channel")
     @commands.has_permissions(administrator=True)
-    async def disable(self, ctx, greeter):
+    async def disable(self, ctx, greeter_type: GreeterTypeConverter):
         """
         Disables the given greeter in the given channel.
 
         Example usage:
         `{prefix}greeter disable leave`
         """
-        greeter = greeter.lower()
-        if greeter in self.GREETERS:
-            query = """DELETE FROM greeters
-                       WHERE guild = $1 and type = $2
-                       RETURNING channel, template;"""
-            row = await self.bot.pool.fetchrow(query, ctx.guild.id, greeter)
-            if not row:
-                raise commands.BadArgument(self.GREETER_NOT_SET.format(greeter=greeter))
-
-            old_channel = self.bot.get_channel(row["channel"])
-            old_template = row["template"]
+        async with self.bot.Session() as session:
+            try:
+                channel_id, template = await db.delete_greeter(
+                    session, ctx.guild.id, greeter_type
+                )
+            except TypeError:
+                raise commands.BadArgument(
+                    self.GREETER_NOT_SET.format(greeter=greeter_type)
+                )
 
             await ctx.send(
-                f"The {greeter} greeter in {old_channel.mention} was reset. Old message: `{old_template}`."
+                f"The {greeter_type} greeter in {self.bot.get_channel(channel_id).mention} "
+                f"was reset. Old message: `{template}`."
             )
-        else:
-            raise commands.BadArgument(self.GREETER_DOESNT_EXIST)
+
+            await session.commit()
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
-        try:
-            await self.send_greeter("join", member)
-        except commands.BadArgument:
-            # we are not interested in join greeter not configured exceptions
-            pass
+        async with self.bot.Session() as session:
+            try:
+                await self.send_greeter(session, GreeterType.JOIN, member)
+            except commands.BadArgument:
+                # we are not interested in join greeter not configured exceptions
+                pass
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
-        try:
-            await self.send_greeter("leave", member)
-        except commands.BadArgument:
-            # we are not interested in leave greeter not configured exceptions
-            pass
+        async with self.bot.Session() as session:
+            try:
+                await self.send_greeter(session, GreeterType.LEAVE, member)
+            except commands.BadArgument:
+                # we are not interested in join greeter not configured exceptions
+                pass
