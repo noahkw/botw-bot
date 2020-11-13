@@ -1,6 +1,6 @@
 from sqlalchemy import select, delete, func
 
-from models import Nomination, BotwWinner, Idol
+from models import Nomination, BotwWinner, Idol, RoleClear, AssignableRole, RoleAlias
 from models.botw import BotwSettings
 from models.profile import Profile
 from models.guild_settings import GuildSettings, EmojiSettings
@@ -145,4 +145,52 @@ async def get_past_win(session, guild_id, idol, date):
 
 async def delete_idols(session):
     statement = delete(Idol)
+    await session.execute(statement)
+
+
+async def get_role_clears(session):
+    statement = select(RoleClear)
+    result = (await session.execute(statement)).all()
+
+    return [r for (r,) in result]
+
+
+async def delete_role_clear(session, member_id, role_id):
+    statement = delete(RoleClear).where(
+        (RoleClear._member == member_id) & (RoleClear._role == role_id)
+    )
+    await session.execute(statement)
+
+
+async def get_role_by_alias(session, guild_id, alias):
+    statement = (
+        select(AssignableRole)
+        .join(RoleAlias)
+        .where(
+            (AssignableRole._guild == guild_id)
+            & (AssignableRole.enabled == True)  # noqa
+            & (RoleAlias.alias == alias)
+        )
+    )
+    result = (await session.execute(statement)).first()
+
+    return result[0] if result else None
+
+
+async def get_roles(session, guild_id):
+    statement = select(AssignableRole).where(AssignableRole._guild == guild_id)
+    result = (await session.execute(statement)).all()
+
+    return [r for (r,) in result]
+
+
+async def get_role(session, role_id):
+    statement = select(AssignableRole).where(AssignableRole._role == role_id)
+    result = (await session.execute(statement)).first()
+
+    return result[0] if result else None
+
+
+async def delete_role(session, role_id):
+    statement = delete(AssignableRole).where((AssignableRole._role == role_id))
     await session.execute(statement)

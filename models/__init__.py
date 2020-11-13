@@ -4,6 +4,7 @@ from .guild_settings import GuildSettings, EmojiSettings
 from .reminder import Reminder
 from .channel_mirror import ChannelMirror
 from .profile import Profile
+from .role import RoleAlias, RoleClear, AssignableRole
 
 __all__ = (
     "BotwState",
@@ -16,4 +17,7 @@ __all__ = (
     "Profile",
     "Reminder",
     "Tag",
+    "RoleAlias",
+    "RoleClear",
+    "AssignableRole",
 )
