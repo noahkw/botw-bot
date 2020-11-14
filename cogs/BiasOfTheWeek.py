@@ -285,12 +285,9 @@ class BiasOfTheWeek(commands.Cog):
 
             if role:
                 try:
-                    await botw_channel.edit(
-                        overwrites={
-                            role: discord.PermissionOverwrite(send_messages=True)
-                        },
-                        reason="BotW setup",
-                    )
+                    overwrites = botw_channel.overwrites
+                    overwrites[role] = discord.PermissionOverwrite(send_messages=True)
+                    await botw_channel.edit(overwrites=overwrites, reason="BotW setup")
                 except discord.Forbidden:
                     pass
 
