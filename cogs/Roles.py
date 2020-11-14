@@ -80,7 +80,7 @@ class Roles(CustomCog, AinitMixin):
 
                     if assignable_role.clear_after:
                         when = pendulum.now("UTC").add(
-                            minutes=assignable_role.clear_after
+                            hours=assignable_role.clear_after
                         )
 
                         self.scheduler.schedule(
