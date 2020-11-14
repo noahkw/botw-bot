@@ -76,7 +76,7 @@ class DetailTagListSource(menus.ListPageSource):
     async def format_page(self, menu, entry):
         embed = entry.info_embed()
         embed.title = (
-            f"Tag `{entry.id}` ({menu.current_page + 1} / {self.get_max_pages()})"
+            f"Tag `{entry.tag_id}` ({menu.current_page + 1} / {self.get_max_pages()})"
         )
 
         return embed

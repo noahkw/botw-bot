@@ -1,57 +1,71 @@
 import asyncio
-import configparser
-import json
 import logging
 import sys
 
-import asyncpg
 import click as click
-import pendulum
+import yaml
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 
 from botwbot import BotwBot
+from models.base import Base
+
+
+def load_config(config_file):
+    with open(config_file, "r") as stream:
+        try:
+            config = yaml.safe_load(stream)
+        except yaml.YAMLError as e:
+            print(e)
+
+    return config
 
 
 def setup():
-    logger = logging.getLogger("discord")
+    logger = logging.getLogger()
     logger.setLevel(logging.INFO)
-    handler = logging.FileHandler(filename="botw-bot.log", encoding="utf-8", mode="w")
+    handler = logging.StreamHandler(stream=sys.stdout)
     handler.setFormatter(
         logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s")
     )
     logger.addHandler(handler)
 
-    config = configparser.ConfigParser()
-    config.read("conf.ini")
+    config = load_config("config.yml")
     postgres = config["postgres"]
 
-    pg_creds = {
-        "user": postgres["user"],
-        "password": postgres["password"],
-        "database": postgres["db"],
-        "host": postgres["host"],
-    }
-
-    return logger, config, pg_creds
+    return logger, config, postgres
 
 
-def create_pool(loop, logger, creds):
+def create_engine(logger, connection_string):
     try:
-        pool = loop.run_until_complete(asyncpg.create_pool(**creds))
-        return pool
-    except Exception:
+        engine = create_async_engine(connection_string)
+        session = sessionmaker(bind=engine, class_=AsyncSession)
+        return engine, session
+    except Exception as e:
+        click.echo(e, file=sys.stderr)
         click.echo("Could not set up PostgreSQL. Exiting.", file=sys.stderr)
         logger.exception("Could not set up PostgreSQL. Exiting.")
-        return
+
+
+async def init_db(engine):
+    async with engine.begin() as conn:
+        # TODO: don't drop_all in prod
+        # await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
 
 
 def run_bot():
     logger, config, creds = setup()
 
     loop = asyncio.get_event_loop()
-    pool = create_pool(loop, logger, creds)
 
+    engine, session = create_engine(logger, creds["connection_string"])
+
+    loop.run_until_complete(init_db(engine))
     botw_bot = BotwBot(config)
-    botw_bot.pool = pool
+
+    botw_bot.engine = engine
+    botw_bot.Session = session
     botw_bot.run()
 
     logger.info("Cleaning up")
@@ -61,7 +75,6 @@ def run_bot():
 @click.pass_context
 def main(ctx):
     """Launches the bot."""
-    _ = asyncio.get_event_loop()
     if ctx.invoked_subcommand is None:
         run_bot()
 
@@ -72,24 +85,6 @@ def db():
 
 
 @db.command(
-    short_help="initialize the db's tables. the database must exist prior to running this",
-    options_metavar="[options]",
-)
-def init():
-    logger, config, creds = setup()
-
-    loop = asyncio.get_event_loop()
-    pool = create_pool(loop, logger, creds)
-
-    with open(r"migrations/schema_001.sql", "r") as f:
-        query = f.read()
-
-    loop.run_until_complete(pool.execute(query))
-    print("the db was successfully initialized.")
-    logger.info("the db was successfully initialized.")
-
-
-@db.command(
     short_help="run a migration from the migrations folder", options_metavar="[options]"
 )
 @click.argument("number", nargs=1, metavar="[number]")
@@ -97,7 +92,7 @@ def migration(number):
     logger, config, creds = setup()
 
     loop = asyncio.get_event_loop()
-    pool = create_pool(loop, logger, creds)
+    pool = create_engine(loop, logger, creds)
 
     with open(rf"migrations/schema_{number}.sql", "r") as f:
         query = f.read()
@@ -107,284 +102,10 @@ def migration(number):
     logger.info(f"migration {number} was completed successfully.")
 
 
-@db.command(short_help="migrate to postgres", options_metavar="[options]")
+@db.command(short_help="migrate to SQLalchemy", options_metavar="[options]")
 @click.argument("files", nargs=-1, metavar="[files]")
 def initial_migration(files):
-    logger, config, creds = setup()
-
-    loop = asyncio.get_event_loop()
-    pool = create_pool(loop, logger, creds)
-
-    nominations_json = [filename for filename in files if "nominations" in filename]
-    past_winners_json = [filename for filename in files if "past_winners" in filename]
-    mirrors_json = [filename for filename in files if "mirrors" in filename]
-    reminders_json = [filename for filename in files if "reminders" in filename]
-    settings_json = [filename for filename in files if "settings" in filename]
-    tags_json = [filename for filename in files if "tags" in filename]
-
-    async def migrate_nominations():
-        print(f"migrating {nominations_json}")
-        logger.info(f"migrating {nominations_json}")
-
-        with open(nominations_json[0]) as f:
-            data = json.load(f)
-
-        query = """SELECT *
-                   FROM botw_nominations
-                   LIMIT 1;"""
-        row = await pool.fetchval(query)
-        if row:
-            print("botw_nominations already has rows. skipping.")
-            logger.info("botw_nominations already has rows. skipping.")
-            return
-
-        tuples = []
-        for nomination in data:
-            tuples.append(
-                (
-                    nomination["guild"],
-                    nomination["idol"]["group"],
-                    nomination["idol"]["name"],
-                    nomination["member"],
-                )
-            )
-
-        query = """INSERT INTO botw_nominations (guild, idol_group, idol_name, member)
-                   VALUES ($1, $2, $3, $4);"""
-        await pool.executemany(query, tuples)
-
-    async def migrate_past_winners():
-        print(f"migrating {past_winners_json}")
-        logger.info(f"migrating {past_winners_json}")
-
-        with open(past_winners_json[0]) as f:
-            data = json.load(f)
-
-        query = """SELECT *
-                   FROM botw_winners
-                   LIMIT 1;"""
-        row = await pool.fetchval(query)
-        if row:
-            print("botw_winners already has rows. skipping.")
-            logger.info("botw_winners already has rows. skipping.")
-            return
-
-        tuples = []
-        for winner in data:
-            tuples.append(
-                (
-                    winner["guild"],
-                    pendulum.from_timestamp(winner["timestamp"]),
-                    winner["idol"]["group"],
-                    winner["idol"]["name"],
-                    winner["member"],
-                )
-            )
-
-        query = """INSERT INTO botw_winners (guild, date, idol_group, idol_name, member)
-                   VALUES ($1, $2, $3, $4, $5);"""
-        await pool.executemany(query, tuples)
-
-    async def migrate_mirrors():
-        print(f"migrating {mirrors_json}")
-        logger.info(f"migrating {mirrors_json}")
-
-        with open(mirrors_json[0]) as f:
-            data = json.load(f)
-
-        query = """SELECT *
-                   FROM mirrors
-                   LIMIT 1;"""
-        row = await pool.fetchval(query)
-        if row:
-            print("mirrors already has rows. skipping.")
-            logger.info("mirrors already has rows. skipping.")
-            return
-
-        tuples = []
-        for mirror in data:
-            tuples.append(
-                (mirror["dest"], mirror["enabled"], mirror["origin"], mirror["webhook"])
-            )
-
-        query = """INSERT INTO mirrors (destination, enabled, origin, webhook)
-                   VALUES ($1, $2, $3, $4);"""
-        await pool.executemany(query, tuples)
-
-    async def migrate_reminders():
-        print(f"migrating {reminders_json}")
-        logger.info(f"migrating {reminders_json}")
-
-        with open(reminders_json[0]) as f:
-            data = json.load(f)
-
-        query = """SELECT *
-                   FROM reminders
-                   LIMIT 1;"""
-        row = await pool.fetchval(query)
-        if row:
-            print("reminders already has rows. skipping.")
-            logger.info("reminders already has rows. skipping.")
-            return
-
-        tuples = []
-        for reminder in data:
-            tuples.append(
-                (
-                    reminder["content"],
-                    pendulum.from_timestamp(reminder["created"]),
-                    reminder["done"],
-                    pendulum.from_timestamp(reminder["due"]),
-                    reminder["user"],
-                )
-            )
-
-        query = """INSERT INTO reminders (content, created, done, due, "user")
-                   VALUES ($1, $2, $3, $4, $5);"""
-        await pool.executemany(query, tuples)
-
-    async def migrate_settings():
-        print(f"migrating {settings_json}")
-        logger.info(f"migrating {settings_json}")
-
-        with open(settings_json[0]) as f:
-            data = json.load(f)
-
-        query = """SELECT *
-                   FROM botw_settings FULL JOIN emoji_settings ON TRUE
-                                      FULL JOIN greeters ON TRUE
-                                      FULL JOIN prefixes ON TRUE
-                   LIMIT 1;"""
-        row = await pool.fetchval(query)
-        if row:
-            print(
-                "botw_settings, emoji_settings, greeters, prefixes already has rows. skipping."
-            )
-            logger.info(
-                "botw_settings, emoji_settings, greeters, prefixes already has rows. skipping."
-            )
-            return
-
-        tuples_botw_settings = []
-        tuples_emoji_settings = []
-        tuples_greeters = []
-        tuples_prefixes = []
-
-        for settings in data:
-            if "botw_channel" in settings:
-                tuples_botw_settings.append(
-                    (
-                        settings["botw_channel"],
-                        settings["botw_enabled"],
-                        settings["botw_nominations_channel"],
-                        settings["botw_state"],
-                        settings["botw_winner_changes"]
-                        if "botw_winner_changes" in settings
-                        else False,
-                        settings["guild"],
-                    )
-                )
-            if "emoji_channel" in settings and settings["emoji_channel"]:
-                tuples_emoji_settings.append(
-                    (settings["guild"], settings["emoji_channel"])
-                )
-
-            if "join_greeter" in settings and settings["join_greeter"]["channel"]:
-                tuples_greeters.append(
-                    (
-                        settings["join_greeter"]["channel"],
-                        settings["guild"],
-                        settings["join_greeter"]["template"],
-                        "join",
-                    )
-                )
-
-            if "leave_greeter" in settings and settings["leave_greeter"]["channel"]:
-                tuples_greeters.append(
-                    (
-                        settings["leave_greeter"]["channel"],
-                        settings["guild"],
-                        settings["leave_greeter"]["template"],
-                        "leave",
-                    )
-                )
-
-            if "prefix" in settings and settings["prefix"]:
-                tuples_prefixes.append((settings["guild"], settings["prefix"]))
-
-        query_botw = """INSERT INTO botw_settings (botw_channel, enabled, nominations_channel,
-                                                   state, winner_changes, guild)
-                        VALUES ($1, $2, $3, $4, $5, $6);"""
-        await pool.executemany(query_botw, tuples_botw_settings)
-
-        query_emoji = """INSERT INTO emoji_settings (guild, emoji_channel)
-                         VALUES ($1, $2);"""
-        await pool.executemany(query_emoji, tuples_emoji_settings)
-
-        query_greeters = """INSERT INTO greeters (channel, guild, template, type)
-                            VALUES ($1, $2, $3, $4);"""
-        await pool.executemany(query_greeters, tuples_greeters)
-
-        query_prefixes = """INSERT INTO prefixes (guild, prefix)
-                            VALUES ($1, $2);"""
-        await pool.executemany(query_prefixes, tuples_prefixes)
-
-    async def migrate_tags():
-        print(f"migrating {tags_json}")
-        logger.info(f"migrating {tags_json}")
-
-        with open(tags_json[0]) as f:
-            data = json.load(f)
-
-        query = """SELECT *
-                   FROM tags
-                   LIMIT 1;"""
-        row = await pool.fetchval(query)
-        if row:
-            print("tags already has rows. skipping.")
-            logger.info("tags already has rows. skipping.")
-            return
-
-        tuples = []
-        for tag in data:
-            in_msg = (
-                True
-                if (tag["in_msg_trigger"] == "true") or (tag["in_msg_trigger"] is True)
-                else False
-            )
-            tuples.append(
-                (
-                    pendulum.from_timestamp(tag["creation_date"]),
-                    tag["creator"],
-                    tag["guild"],
-                    in_msg,
-                    tag["reaction"],
-                    tag["trigger"],
-                    tag["use_count"],
-                )
-            )
-
-        query = """INSERT INTO tags (date, creator, guild, in_msg, reaction, trigger, use_count)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7);"""
-        await pool.executemany(query, tuples)
-
-    if nominations_json:
-        loop.run_until_complete(migrate_nominations())
-
-    if past_winners_json:
-        loop.run_until_complete(migrate_past_winners())
-
-    if mirrors_json:
-        loop.run_until_complete(migrate_mirrors())
-
-    if reminders_json:
-        loop.run_until_complete(migrate_reminders())
-
-    if settings_json:
-        loop.run_until_complete(migrate_settings())
-
-    if tags_json:
-        loop.run_until_complete(migrate_tags())
+    pass
 
 
 if __name__ == "__main__":

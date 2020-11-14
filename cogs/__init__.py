@@ -3,7 +3,7 @@ import logging
 
 from discord.ext.commands import Cog
 
-logger = logging.getLogger("discord")
+logger = logging.getLogger(__name__)
 
 
 class AinitMixin:

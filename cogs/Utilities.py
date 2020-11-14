@@ -34,7 +34,7 @@ class Utilities(commands.Cog):
     @commands.is_owner()
     @ack
     async def reload(self, ctx):
-        for ext in self.bot.INITIAL_EXTENSIONS:
+        for ext in self.bot.config["enabled_cogs"]:
             self.bot.reload_extension(ext)
 
     @commands.command(aliases=["pick"], brief="Makes the bot choose between 2+ things")

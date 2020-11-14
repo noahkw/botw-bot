@@ -3,13 +3,13 @@ import random
 import typing
 
 import discord
-import pendulum
 from discord.ext import commands
 from discord.ext.menus import MenuPages
 
+import db
 from cogs import CustomCog, AinitMixin
 from menu import Confirm, TagListSource, PseudoMenu, SelectionMenu, DetailTagListSource
-from models import Tag
+from models.tag import Tag
 from util import ordered_sublists, ratio, auto_help
 from util.converters import ReactionConverter, BoolConverter
 
@@ -46,7 +46,7 @@ class TagConverter(commands.Converter):
         cog = ctx.bot.get_cog("Tags")
         try:
             tag = [
-                tag for tag in cog._get_tags(ctx.guild) if tag.id == int(argument)
+                tag for tag in cog._get_tags(ctx.guild) if tag.tag_id == int(argument)
             ].pop()
             return tag
         except (
@@ -79,19 +79,19 @@ class Tags(CustomCog, AinitMixin):
         super().__init__(bot)
         self.tags = {}
 
+        Tag.inject_bot(self.bot)
+
         super(AinitMixin).__init__()
 
     async def _ainit(self):
         await self.bot.wait_until_ready()
 
-        query = """SELECT *
-                   FROM tags;"""
-        _tags = await self.bot.pool.fetch(query)
+        async with self.bot.Session() as session:
+            _tags = await db.get_tags(session)
 
-        for _tag in _tags:
-            tag = Tag.from_record(_tag, self.bot)
-            if tag.guild:  # ignore guilds that the bot is not in
-                self._get_tags(tag.guild).append(tag)
+            for tag in _tags:
+                if tag.guild:  # ignore guilds that the bot is not in
+                    self._get_tags(tag.guild).append(tag)
 
         logger.info(
             f"# Initial tags from db: {sum([len(guild_tags) for guild_tags in self.tags.values()])}"
@@ -129,17 +129,14 @@ class Tags(CustomCog, AinitMixin):
     async def _invoke_tag(self, channel, tag, info=False):
         if info:
             await channel.send(
-                f"**{tag.trigger}** (`{tag.id}`) by {tag.creator}\n{tag.reaction}"
+                f"**{tag.trigger}** (`{tag.tag_id}`) by {tag.creator}\n{tag.reaction}"
             )
         else:
             await channel.send(tag.reaction)
 
-        tag.increment_use_count()
-
-        query = """UPDATE tags
-                   SET use_count = use_count + 1
-                   WHERE id = $1;"""
-        await self.bot.pool.execute(query, tag.id)
+        async with self.bot.Session() as session:
+            await tag.increment_use_count(session)
+            await session.commit()
 
     @auto_help
     @commands.group(
@@ -177,22 +174,19 @@ class Tags(CustomCog, AinitMixin):
         if len(matches) > 0:
             raise commands.BadArgument(f"This tag already exists (`{matches[0].id}`).")
         else:
-            query = """INSERT INTO tags (date, creator, guild, in_msg, reaction, trigger, use_count)
-                       VALUES ($1, $2, $3, $4, $5, $6, 0)
-                       RETURNING id;"""
-            values = (
-                pendulum.now("UTC"),
-                ctx.author.id,
-                ctx.guild.id,
-                in_msg,
-                reaction,
-                trigger,
-            )
-            id_ = await self.bot.pool.fetchval(query, *values)
+            async with self.bot.Session(expire_on_commit=False) as session:
+                tag = Tag(
+                    trigger=trigger,
+                    reaction=reaction,
+                    in_msg=in_msg,
+                    _creator=ctx.author.id,
+                    _guild=ctx.guild.id,
+                )
+                session.add(tag)
+                await session.commit()
 
-            self._get_tags(ctx.guild).append(Tag(self.bot, id_, *values, 0))
-
-            await ctx.send(f"Tag `{id_}` has been created.")
+                self._get_tags(ctx.guild).append(tag)
+                await ctx.send(f"Tag `{tag.tag_id}` has been created.")
 
     @tag.command(aliases=["remove"], brief="Deletes given tag")
     async def delete(self, ctx, tag: TagConverter):
@@ -211,18 +205,17 @@ class Tags(CustomCog, AinitMixin):
             raise commands.BadArgument("You're not this tag's owner.")
         else:
             confirm = await Confirm(
-                f"Are you sure you want to delete the tag with ID {tag.id}, "
+                f"Are you sure you want to delete the tag with ID {tag.tag_id}, "
                 f"trigger `{tag.trigger}` and reaction {tag.reaction}?"
             ).prompt(ctx)
 
             if confirm:
-                query = """DELETE FROM tags
-                           WHERE id = $1;"""
-                await self.bot.pool.execute(query, tag.id)
+                async with self.bot.Session() as session:
+                    await tag.delete(session)
+                    self._get_tags(ctx.guild).remove(tag)
+                    await session.commit()
 
-                self._get_tags(ctx.guild).remove(tag)
-
-                await ctx.send(f"Tag `{tag.id}` was deleted.")
+                await ctx.send(f"Tag `{tag.tag_id}` was deleted.")
 
     @tag.command(aliases=["change"], brief="Edits given tag")
     async def edit(self, ctx, tag: TagConverter, key, *, value: commands.clean_content):
@@ -259,18 +252,16 @@ class Tags(CustomCog, AinitMixin):
                 )
                 if len(matches) > 0:
                     raise commands.BadArgument(
-                        f"This edit would create a duplicate of tag `{matches[0].id}`."
+                        f"This edit would create a duplicate of tag `{matches[0].tag_id}`."
                     )
 
             old_value = getattr(tag, key)
-            setattr(tag, key, value)
 
-            query = f"""UPDATE tags
-                        SET {key} = $1
-                        WHERE id = $2;"""
-            await self.bot.pool.execute(query, value, tag.id)
+            async with self.bot.Session() as session:
+                await tag.update(session, key, value)
+                await session.commit()
 
-            await ctx.send(f"Tag `{tag.id}` was edited. Old {key}:\n{old_value}")
+            await ctx.send(f"Tag `{tag.tag_id}` was edited. Old {key}:\n{old_value}")
 
     @guild_has_tags()
     @auto_help

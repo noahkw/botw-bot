@@ -9,9 +9,11 @@ from dateparser import parse
 from discord.ext import commands, tasks
 from discord.ext.menus import MenuPages
 
+import db
 from const import CROSS_EMOJI
 from menu import Confirm, BotwWinnerListSource
 from models import BotwWinner, BotwState, Idol, Nomination
+from models.botw import BotwSettings
 from util import ack, auto_help, BoolConverter
 
 logger = logging.getLogger(__name__)
@@ -23,25 +25,23 @@ def setup(bot):
 
 def has_winner_role():
     async def predicate(ctx):
-        query = """SELECT winner_changes
-                   FROM botw_settings
-                   WHERE guild = $1;"""
-        winner_changes = await ctx.bot.pool.fetchval(query, ctx.guild.id)
-
-        return winner_changes and ctx.bot.config["biasoftheweek"][
-            "winner_role_name"
-        ] in [role.name for role in ctx.message.author.roles]
+        async with ctx.bot.Session() as session:
+            botw_settings = await db.get_botw_settings(session, ctx.guild.id)
+            return (
+                botw_settings
+                and botw_settings.winner_changes
+                and ctx.bot.config["cogs"]["biasoftheweek"]["winner_role_name"]
+                in [role.name for role in ctx.message.author.roles]
+            )
 
     return commands.check(predicate)
 
 
 def botw_enabled():
     async def predicate(ctx):
-        query = """SELECT enabled
-                   FROM botw_settings
-                   WHERE guild = $1;"""
-        enabled = await ctx.bot.pool.fetchval(query, ctx.guild.id)
-        return enabled
+        async with ctx.bot.Session() as session:
+            botw_settings = await db.get_botw_settings(session, ctx.guild.id)
+            return botw_settings and botw_settings.enabled
 
     return commands.check(predicate)
 
@@ -53,60 +53,49 @@ class NoWinnerException(Exception):
 class BiasOfTheWeek(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.past_winners_collection = self.bot.config["biasoftheweek"][
-            "past_winners_collection"
+        self.past_winners_time = self.bot.config["cogs"]["biasoftheweek"][
+            "past_winners_time"
         ]
-        self.past_winners_time = int(
-            self.bot.config["biasoftheweek"]["past_winners_time"]
-        )
-        self.winner_day = int(self.bot.config["biasoftheweek"]["winner_day"])
+        self.winner_day = self.bot.config["cogs"]["biasoftheweek"]["winner_day"]
+        self.winner_role_name = self.bot.config["cogs"]["biasoftheweek"][
+            "winner_role_name"
+        ]
         self.announcement_day = divmod((self.winner_day - 3), 7)[1]
         self._loop.start()
+
+        Nomination.inject_bot(bot)
+        BotwWinner.inject_bot(bot)
+        BotwSettings.inject_bot(bot)
 
     def cog_unload(self):
         self._loop.stop()
 
-    async def _get_nominations(self, guild: discord.Guild) -> List[Nomination]:
-        query = """SELECT *
-                   FROM botw_nominations
-                   WHERE guild = $1;"""
-
-        rows = await self.bot.pool.fetch(query, guild.id)
-        return [Nomination.from_record(row, self.bot) for row in rows]
-
-    async def _get_winners(self, guild: discord.Guild) -> List[BotwWinner]:
-        query = """SELECT *
-                   FROM botw_winners
-                   WHERE guild = $1;"""
-
-        rows = await self.bot.pool.fetch(query, guild.id)
-        return [BotwWinner.from_record(row, self.bot) for row in rows]
-
     async def _add_winner(
-        self, guild: discord.Guild, date, idol: Idol, member: discord.Member
+        self, session, guild: discord.Guild, date, idol: Idol, member: discord.Member
     ):
-        query = """INSERT INTO botw_winners (guild, date, idol_group, idol_name, member)
-                   VALUES ($1, $2, $3, $4, $5);"""
-        await self.bot.pool.execute(
-            query, guild.id, date, idol.group, idol.name, member.id
+        botw_winner = BotwWinner(
+            _guild=guild.id,
+            _member=member.id,
+            idol_group=idol.group,
+            idol_name=idol.name,
+            date=date,
         )
+        session.add(botw_winner)
 
-    async def _set_state(self, guild: discord.Guild, state: BotwState):
-        query = """UPDATE botw_settings
-                   SET state = $1
-                   WHERE guild = $2;"""
-
-        await self.bot.pool.execute(query, state.value, guild.id)
+    async def _set_state(self, session, guild: discord.Guild, state: BotwState):
+        botw_settings = BotwSettings(_guild=guild.id, state=state)
+        await session.merge(botw_settings)
+        await session.flush()
 
     async def _pick_winner(
-        self, guild: discord.Guild, nominations: List[Nomination], silent=False
+        self, session, guild: discord.Guild, nominations: List[Nomination], silent=False
     ):
         nomination = random.choice(nominations)
         pick = nomination.idol
         member = nomination.member
 
         nominations.remove(nomination)
-        await self._clear_nominations(guild, nomination._member)
+        await db.delete_nominations(session, guild.id, nomination._member)
 
         while not nomination.member and len(nominations) > 0:
             # member is not in cache, try to pick another winner
@@ -115,18 +104,13 @@ class BiasOfTheWeek(commands.Cog):
             member = nomination.member
 
             nominations.remove(nomination)
-            await self._clear_nominations(guild, nomination._member)
+            await db.delete_nominations(session, guild.id, nomination._member)
 
-        query = """SELECT nominations_channel
-                   FROM botw_settings
-                   WHERE guild = $1;"""
-
-        nominations_channel_id = await self.bot.pool.fetchval(query, guild.id)
-        nominations_channel = self.bot.get_channel(nominations_channel_id)
+        botw_settings = await db.get_botw_settings(session, guild.id)
 
         # could not pick a winner, notify
         if not nomination.member:
-            await nominations_channel.send(
+            await botw_settings.nominations_channel.send(
                 "Could not pick a winner for this week's BotW."
             )
             raise NoWinnerException
@@ -135,15 +119,15 @@ class BiasOfTheWeek(commands.Cog):
         now = pendulum.now("UTC")
         assign_date = now.next(self.winner_day)
 
-        await nominations_channel.send(
+        await botw_settings.nominations_channel.send(
             f"Bias of the Week ({now.week_of_year}-{now.year}): "
             f"{member if silent else member.mention}'s pick **{pick}**. "
             f"You will be assigned the role "
-            f'*{self.bot.config["biasoftheweek"]["winner_role_name"]}* on '
+            f"*{self.winner_role_name}* on "
             f"{assign_date.to_cookie_string()}."
         )
 
-        await self._add_winner(guild, now, pick, member)
+        await self._add_winner(session, guild, now, pick, member)
 
     async def _assign_winner_role(
         self,
@@ -156,9 +140,7 @@ class BiasOfTheWeek(commands.Cog):
         member = winner.member
         logger.info(f"Assigning winner role to {member} in {guild}")
         member = guild.get_member(member.id)
-        botw_winner_role = discord.utils.get(
-            guild.roles, name=self.bot.config["biasoftheweek"]["winner_role_name"]
-        )
+        botw_winner_role = discord.utils.get(guild.roles, name=self.winner_role_name)
         await member.add_roles(botw_winner_role)
         await member.send(
             f"Hi, your pick **{winner.idol}** won this week's BotW. Congratulations!\n"
@@ -175,21 +157,21 @@ class BiasOfTheWeek(commands.Cog):
         member = winner.member
         logger.info(f"Removing winner role from {member} in {guild}")
         member = guild.get_member(member.id)
-        botw_winner_role = discord.utils.get(
-            guild.roles, name=self.bot.config["biasoftheweek"]["winner_role_name"]
-        )
+        botw_winner_role = discord.utils.get(guild.roles, name=self.winner_role_name)
         await member.remove_roles(botw_winner_role)
 
-    async def _set_nomination(self, ctx, idol: Idol, old_idol: Idol = None):
+    async def _set_nomination(self, ctx, session, idol: Idol, old_idol: Idol = None):
         guild = ctx.guild
         member = ctx.author
 
-        query = """INSERT INTO botw_nominations
-                   VALUES ($1, $2, $3, $4)
-                   ON CONFLICT (guild, member) DO UPDATE
-                   SET idol_group = $2, idol_name = $3;"""
+        botw_nomination = Nomination(
+            _guild=guild.id,
+            _member=member.id,
+            idol_group=idol.group,
+            idol_name=idol.name,
+        )
 
-        await self.bot.pool.execute(query, guild.id, idol.group, idol.name, member.id)
+        await session.merge(botw_nomination)
 
         await ctx.send(
             f"{ctx.author} nominates **{idol}** instead of **{old_idol}**."
@@ -197,23 +179,10 @@ class BiasOfTheWeek(commands.Cog):
             else f"{ctx.author} nominates **{idol}**."
         )
 
-    async def _clear_nominations(self, guild: discord.Guild, member: int = None):
-        if member:
-            query = """DELETE FROM botw_nominations
-                       WHERE guild = $1 AND member = $2;"""
-
-            await self.bot.pool.execute(query, guild.id, member)
-        else:
-            query = """DELETE FROM botw_nominations
-                       WHERE guild = $1;"""
-
-            await self.bot.pool.execute(query, guild.id)
-
-    async def _disable(self, guild: int):
-        query = """UPDATE botw_settings
-                   SET enabled = FALSE
-                   WHERE guild = $1;"""
-        await self.bot.pool.execute(query, guild)
+    async def _disable(self, session, guild: int):
+        logger.info("Disabling botw in guild %d", guild)
+        botw_settings = BotwSettings(_guild=guild, enabled=False)
+        await session.merge(botw_settings)
 
     async def _set_channel_name(self, channel: discord.TextChannel, winner: BotwWinner):
         try:
@@ -288,37 +257,29 @@ class BiasOfTheWeek(commands.Cog):
                 f"{e}\nPlease restart the setup using `{ctx.prefix}botw setup`."
             )
         else:
-            query = """INSERT INTO botw_settings
-                       VALUES ($1, $2, $3, $4, $5, $6)
-                       ON CONFLICT (guild) DO UPDATE
-                       SET botw_channel = $1,
-                           enabled = $2,
-                           nominations_channel = $3,
-                           winner_changes = $5;"""
+            async with self.bot.Session() as session:
+                botw_settings = BotwSettings(
+                    _guild=ctx.guild.id,
+                    _botw_channel=botw_channel.id,
+                    _nominations_channel=nominations_channel.id,
+                    winner_changes=botw_winner_changes,
+                )
 
-            await self.bot.pool.execute(
-                query,
-                botw_channel.id,
-                True,
-                nominations_channel.id,
-                BotwState.DEFAULT.value,
-                botw_winner_changes,
-                ctx.guild.id,
-            )
+                await session.merge(botw_settings)
+                await session.commit()
 
             # create role
-            winner_role_name = self.bot.config["biasoftheweek"]["winner_role_name"]
-            if role := discord.utils.get(ctx.guild.roles, name=winner_role_name):
+            if role := discord.utils.get(ctx.guild.roles, name=self.winner_role_name):
                 # botw role exists
                 pass
             else:  # need to create botw role
                 try:
                     role = await ctx.guild.create_role(
-                        name=winner_role_name, reason="BotW setup"
+                        name=self.winner_role_name, reason="BotW setup"
                     )
                 except discord.Forbidden:
                     await ctx.send(
-                        f"Could not create role `{winner_role_name}`. Please create it yourself and"
+                        f"Could not create role `{self.winner_role_name}`. Please create it yourself and"
                         f" make sure it has send message permissions in {botw_channel.mention}."
                     )
 
@@ -346,7 +307,10 @@ class BiasOfTheWeek(commands.Cog):
     @biasoftheweek.command(brief="Disable BotW in the server")
     @commands.has_permissions(administrator=True)
     async def disable(self, ctx):
-        await self._disable(ctx.guild.id)
+        async with self.bot.Session() as session:
+            await self._disable(session, ctx.guild.id)
+            await session.commit()
+
         await ctx.send(
             f"Bias of the Week is now disabled in this server! `{ctx.prefix}botw setup` to re-enable it."
         )
@@ -362,70 +326,50 @@ class BiasOfTheWeek(commands.Cog):
         Example usage:
         `{prefix}botw nominate "Red Velvet" "Irene"`
         """
-        idol = Idol(group, name)
+        async with self.bot.Session() as session:
+            idol = Idol(group=group, name=name)
 
-        query = """SELECT "group", name
-                   FROM idols
-                   ORDER BY SIMILARITY("group" || ' ' || name, $1) DESC
-                   LIMIT 1;"""
+            best_match = await db.get_similar_idol(session, idol)
 
-        if row := await self.bot.pool.fetchrow(query, str(idol)):
-            best_match = Idol.from_record(row)
+            if best_match:
+                if not best_match == idol:
+                    confirm_match = await Confirm(
+                        f"**@{ctx.author}**, did you mean **{best_match}**?"
+                    ).prompt(ctx)
+                    if confirm_match:
+                        idol = best_match
 
-            if not best_match == idol:
-                confirm_match = await Confirm(
-                    f"**@{ctx.author}**, did you mean **{best_match}**?"
+            if await db.get_nomination_dupe(session, ctx.guild.id, idol):
+                raise commands.BadArgument(
+                    f"**{idol}** has already been nominated. Please nominate someone else."
+                )
+            elif await db.get_past_win(
+                session,
+                ctx.guild.id,
+                idol,
+                pendulum.now("UTC").subtract(days=self.past_winners_time),
+            ):
+                # check whether idol has won in the past
+                raise commands.BadArgument(
+                    f"**{idol}** has already won in the past `{self.past_winners_time}` days. "
+                    f"Please nominate someone else."
+                )
+            elif nomination := await db.get_botw_nomination(
+                session, ctx.guild.id, ctx.author.id
+            ):
+                old_idol = nomination.idol
+
+                confirm_override = await Confirm(
+                    f"Your current nomination is **{old_idol}**. "
+                    f"Do you want to override it?"
                 ).prompt(ctx)
-                if confirm_match:
-                    idol = best_match
 
-        query_dupe = """SELECT TRUE
-                        FROM botw_nominations
-                        WHERE guild = $1 AND idol_group = $2 AND idol_name = $3
-                        LIMIT 1;"""
+                if confirm_override:
+                    await self._set_nomination(ctx, session, idol, old_idol)
+            else:
+                await self._set_nomination(ctx, session, idol)
 
-        query_past_win = """SELECT TRUE
-                            FROM botw_winners
-                            WHERE guild = $1 AND idol_group = $2 AND idol_name = $3
-                                  AND date > $4
-                            LIMIT 1;"""
-
-        query_nomination = """SELECT *
-                              FROM botw_nominations
-                              WHERE guild = $1 AND member = $2;"""
-
-        if await self.bot.pool.fetchval(
-            query_dupe, ctx.guild.id, idol.group, idol.name
-        ):
-            raise commands.BadArgument(
-                f"**{idol}** has already been nominated. Please nominate someone else."
-            )
-        elif await self.bot.pool.fetchval(
-            query_past_win,
-            ctx.guild.id,
-            idol.group,
-            idol.name,
-            pendulum.now().subtract(days=self.past_winners_time),
-        ):
-            # check whether idol has won in the past
-            raise commands.BadArgument(
-                f"**{idol}** has already won in the past `{self.past_winners_time}` days. "
-                f"Please nominate someone else."
-            )
-        elif row := await self.bot.pool.fetchrow(
-            query_nomination, ctx.guild.id, ctx.author.id
-        ):
-            old_idol = Idol(row["idol_group"], row["idol_name"])
-
-            confirm_override = await Confirm(
-                f"Your current nomination is **{old_idol}**. "
-                f"Do you want to override it?"
-            ).prompt(ctx)
-
-            if confirm_override:
-                await self._set_nomination(ctx, idol, old_idol)
-        else:
-            await self._set_nomination(ctx, idol)
+            await session.commit()
 
     @biasoftheweek.command(brief="Clears your nomination")
     @botw_enabled()
@@ -434,7 +378,9 @@ class BiasOfTheWeek(commands.Cog):
         """
         Clears your nomination.
         """
-        await self._clear_nominations(ctx.guild, ctx.author.id)
+        async with self.bot.Session() as session:
+            await db.delete_nominations(session, ctx.guild.id, ctx.author.id)
+            await session.commit()
 
     @biasoftheweek.command(aliases=["clearall"], brief="Clears a member's nomination")
     @botw_enabled()
@@ -445,29 +391,33 @@ class BiasOfTheWeek(commands.Cog):
         Clears a member's nomination.
         Clears all of the guild's nominations if no member was specified.
         """
-        if not member:
-            confirm = await Confirm(
-                f"**{ctx.author}**, do you really want to clear "
-                f"this guild's nominations?"
-            ).prompt(ctx)
-            if confirm:
-                await self._clear_nominations(ctx.guild)
-        else:
-            await self._clear_nominations(ctx.guild, member.id)
+        async with self.bot.Session() as session:
+            if not member:
+                confirm = await Confirm(
+                    f"**{ctx.author}**, do you really want to clear "
+                    f"this guild's nominations?"
+                ).prompt(ctx)
+                if confirm:
+                    await db.delete_nominations(session, ctx.guild.id)
+            else:
+                await db.delete_nominations(session, ctx.guild.id, member.id)
+
+            await session.commit()
 
     @biasoftheweek.command(brief="Displays the current nominations")
     @botw_enabled()
     async def nominations(self, ctx):
-        nominations = await self._get_nominations(ctx.guild)
+        async with self.bot.Session() as session:
+            nominations = await db.get_botw_nominations(session, ctx.guild.id)
 
-        if nominations:
-            embed = discord.Embed(title="Bias of the Week nominations")
-            for nomination in nominations:
-                embed.add_field(**nomination.to_field())
+            if nominations:
+                embed = discord.Embed(title="Bias of the Week nominations")
+                for nomination in nominations:
+                    embed.add_field(**nomination.to_field())
 
-            await ctx.send(embed=embed)
-        else:
-            await ctx.send("So far, no idols have been nominated.")
+                await ctx.send(embed=embed)
+            else:
+                await ctx.send("So far, no idols have been nominated.")
 
     @biasoftheweek.command(brief="Manually picks a winner")
     @botw_enabled()
@@ -478,47 +428,59 @@ class BiasOfTheWeek(commands.Cog):
 
         Do not use unless you know what you are doing! It will probably result in the picked winner getting skipped!
         """
-        await self._pick_winner(
-            ctx.guild, await self._get_nominations(ctx.guild), silent=silent
-        )
+        async with self.bot.Session() as session:
+            await self._pick_winner(
+                session,
+                ctx.guild,
+                await db.get_botw_nominations(session, ctx.guild.id),
+                silent=silent,
+            )
+            await session.commit()
 
     @biasoftheweek.command(brief="Skips next week's BotW draw")
     @botw_enabled()
     @commands.has_permissions(administrator=True)
     async def skip(self, ctx):
-        query = """SELECT state
-                   FROM botw_settings
-                   WHERE guild = $1;"""
-        state_val = await self.bot.pool.fetchval(query, ctx.guild.id)
-        state = BotwState(state_val)
+        async with self.bot.Session() as session:
+            botw_settings = await db.get_botw_settings(session, ctx.guild.id)
 
-        if state == BotwState.WINNER_CHOSEN:
-            raise commands.BadArgument(
-                "Can't skip because the current winner has not been notified yet."
+            if botw_settings.state == BotwState.WINNER_CHOSEN:
+                raise commands.BadArgument(
+                    "Can't skip because the current winner has not been notified yet."
+                )
+
+            await self._set_state(
+                session,
+                ctx.guild,
+                BotwState.DEFAULT
+                if botw_settings.state == BotwState.SKIP
+                else BotwState.SKIP,
             )
 
-        await self._set_state(
-            ctx.guild, BotwState.DEFAULT if state == BotwState.SKIP else BotwState.SKIP
-        )
+            next_announcement = pendulum.now("UTC").next(self.announcement_day)
+            await ctx.send(
+                f"BotW Winner selection on `{next_announcement.to_cookie_string()}` is "
+                f'now {"" if botw_settings.state == BotwState.SKIP else "**not** "}being skipped.'
+            )
 
-        next_announcement = pendulum.now("UTC").next(self.announcement_day)
-        await ctx.send(
-            f"BotW Winner selection on `{next_announcement.to_cookie_string()}` is "
-            f'now {"" if state == BotwState.DEFAULT else "**not** "}being skipped.'
-        )
+            await session.commit()
 
     @biasoftheweek.command(brief="Displays past BotW winners")
     @botw_enabled()
     async def history(self, ctx):
-        if len(past_winners := await self._get_winners(ctx.guild)) > 0:
-            past_winners = sorted(past_winners, key=lambda w: w.date, reverse=True)
-            pages = MenuPages(
-                source=BotwWinnerListSource(past_winners, self.winner_day),
-                clear_reactions_after=True,
-            )
-            await pages.start(ctx)
-        else:
-            await ctx.send("So far there have been no winners.")
+        async with self.bot.Session() as session:
+            if (
+                len(past_winners := await db.get_botw_winners(session, ctx.guild.id))
+                > 0
+            ):
+                past_winners = sorted(past_winners, key=lambda w: w.date, reverse=True)
+                pages = MenuPages(
+                    source=BotwWinnerListSource(past_winners, self.winner_day),
+                    clear_reactions_after=True,
+                )
+                await pages.start(ctx)
+            else:
+                await ctx.send("So far there have been no winners.")
 
     @biasoftheweek.command(
         name="servername", aliases=["name"], brief="Changes the server name"
@@ -571,9 +533,11 @@ class BiasOfTheWeek(commands.Cog):
 
         prev_announcement_day = day.previous(self.announcement_day + 1)
 
-        await self._add_winner(
-            ctx.guild, prev_announcement_day, Idol(group, name), member
-        )
+        async with self.bot.Session() as session:
+            await self._add_winner(
+                session, ctx.guild, prev_announcement_day, Idol(group, name), member
+            )
+            await session.commit()
 
     @biasoftheweek.command(name="load", brief="Parses a file containing idol names")
     @commands.is_owner()
@@ -587,14 +551,16 @@ class BiasOfTheWeek(commands.Cog):
         lines = text.splitlines()
         lines_tokenized = [line.split("\t") for line in lines]
 
-        with ctx.typing():
-            query_delete = """DELETE FROM idols
-                              WHERE TRUE;"""
-            await self.bot.pool.execute(query_delete)
+        async with self.bot.Session() as session:
+            with ctx.typing():
+                await db.delete_idols(session)
 
-            query_insert = """INSERT INTO idols ("group", name)
-                              VALUES ($1, $2);"""
-            await self.bot.pool.executemany(query_insert, lines_tokenized)
+                idols = [
+                    Idol(group=group, name=name) for group, name in lines_tokenized
+                ]
+                session.add_all(idols)
+
+                await session.commit()
 
         await ctx.send(f"Successfully loaded `{len(lines)}` idols.")
 
@@ -602,123 +568,134 @@ class BiasOfTheWeek(commands.Cog):
     @botw_enabled()
     @commands.has_permissions(administrator=True)
     async def settings(self, ctx):
-        query = """SELECT *
-                   FROM botw_settings
-                   WHERE guild = $1;"""
-        row = await self.bot.pool.fetchrow(query, ctx.guild.id)
+        async with self.bot.Session() as session:
+            botw_settings = await db.get_botw_settings(session, ctx.guild.id)
 
-        embed = (
-            discord.Embed(
-                title=f"BotW settings of {ctx.guild}",
-                description=f"Use `{ctx.prefix}botw setup` to change these.",
+            embed = (
+                discord.Embed(
+                    title=f"BotW settings of {ctx.guild}",
+                    description=f"Use `{ctx.prefix}botw setup` to change these.",
+                )
+                .set_thumbnail(url=ctx.guild.icon_url)
+                .add_field(name="Enabled", value=botw_settings.enabled)
+                .add_field(
+                    name="BotW channel",
+                    value=botw_settings.botw_channel.mention,
+                )
+                .add_field(
+                    name="Winner announcement channel",
+                    value=botw_settings.nominations_channel.mention,
+                )
+                .add_field(name="State", value=botw_settings.state.value)
             )
-            .set_thumbnail(url=ctx.guild.icon_url)
-            .add_field(name="Enabled", value=row["enabled"])
-            .add_field(
-                name="BotW channel",
-                value=self.bot.get_channel(row["botw_channel"]).mention,
-            )
-            .add_field(
-                name="Winner announcement channel",
-                value=self.bot.get_channel(row["nominations_channel"]).mention,
-            )
-            .add_field(name="State", value=BotwState(row["state"]).value)
-        )
 
-        await ctx.send(embed=embed)
+            await ctx.send(embed=embed)
 
     @biasoftheweek.command(brief="Sets the BotW state in the server")
     @commands.is_owner()
     async def state(self, ctx, state):
-        state = BotwState(state)
-        await self._set_state(ctx.guild, state)
+        async with self.bot.Session() as session:
+            state = BotwState(state)
+            await self._set_state(session, ctx.guild, state)
+            await session.commit()
 
     @tasks.loop(hours=1.0)
     async def _loop(self):
-        # pendulum.set_test_now(pendulum.now('UTC').next(self.winner_day))
+        # pendulum.set_test_now(pendulum.now("UTC").next(self.winner_day))
         logger.info("Hourly loop running")
         now = pendulum.now("UTC")
 
-        query = """SELECT *
-                   FROM botw_settings
-                   WHERE enabled;"""
+        async with self.bot.Session() as session:
+            # pick winner on announcement day
+            if now.day_of_week == self.announcement_day and now.hour == 0:
+                settings_enabled = await db.get_botw_settings(session)
+                for guild_settings in settings_enabled:
+                    if (
+                        not guild_settings.guild
+                    ):  # we're not in the guild anymore, disable botw
+                        await self._disable(session, guild_settings._guild)
+                        continue
 
-        # pick winner on announcement day
-        if now.day_of_week == self.announcement_day and now.hour == 0:
-            rows = await self.bot.pool.fetch(query)
-            for guild_settings in rows:
-                guild = self.bot.get_guild(guild_settings["guild"])
-
-                if not guild:  # we're not in the guild anymore, disable botw
-                    await self._disable(guild_settings["guild"])
-                    continue
-
-                nominations = await self._get_nominations(guild)
-                state = BotwState(guild_settings["state"])
-
-                if (
-                    state not in (BotwState.SKIP, BotwState.WINNER_CHOSEN)
-                    and len(nominations) > 0
-                ):
-                    try:
-                        await self._pick_winner(guild, nominations)
-                        await self._set_state(guild, BotwState.WINNER_CHOSEN)
-                    except NoWinnerException:
-                        logger.info(f"Could not pick a valid winner in {guild}")
-                else:
-                    logger.info(f"Skipping BotW winner selection in {guild}")
-
-        # assign role on winner day
-        elif now.day_of_week == self.winner_day and now.hour == 0:
-            rows = await self.bot.pool.fetch(query)
-            for guild_settings in rows:
-                guild = self.bot.get_guild(guild_settings["guild"])
-
-                if not guild:  # we're not in the guild anymore, disable botw
-                    await self._disable(guild_settings["guild"])
-                    continue
-
-                state = BotwState(guild_settings["state"])
-
-                if state not in (BotwState.SKIP, BotwState.DEFAULT):
-                    past_winners = await self._get_winners(guild)
-
-                    if len(past_winners) >= 2:
-                        winner, previous_winner = sorted(
-                            past_winners, key=lambda w: w.date, reverse=True
-                        )[0:2]
-                        try:  # remove previous winner's role if possible
-                            await self._remove_winner_role(guild, previous_winner)
-                        except (discord.Forbidden, discord.HTTPException):
-                            pass
-                    else:
-                        winner = past_winners[0]
-
-                    botw_channel = self.bot.get_channel(guild_settings["botw_channel"])
-                    nominations_channel = self.bot.get_channel(
-                        guild_settings["nominations_channel"]
+                    nominations = await db.get_botw_nominations(
+                        session, guild_settings._guild
                     )
-                    winner_changes = guild_settings["winner_changes"]
 
-                    await self._set_channel_name(botw_channel, winner)
-
-                    try:  # assign winner role if possible
-                        await self._assign_winner_role(
-                            guild,
-                            winner,
-                            botw_channel,
-                            nominations_channel,
-                            winner_changes,
+                    if (
+                        guild_settings.state
+                        not in (BotwState.SKIP, BotwState.WINNER_CHOSEN)
+                        and len(nominations) > 0
+                    ):
+                        try:
+                            await self._pick_winner(
+                                session, guild_settings.guild, nominations
+                            )
+                            await self._set_state(
+                                session, guild_settings.guild, BotwState.WINNER_CHOSEN
+                            )
+                        except NoWinnerException:
+                            logger.info(
+                                f"Could not pick a valid winner in {guild_settings.guild}"
+                            )
+                    else:
+                        logger.info(
+                            f"Skipping BotW winner selection in {guild_settings.guild}"
                         )
-                    except (discord.Forbidden, AttributeError):
-                        await nominations_channel.send(
-                            f"Couldn't assign the winner role to {winner.member}. "
-                            f"They either left or I am not allowed to assign roles."
-                        )
-                else:
-                    logger.info(f"Skipping BotW winner role assignment in {guild}")
 
-                await self._set_state(guild, BotwState.DEFAULT)
+            # assign role on winner day
+            elif now.day_of_week == self.winner_day and now.hour == 0:
+                settings_enabled = await db.get_botw_settings(session)
+                for guild_settings in settings_enabled:
+                    if (
+                        not guild_settings.guild
+                    ):  # we're not in the guild anymore, disable botw
+                        await self._disable(session, guild_settings._guild)
+                        continue
+
+                    if guild_settings.state not in (BotwState.SKIP, BotwState.DEFAULT):
+                        past_winners = await db.get_botw_winners(
+                            session, guild_settings._guild
+                        )
+
+                        if len(past_winners) >= 2:
+                            winner, previous_winner = sorted(
+                                past_winners, key=lambda w: w.date, reverse=True
+                            )[0:2]
+                            try:  # remove previous winner's role if possible
+                                await self._remove_winner_role(
+                                    guild_settings.guild, previous_winner
+                                )
+                            except (discord.Forbidden, discord.HTTPException):
+                                pass
+                        else:
+                            winner = past_winners[0]
+
+                        await self._set_channel_name(
+                            guild_settings.botw_channel, winner
+                        )
+
+                        try:  # assign winner role if possible
+                            await self._assign_winner_role(
+                                guild_settings.guild,
+                                winner,
+                                guild_settings.botw_channel,
+                                guild_settings.nominations_channel,
+                                guild_settings.winner_changes,
+                            )
+                        except (discord.Forbidden, AttributeError):
+                            await guild_settings.nominations_channel.send(
+                                f"Couldn't assign the winner role to {winner.member}. "
+                                f"They either left or I am not allowed to assign roles."
+                            )
+                    else:
+                        logger.info(
+                            f"Skipping BotW winner role assignment in {guild_settings.guild}"
+                        )
+
+                    await self._set_state(
+                        session, guild_settings.guild, BotwState.DEFAULT
+                    )
+
+            await session.commit()
 
     @_loop.before_loop
     async def loop_before(self):

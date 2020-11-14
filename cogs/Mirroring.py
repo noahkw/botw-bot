@@ -2,6 +2,7 @@ import logging
 
 from discord.ext import commands
 
+import db
 from cogs import CustomCog, AinitMixin
 from models import ChannelMirror
 from util import flatten, ack, auto_help
@@ -34,18 +35,20 @@ class Mirroring(CustomCog, AinitMixin):
         super().__init__(bot)
         self.mirrors = {}
 
+        ChannelMirror.inject_bot(self.bot)
+
         super(AinitMixin).__init__()
 
     async def _ainit(self):
         await self.bot.wait_until_ready()
 
-        query = "SELECT * FROM mirrors;"
-        _mirrors = await self.bot.pool.fetch(query)
+        async with self.bot.Session() as session:
+            _mirrors = await db.get_mirrors(session)
 
-        for _mirror in _mirrors:
-            mirror = await ChannelMirror.from_record(_mirror, self.bot)
-            if mirror:  # ignore mirrors that we can't access anymore
-                self.append_mirror(mirror)
+            for mirror in _mirrors:
+                valid = await mirror.sanity_check()
+                if valid:  # ignore mirrors that we can't access anymore
+                    self.append_mirror(mirror)
 
         logger.info(f"# Initial mirrors from db: {len(self.mirrors)}")
 
@@ -73,22 +76,25 @@ class Mirroring(CustomCog, AinitMixin):
         ]:
             raise commands.BadArgument("This would create a circular mirror.")
 
-        mirror = ChannelMirror(self.bot, origin.id, destination.id, None, True)
+        async with self.bot.Session(expire_on_commit=False) as session:
+            mirror = ChannelMirror(
+                _origin=origin.id,
+                _destination=destination.id,
+            )
 
-        if mirror in flatten(self.mirrors.values()):
-            raise commands.BadArgument("This mirror already exists.")
+            if mirror in flatten(self.mirrors.values()):
+                raise commands.BadArgument("This mirror already exists.")
 
-        dest_webhook = await destination.create_webhook(
-            name=f"Mirror from {origin}@{origin.guild}"
-        )
-        mirror.webhook = dest_webhook
+            dest_webhook = await destination.create_webhook(
+                name=f"Mirror from {origin}@{origin.guild}"
+            )
+            mirror.webhook = dest_webhook
 
-        query = """INSERT INTO mirrors (origin, destination, webhook, enabled)
-                   VALUES ($1, $2, $3, $4);"""
-        await self.bot.pool.execute(query, *mirror.to_tuple())
+            session.add(mirror)
+            await session.commit()
 
-        self.append_mirror(mirror)
-        await ctx.send(f"Added {mirror}")
+            self.append_mirror(mirror)
+            await ctx.send(f"Added {mirror}")
 
     @mirror.command(aliases=["delete"])
     @ack
@@ -111,8 +117,9 @@ class Mirroring(CustomCog, AinitMixin):
 
         mirrors.remove(mirror)
 
-        query = """DELETE FROM mirrors WHERE origin = $1 and destination = $2;"""
-        await self.bot.pool.execute(query, origin.id, destination.id)
+        async with self.bot.Session(expire_on_commit=False) as session:
+            session.delete(mirror)
+            await session.commit()
 
     @commands.Cog.listener()
     async def on_message(self, message):

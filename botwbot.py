@@ -4,6 +4,12 @@ from collections import Counter
 import discord
 from discord.ext import commands
 
+import db
+from models.guild_settings import GuildSettings
+
+
+logger = logging.getLogger(__name__)
+
 
 def cmd_to_str(group=False):
     newline = "\n" if group else " "
@@ -108,29 +114,9 @@ class EmbedHelpCommand(commands.DefaultHelpCommand):
 class BotwBot(commands.Bot):
     CREATOR_ID = 207955387909931009
 
-    INITIAL_EXTENSIONS = [
-        "cogs.BiasOfTheWeek",
-        "cogs.Utilities",
-        "cogs.Instagram",
-        "cogs.EmojiUtils",
-        "cogs.Tags",
-        "cogs.Trolling",
-        "cogs.WolframAlpha",
-        "cogs.Reminders",
-        "cogs.Weather",
-        "cogs.Profiles",
-        "cogs.Mirroring",
-        "cogs.Greeters",
-        "cogs.Fun",
-        "cogs.Gfycat",
-        "cogs.Roles",
-        "cogs.UrlShortener",
-        "jishaku",
-    ]
-
     def __init__(self, config, **kwargs):
-        # the pool is attached by the launcher script
-        self.pool = None
+        # the Session is attached by the launcher script
+        self.Session = None
         self.config = config
 
         intents = discord.Intents.default()
@@ -165,16 +151,14 @@ class BotwBot(commands.Bot):
                         f"The current prefix is `{self.prefixes[ctx.guild.id]}`."
                     )
                 elif 1 <= len(prefix) <= 10:
-                    query = """INSERT INTO prefixes (guild, prefix)
-                                           VALUES ($1, $2)
-                                           ON CONFLICT (guild) DO UPDATE
-                                           SET prefix = $2;"""
-
-                    await self.pool.execute(query, ctx.guild.id, prefix)
-                    self.prefixes[ctx.guild.id] = prefix
-                    await ctx.send(
-                        f"The prefix for this guild has been changed to `{prefix}`."
-                    )
+                    async with ctx.bot.Session() as session:
+                        settings = GuildSettings(_guild=ctx.guild.id, prefix=prefix)
+                        await session.merge(settings)
+                        await session.commit()
+                        self.prefixes[ctx.guild.id] = prefix
+                        await ctx.send(
+                            f"The prefix for this guild has been changed to `{prefix}`."
+                        )
                 else:
                     raise commands.BadArgument(
                         "The prefix has to be between 1 and 10 characters long."
@@ -187,23 +171,18 @@ class BotwBot(commands.Bot):
     async def on_ready(self):
         await self.change_presence(activity=discord.Game("with Bini"))
 
-        if self.pool:
+        if self.Session:
             # cache the guild prefixes
-            query = """SELECT *
-                       FROM prefixes;"""
+            async with self.Session() as session:
+                settings = await db.get_guild_settings(session)
+                for guild_settings in settings:
+                    self.prefixes[guild_settings._guild] = guild_settings.prefix
 
-            rows = await self.pool.fetch(query)
-            for row in rows:
-                self.prefixes[row["guild"]] = row["prefix"]
-
-        for ext in self.INITIAL_EXTENSIONS:
-            ext_logger = logging.getLogger(ext)
-            ext_logger.setLevel(logging.INFO)
-            ext_logger.addHandler(handler)
+        for ext in self.config["enabled_cogs"]:
             self.load_extension(ext)
 
         logger.info(
-            f"Logged in as {self.user}. Whitelisted servers: {self.config.items('whitelisted_servers')}"
+            f"Logged in as {self.user}. Whitelisted servers: {self.config['whitelisted_servers'].keys()}"
         )
 
     async def on_disconnect(self):
@@ -237,10 +216,7 @@ class BotwBot(commands.Bot):
             return ctx.guild is not None or await self.is_owner(ctx.author)
 
         async def whitelisted_server(ctx):
-            server_ids = [
-                int(server)
-                for key, server in ctx.bot.config.items("whitelisted_servers")
-            ]
+            server_ids = ctx.bot.config["whitelisted_servers"].values()
             return ctx.guild is None or ctx.guild.id in server_ids
 
         self.add_check(globally_block_dms)
@@ -286,12 +262,3 @@ class BotwBot(commands.Bot):
             self._spam_count.pop(message.author.id, None)
 
         await super().process_commands(message)
-
-
-logger = logging.getLogger("discord")
-logger.setLevel(logging.INFO)
-handler = logging.FileHandler(filename="botw-bot.log", encoding="utf-8", mode="w")
-handler.setFormatter(
-    logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s")
-)
-logger.addHandler(handler)

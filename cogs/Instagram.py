@@ -69,7 +69,7 @@ class Instagram(commands.Cog):
         self.bot = bot
         self.session = aiohttp.ClientSession(cookie_jar=OneTimeCookieJar())
 
-        self.cookies_file = self.bot.config["instagram"]["cookies_file"]
+        self.cookies_file = self.bot.config["cogs"]["instagram"]["cookies_file"]
         with open(self.cookies_file, "r") as f:
             cookies = json.load(f)
 

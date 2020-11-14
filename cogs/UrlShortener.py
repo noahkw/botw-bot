@@ -29,8 +29,8 @@ class UrlShortener(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.session = aiohttp.ClientSession()
-        self.auth = BearerAuth(self.bot.config["bitly"]["access_token"])
-        self.domain = self.bot.config["bitly"]["domain"]
+        self.auth = BearerAuth(self.bot.config["cogs"]["urlshortener"]["access_token"])
+        self.domain = self.bot.config["cogs"]["urlshortener"]["domain"]
 
     def cog_unload(self):
         asyncio.create_task(self.session.close())

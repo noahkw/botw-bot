@@ -24,7 +24,7 @@ class WolframAlpha(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.app_id = self.bot.config["wolframalpha"]["app_id"]
+        self.app_id = self.bot.config["cogs"]["wolframalpha"]["app_id"]
         self.session = aiohttp.ClientSession()
 
     def cog_unload(self):
