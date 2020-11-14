@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import subprocess
 import sys
 
 import click as click
@@ -13,10 +14,7 @@ from models.base import Base
 
 def load_config(config_file):
     with open(config_file, "r") as stream:
-        try:
-            config = yaml.safe_load(stream)
-        except yaml.YAMLError as e:
-            print(e)
+        config = yaml.safe_load(stream)
 
     return config
 
@@ -82,6 +80,12 @@ def main(ctx):
 @main.group(short_help="database utility", options_metavar="[options]")
 def db():
     pass
+
+
+@db.command(short_help="migrate the database")
+def migrate():
+    click.echo("running migrations")
+    subprocess.run(["alembic", "upgrade", "head"])
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, BigInteger
+from sqlalchemy import Column, String, BigInteger, Boolean
 from sqlalchemy.ext.hybrid import hybrid_property
 
 from .base import Base
@@ -19,6 +19,7 @@ class GuildSettingsMixin:
 class GuildSettings(GuildSettingsMixin, Base):
     __tablename__ = "guild_settings"
     prefix = Column(String)
+    whitelisted = Column(Boolean)
 
 
 class EmojiSettings(GuildSettingsMixin, Base):

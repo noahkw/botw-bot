@@ -5,7 +5,6 @@ import discord
 from discord.ext import commands
 
 import db
-from models.guild_settings import GuildSettings
 
 
 logger = logging.getLogger(__name__)
@@ -141,49 +140,26 @@ class BotwBot(commands.Bot):
         self.blacklist = set()
 
         self.prefixes = {}  # guild.id -> prefix
-
-        def make_prefix_cmd():
-            @commands.command(brief="Sets the prefix for the current guild")
-            @commands.has_permissions(administrator=True)
-            async def prefix(ctx, prefix=None):
-                if not prefix:
-                    await ctx.send(
-                        f"The current prefix is `{self.prefixes[ctx.guild.id]}`."
-                    )
-                elif 1 <= len(prefix) <= 10:
-                    async with ctx.bot.Session() as session:
-                        settings = GuildSettings(_guild=ctx.guild.id, prefix=prefix)
-                        await session.merge(settings)
-                        await session.commit()
-                        self.prefixes[ctx.guild.id] = prefix
-                        await ctx.send(
-                            f"The prefix for this guild has been changed to `{prefix}`."
-                        )
-                else:
-                    raise commands.BadArgument(
-                        "The prefix has to be between 1 and 10 characters long."
-                    )
-
-            return prefix
-
-        self.add_command(make_prefix_cmd())
+        self.whitelist = set()  # guild.id
 
     async def on_ready(self):
         await self.change_presence(activity=discord.Game("with Bini"))
 
         if self.Session:
-            # cache the guild prefixes
             async with self.Session() as session:
+                # cache guild prefixes and whitelist
                 settings = await db.get_guild_settings(session)
                 for guild_settings in settings:
-                    self.prefixes[guild_settings._guild] = guild_settings.prefix
+                    if prefix := guild_settings.prefix:
+                        self.prefixes[guild_settings._guild] = prefix
+
+                    if guild_settings.whitelisted:
+                        self.whitelist.add(guild_settings._guild)
 
         for ext in self.config["enabled_cogs"]:
             self.load_extension(ext)
 
-        logger.info(
-            f"Logged in as {self.user}. Whitelisted servers: {self.config['whitelisted_servers'].keys()}"
-        )
+        logger.info(f"Logged in as {self.user}. Whitelisted servers: {self.whitelist}")
 
     async def on_disconnect(self):
         logger.info("disconnected")
@@ -216,8 +192,11 @@ class BotwBot(commands.Bot):
             return ctx.guild is not None or await self.is_owner(ctx.author)
 
         async def whitelisted_server(ctx):
-            server_ids = ctx.bot.config["whitelisted_servers"].values()
-            return ctx.guild is None or ctx.guild.id in server_ids
+            return (
+                ctx.guild is None
+                or self.Session is None
+                or ctx.guild.id in self.whitelist
+            )
 
         self.add_check(globally_block_dms)
         self.add_check(whitelisted_server)

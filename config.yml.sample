@@ -7,6 +7,7 @@ whitelisted_servers:
   server3: XXXXXXXXXXXXXXXXXX
 postgres:
   connection_string: 'postgresql+asyncpg://user:pw@localhost:5432/db'
+  sqlalchemy.url: 'postgresql://user:pw@localhost:5432/db' # for alembic
 enabled_cogs:
   - 'cogs.BiasOfTheWeek'
   - 'cogs.Utilities'
