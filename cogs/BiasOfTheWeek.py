@@ -120,7 +120,7 @@ class BiasOfTheWeek(commands.Cog):
         assign_date = now.next(self.winner_day)
 
         await botw_settings.nominations_channel.send(
-            f"Bias of the Week ({now.week_of_year}-{now.year}): "
+            f"Bias of the Week ({now.week_of_year + 1}-{now.year}): "
             f"{member if silent else member.mention}'s pick **{pick}**. "
             f"You will be assigned the role "
             f"*{self.winner_role_name}* on "
