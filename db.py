@@ -109,7 +109,7 @@ async def get_botw_winners(session, guild_id):
 async def get_botw_settings(session, guild_id=None):
     if guild_id:
         statement = select(BotwSettings).where(BotwSettings._guild == guild_id)
-        result = (await session.execute(statement)).one()
+        result = (await session.execute(statement)).first()
 
         return result[0] if result else None
     else:

@@ -79,12 +79,12 @@ class Tags(CustomCog, AinitMixin):
         super().__init__(bot)
         self.tags = {}
 
+        Tag.inject_bot(self.bot)
+
         super(AinitMixin).__init__()
 
     async def _ainit(self):
         await self.bot.wait_until_ready()
-
-        Tag.inject_bot(self.bot)
 
         async with self.bot.Session() as session:
             _tags = await db.get_tags(session)

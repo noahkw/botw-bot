@@ -27,9 +27,12 @@ def has_winner_role():
     async def predicate(ctx):
         async with ctx.bot.Session() as session:
             botw_settings = await db.get_botw_settings(session, ctx.guild.id)
-            return botw_settings.winner_changes and ctx.bot.config["cogs"][
-                "biasoftheweek"
-            ]["winner_role_name"] in [role.name for role in ctx.message.author.roles]
+            return (
+                botw_settings
+                and botw_settings.winner_changes
+                and ctx.bot.config["cogs"]["biasoftheweek"]["winner_role_name"]
+                in [role.name for role in ctx.message.author.roles]
+            )
 
     return commands.check(predicate)
 
@@ -38,7 +41,7 @@ def botw_enabled():
     async def predicate(ctx):
         async with ctx.bot.Session() as session:
             botw_settings = await db.get_botw_settings(session, ctx.guild.id)
-            return botw_settings.enabled
+            return botw_settings and botw_settings.enabled
 
     return commands.check(predicate)
 
@@ -177,6 +180,7 @@ class BiasOfTheWeek(commands.Cog):
         )
 
     async def _disable(self, session, guild: int):
+        logger.info("Disabling botw in guild %d", guild)
         botw_settings = BotwSettings(_guild=guild, enabled=False)
         await session.merge(botw_settings)
 

@@ -35,12 +35,12 @@ class Mirroring(CustomCog, AinitMixin):
         super().__init__(bot)
         self.mirrors = {}
 
+        ChannelMirror.inject_bot(self.bot)
+
         super(AinitMixin).__init__()
 
     async def _ainit(self):
         await self.bot.wait_until_ready()
-
-        ChannelMirror.inject_bot(self.bot)
 
         async with self.bot.Session() as session:
             _mirrors = await db.get_mirrors(session)

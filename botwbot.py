@@ -152,7 +152,7 @@ class BotwBot(commands.Bot):
                     )
                 elif 1 <= len(prefix) <= 10:
                     async with ctx.bot.Session() as session:
-                        settings = GuildSettings(guild_id=ctx.guild.id, prefix=prefix)
+                        settings = GuildSettings(_guild=ctx.guild.id, prefix=prefix)
                         await session.merge(settings)
                         await session.commit()
                         self.prefixes[ctx.guild.id] = prefix
@@ -176,7 +176,7 @@ class BotwBot(commands.Bot):
             async with self.Session() as session:
                 settings = await db.get_guild_settings(session)
                 for guild_settings in settings:
-                    self.prefixes[guild_settings.guild_id] = guild_settings.prefix
+                    self.prefixes[guild_settings._guild] = guild_settings.prefix
 
         for ext in self.config["enabled_cogs"]:
             self.load_extension(ext)
