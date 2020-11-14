@@ -57,8 +57,8 @@ class Gfycat(CustomCog, AinitMixin):
     def __init__(self, bot):
         super().__init__(bot)
         self.gfypy = AsyncGfypy(
-            self.bot.config["gfycat"]["client_id"],
-            self.bot.config["gfycat"]["client_secret"],
+            self.bot.config["cogs"]["gfycat"]["client_id"],
+            self.bot.config["cogs"]["gfycat"]["client_secret"],
             "gfycat_creds.json",
         )
 

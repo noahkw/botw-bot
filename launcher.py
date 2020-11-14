@@ -84,29 +84,5 @@ def db():
     pass
 
 
-@db.command(
-    short_help="run a migration from the migrations folder", options_metavar="[options]"
-)
-@click.argument("number", nargs=1, metavar="[number]")
-def migration(number):
-    logger, config, creds = setup()
-
-    loop = asyncio.get_event_loop()
-    pool = create_engine(loop, logger, creds)
-
-    with open(rf"migrations/schema_{number}.sql", "r") as f:
-        query = f.read()
-
-    loop.run_until_complete(pool.execute(query))
-    print(f"migration {number} was completed successfully.")
-    logger.info(f"migration {number} was completed successfully.")
-
-
-@db.command(short_help="migrate to SQLalchemy", options_metavar="[options]")
-@click.argument("files", nargs=-1, metavar="[files]")
-def initial_migration(files):
-    pass
-
-
 if __name__ == "__main__":
     main()
