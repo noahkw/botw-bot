@@ -1,10 +1,6 @@
 discord:
   token: 'XXXXXXXXXXXXXXXXXXXXXXXX.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX'
   command_prefix: '.'
-whitelisted_servers:
-  server1: XXXXXXXXXXXXXXXXXX
-  server2: XXXXXXXXXXXXXXXXXX
-  server3: XXXXXXXXXXXXXXXXXX
 postgres:
   connection_string: 'postgresql+asyncpg://user:pw@localhost:5432/db'
   sqlalchemy.url: 'postgresql://user:pw@localhost:5432/db' # for alembic
