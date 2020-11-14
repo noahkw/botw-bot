@@ -15,5 +15,5 @@ services:
       - ${BOTW_BOT_PG_DATA_DIR}:/var/lib/postgresql/data
     restart: always
     environment:
-      POSTGRES_PASSWORD: XXXXXXXXX
+      POSTGRES_PASSWORD: ${BOTW_BOT_PG_PW}
       POSTGRES_USER: botw-bot
