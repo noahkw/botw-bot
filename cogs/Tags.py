@@ -172,7 +172,9 @@ class Tags(CustomCog, AinitMixin):
         matches = await self._get_duplicates(trigger, reaction, ctx.guild)
 
         if len(matches) > 0:
-            raise commands.BadArgument(f"This tag already exists (`{matches[0].id}`).")
+            raise commands.BadArgument(
+                f"This tag already exists (`{matches[0].tag_id}`)."
+            )
         else:
             async with self.bot.Session(expire_on_commit=False) as session:
                 tag = Tag(
