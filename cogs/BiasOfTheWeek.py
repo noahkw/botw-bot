@@ -13,7 +13,14 @@ import db
 from menu import Confirm, BotwWinnerListSource
 from models import BotwWinner, BotwState, Idol, Nomination
 from models.botw import BotwSettings
-from util import ack, auto_help, BoolConverter, DayOfWeekConverter
+from util import (
+    ack,
+    auto_help,
+    BoolConverter,
+    DayOfWeekConverter,
+    safe_send,
+    safe_mention,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -161,15 +168,23 @@ class BiasOfTheWeek(commands.Cog):
         member = guild.get_member(member.id)
         botw_winner_role = discord.utils.get(guild.roles, name=self.winner_role_name)
         await member.add_roles(botw_winner_role)
-        await member.send(
+        message = await safe_send(
+            member,
             f"Hi, your pick **{winner.idol}** won this week's BotW. Congratulations!\n"
-            f"You may now post your pics and gfys in {botw_channel.mention}."
+            f"You may now post your pics and gfys in {botw_channel.mention}.",
         )
 
         if winner_changes:
-            await member.send(
+            message = await safe_send(
+                member,
                 f"Don't forget to change the server name/icon using `.botw [name|icon]` "
-                f"in {nominations_channel.mention}."
+                f"in {nominations_channel.mention}.",
+            )
+
+        if not message:
+            await nominations_channel.send(
+                f"Hey, {safe_mention(member)}. I can't seem to message you. You won this week's BotW"
+                f" and may now post in {botw_channel.mention}."
             )
 
     async def _remove_winner_role(self, guild: discord.Guild, winner: BotwWinner):
@@ -734,7 +749,7 @@ class BiasOfTheWeek(commands.Cog):
                         )
 
                 elif now.day_of_week == guild_settings.winner_day and now.hour == 0:
-                    # it's announcement day for the current guild
+                    # it's winner day for the current guild
                     if guild_settings.state not in (BotwState.SKIP, BotwState.DEFAULT):
                         past_winners = await db.get_botw_winners(
                             session, guild_settings._guild
