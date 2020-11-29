@@ -1,4 +1,9 @@
-from .converters import BoolConverter, ReactionConverter, DayOfWeekConverter
+from .converters import (
+    BoolConverter,
+    ReactionConverter,
+    DayOfWeekConverter,
+    GreeterTypeConverter,
+)
 from .decorators import auto_help, ack
 from .dnf_parser import DNFParser
 from .fuzzy import ratio
@@ -43,4 +48,5 @@ __all__ = (
     "draw_rotated_text",
     "safe_mention",
     "safe_send",
+    "GreeterTypeConverter",
 )

@@ -9,9 +9,8 @@ from discord.ext.menus import MenuPages
 import db
 from cogs import CustomCog, AinitMixin
 from menu import Confirm, TagListSource, PseudoMenu, SelectionMenu, DetailTagListSource
-from models.tag import Tag
-from util import ordered_sublists, ratio, auto_help
-from util.converters import ReactionConverter, BoolConverter
+from models import Tag
+from util import ordered_sublists, ratio, auto_help, ReactionConverter, BoolConverter
 
 logger = logging.getLogger(__name__)
 

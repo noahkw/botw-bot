@@ -11,8 +11,7 @@ from discord.ext.menus import MenuPages
 
 import db
 from menu import Confirm, BotwWinnerListSource
-from models import BotwWinner, BotwState, Idol, Nomination
-from models.botw import BotwSettings
+from models import BotwWinner, BotwState, Idol, Nomination, BotwSettings
 from util import (
     ack,
     auto_help,

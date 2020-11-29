@@ -13,7 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.hybrid import hybrid_property
 
 from util import safe_mention
-from .base import Base, PendulumDateTime
+from models.base import Base, PendulumDateTime
 
 IMAGE_URL_REGEX = r"https?:\/\/.*\.(jpe?g|png|gif)"
 

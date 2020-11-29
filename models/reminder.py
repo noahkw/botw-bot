@@ -8,7 +8,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.hybrid import hybrid_property
 
-from .base import Base, PendulumDateTime
+from models.base import Base, PendulumDateTime
 
 
 class Reminder(Base):

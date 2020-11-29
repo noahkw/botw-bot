@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, BigInteger, Boolean
 from sqlalchemy.ext.hybrid import hybrid_property
 
-from .base import Base
+from models.base import Base
 
 
 class GuildSettingsMixin:

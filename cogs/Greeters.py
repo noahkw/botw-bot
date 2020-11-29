@@ -5,8 +5,7 @@ from discord.ext import commands
 
 import db
 from models import Greeter, GreeterType
-from util import auto_help
-from util.converters import GreeterTypeConverter
+from util import auto_help, GreeterTypeConverter
 
 logger = logging.getLogger(__name__)
 

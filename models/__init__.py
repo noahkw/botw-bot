@@ -1,4 +1,4 @@
-from .botw import BotwState, BotwWinner, Nomination, Idol
+from .botw import BotwState, BotwWinner, Nomination, Idol, BotwSettings
 from .tag import Tag
 from .guild_settings import GuildSettings, EmojiSettings
 from .reminder import Reminder
@@ -23,4 +23,5 @@ __all__ = (
     "AssignableRole",
     "Greeter",
     "GreeterType",
+    "BotwSettings",
 )

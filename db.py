@@ -8,13 +8,14 @@ from models import (
     AssignableRole,
     RoleAlias,
     Greeter,
+    BotwSettings,
+    Profile,
+    GuildSettings,
+    EmojiSettings,
+    Tag,
+    Reminder,
+    ChannelMirror,
 )
-from models.botw import BotwSettings
-from models.profile import Profile
-from models.guild_settings import GuildSettings, EmojiSettings
-from models.tag import Tag
-from models.reminder import Reminder
-from models.channel_mirror import ChannelMirror
 
 
 async def get_guild_settings(session):
