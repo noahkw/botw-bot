@@ -100,9 +100,16 @@ class BiasOfTheWeek(commands.Cog):
         await session.flush()
 
     async def _pick_winner(
-        self, session, guild: discord.Guild, nominations: List[Nomination], silent=False
+        self,
+        session,
+        guild: discord.Guild,
+        nominations: List[Nomination],
+        nomination=None,
+        silent=False,
     ):
-        nomination = random.choice(nominations)
+        if not nomination:
+            nomination = random.choice(nominations)
+
         pick = nomination.idol
         member = nomination.member
 
@@ -462,7 +469,7 @@ class BiasOfTheWeek(commands.Cog):
 
     @biasoftheweek.command(brief="Manually picks a winner")
     @botw_enabled()
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def winner(self, ctx, silent: bool = False):
         """
         Manually picks a winner.
@@ -566,6 +573,37 @@ class BiasOfTheWeek(commands.Cog):
             await self._add_winner(
                 session, ctx.guild, prev_announcement_day, Idol(group, name), member
             )
+            await session.commit()
+
+    @biasoftheweek.command(brief="Forces a winner for the coming week.")
+    @botw_enabled()
+    @commands.has_permissions(administrator=True)
+    async def forcewinner(self, ctx, member: discord.Member):
+        async with self.bot.Session() as session:
+            botw_settings = await db.get_botw_settings(session, ctx.guild.id)
+            nomination = await db.get_botw_nomination(session, ctx.guild.id, member.id)
+
+            if not nomination:
+                raise commands.BadArgument(
+                    f"Member {member.mention} has not nominated anyone."
+                )
+            elif botw_settings.state == BotwState.WINNER_CHOSEN:
+                raise commands.BadArgument(
+                    "Cannot force a winner because the current winner has not been notified yet."
+                )
+            elif botw_settings.state == BotwState.SKIP:
+                raise commands.BadArgument(
+                    "Cannot force a winner because the coming week is being skipped."
+                    f" Consider running `{ctx.prefix}botw skip` first."
+                )
+
+            nominations = await db.get_botw_nominations(session, botw_settings._guild)
+
+            await self._pick_winner(
+                session, ctx.guild, nominations, nomination=nomination
+            )
+            await self._set_state(session, botw_settings.guild, BotwState.WINNER_CHOSEN)
+
             await session.commit()
 
     @biasoftheweek.command(name="load", brief="Parses a file containing idol names")
