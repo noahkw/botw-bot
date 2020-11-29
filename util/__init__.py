@@ -1,4 +1,4 @@
-from .converters import BoolConverter, ReactionConverter
+from .converters import BoolConverter, ReactionConverter, DayOfWeekConverter
 from .decorators import auto_help, ack
 from .dnf_parser import DNFParser
 from .fuzzy import ratio
@@ -22,6 +22,7 @@ from .util import (
 __all__ = (
     "BoolConverter",
     "ReactionConverter",
+    "DayOfWeekConverter",
     "auto_help",
     "ack",
     "DNFParser",

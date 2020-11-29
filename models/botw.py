@@ -118,6 +118,8 @@ class BotwSettings(GuildSettingsMixin, Base):
     enabled = Column(Boolean, default=True)
     winner_changes = Column(Boolean, default=False)
     state = Column("state", Enum(BotwState), default=BotwState.DEFAULT)
+    announcement_day = Column(Integer, nullable=False)
+    winner_day = Column(Integer, nullable=False)
 
     @hybrid_property
     def botw_channel(self):

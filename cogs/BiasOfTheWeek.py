@@ -13,7 +13,7 @@ import db
 from menu import Confirm, BotwWinnerListSource
 from models import BotwWinner, BotwState, Idol, Nomination
 from models.botw import BotwSettings
-from util import ack, auto_help, BoolConverter
+from util import ack, auto_help, BoolConverter, DayOfWeekConverter
 
 logger = logging.getLogger(__name__)
 
@@ -70,11 +70,9 @@ class BiasOfTheWeek(commands.Cog):
         self.past_winners_time = self.bot.config["cogs"]["biasoftheweek"][
             "past_winners_time"
         ]
-        self.winner_day = self.bot.config["cogs"]["biasoftheweek"]["winner_day"]
         self.winner_role_name = self.bot.config["cogs"]["biasoftheweek"][
             "winner_role_name"
         ]
-        self.announcement_day = divmod((self.winner_day - 3), 7)[1]
         self._loop.start()
 
         Nomination.inject_bot(bot)
@@ -129,16 +127,16 @@ class BiasOfTheWeek(commands.Cog):
             )
             raise NoWinnerException
 
-        # Assign BotW winner role on next wednesday at 00:00 UTC
+        # Assign BotW winner role on next winner day at around 00:00 UTC (depends on when the loop actually runs,
+        # i.e. when the bot was started).
         now = pendulum.now("UTC")
-        assign_date = now.next(self.winner_day)
+        assign_date = now.next(botw_settings.winner_day)
 
         await botw_settings.nominations_channel.send(
             f"Bias of the Week ({now.week_of_year + 1}-{now.year}): "
             f"{member if silent else member.mention}'s pick **{pick}**. "
-            f"You will be assigned the role "
-            f"*{self.winner_role_name}* on "
-            f"{assign_date.to_cookie_string()}."
+            f"You will be assigned the role *{self.winner_role_name}* on "
+            f"{assign_date.to_formatted_date_string()}."
         )
 
         await self._add_winner(session, guild, now, pick, member)
@@ -235,6 +233,7 @@ class BiasOfTheWeek(commands.Cog):
             return m.channel == ctx.channel and m.author == ctx.author
 
         channel_converter = commands.TextChannelConverter()
+        day_of_week_converter = DayOfWeekConverter()
 
         await ctx.send(
             "Okay, let's set up Bias of the Week in this server. "
@@ -264,6 +263,31 @@ class BiasOfTheWeek(commands.Cog):
             botw_winner_changes = await BoolConverter().convert(
                 ctx, botw_winner_changes.content
             )
+
+            await ctx.send(
+                f"On what day of the week should I announce the winner in {nominations_channel.mention}?"
+                f" (Possible values: {', '.join(DayOfWeekConverter.possible_values())})"
+            )
+            announcement_day = await self.bot.wait_for(
+                "message", check=check, timeout=60.0
+            )
+            announcement_day = await day_of_week_converter.convert(
+                ctx, announcement_day.content
+            )
+
+            await ctx.send(
+                "On what day of the week should I notify the winner and assign the role? Must be different from the"
+                " announcement day."
+                f" (Possible values: {', '.join(DayOfWeekConverter.possible_values())})"
+            )
+            winner_day = await self.bot.wait_for("message", check=check, timeout=60.0)
+            winner_day = await day_of_week_converter.convert(ctx, winner_day.content)
+
+            if winner_day == announcement_day:
+                raise commands.BadArgument(
+                    "The winner notification day must be different from the announcement day."
+                )
+
         except asyncio.TimeoutError:
             await ctx.send(
                 f"Timed out.\nPlease restart the setup using `{ctx.prefix}botw setup`."
@@ -279,6 +303,8 @@ class BiasOfTheWeek(commands.Cog):
                     _botw_channel=botw_channel.id,
                     _nominations_channel=nominations_channel.id,
                     winner_changes=botw_winner_changes,
+                    announcement_day=announcement_day,
+                    winner_day=winner_day,
                 )
 
                 await session.merge(botw_settings)
@@ -311,10 +337,12 @@ class BiasOfTheWeek(commands.Cog):
                 f"Bias of the Week is now enabled in this server! `{ctx.prefix}botw disable` to disable."
             )
             logger.info(
-                f"BotW was set up in {ctx.guild}: %s, %s, %s",
+                f"BotW was set up in {ctx.guild}: %s, %s, %s, %d, %d",
                 botw_channel,
                 nominations_channel,
                 botw_winner_changes,
+                announcement_day,
+                winner_day,
             )
 
     @biasoftheweek.command(brief="Disable BotW in the server")
@@ -470,9 +498,9 @@ class BiasOfTheWeek(commands.Cog):
                 else BotwState.SKIP,
             )
 
-            next_announcement = pendulum.now("UTC").next(self.announcement_day)
+            next_announcement = pendulum.now("UTC").next(botw_settings.announcement_day)
             await ctx.send(
-                f"BotW Winner selection on `{next_announcement.to_cookie_string()}` is "
+                f"BotW Winner selection on `{next_announcement.to_formatted_date_string()}` is "
                 f'now {"" if botw_settings.state == BotwState.SKIP else "**not** "}being skipped.'
             )
 
@@ -486,9 +514,11 @@ class BiasOfTheWeek(commands.Cog):
                 len(past_winners := await db.get_botw_winners(session, ctx.guild.id))
                 > 0
             ):
+                botw_settings = await db.get_botw_settings(session, ctx.guild.id)
+
                 past_winners = sorted(past_winners, key=lambda w: w.date, reverse=True)
                 pages = MenuPages(
-                    source=BotwWinnerListSource(past_winners, self.winner_day),
+                    source=BotwWinnerListSource(past_winners, botw_settings.winner_day),
                     clear_reactions_after=True,
                 )
                 await pages.start(ctx)
@@ -529,9 +559,10 @@ class BiasOfTheWeek(commands.Cog):
         day = parse(starting_day)
         day = pendulum.instance(day)
 
-        prev_announcement_day = day.previous(self.announcement_day + 1)
-
         async with self.bot.Session() as session:
+            botw_settings = await db.get_botw_settings(session, ctx.guild.id)
+            prev_announcement_day = day.previous(botw_settings.announcement_day + 1)
+
             await self._add_winner(
                 session, ctx.guild, prev_announcement_day, Idol(group, name), member
             )
@@ -599,21 +630,23 @@ class BiasOfTheWeek(commands.Cog):
 
     @tasks.loop(hours=1.0)
     async def _loop(self):
-        # pendulum.set_test_now(pendulum.now("UTC").next(self.winner_day))
         logger.info("Hourly loop running")
         now = pendulum.now("UTC")
 
         async with self.bot.Session() as session:
-            # pick winner on announcement day
-            if now.day_of_week == self.announcement_day and now.hour == 0:
-                settings_enabled = await db.get_botw_settings(session)
-                for guild_settings in settings_enabled:
-                    if (
-                        not guild_settings.guild
-                    ):  # we're not in the guild anymore, disable botw
-                        await self._disable(session, guild_settings._guild)
-                        continue
+            settings_enabled = await db.get_botw_settings(session)
+            for guild_settings in settings_enabled:
+                # uncomment the following two lines to debug the winner announcement
+                # pendulum.set_test_now(pendulum.now("UTC").next(guild_settings.announcement_day))
+                # now = pendulum.now("UTC")
 
+                if not guild_settings.guild:
+                    # the bot is not in the guild anymore, disable botw
+                    await self._disable(session, guild_settings._guild)
+                    continue
+
+                if now.day_of_week == guild_settings.announcement_day and now.hour == 0:
+                    # it's announcement day for the current guild
                     nominations = await db.get_botw_nominations(
                         session, guild_settings._guild
                     )
@@ -639,16 +672,8 @@ class BiasOfTheWeek(commands.Cog):
                             f"Skipping BotW winner selection in {guild_settings.guild}"
                         )
 
-            # assign role on winner day
-            elif now.day_of_week == self.winner_day and now.hour == 0:
-                settings_enabled = await db.get_botw_settings(session)
-                for guild_settings in settings_enabled:
-                    if (
-                        not guild_settings.guild
-                    ):  # we're not in the guild anymore, disable botw
-                        await self._disable(session, guild_settings._guild)
-                        continue
-
+                elif now.day_of_week == guild_settings.winner_day and now.hour == 0:
+                    # it's announcement day for the current guild
                     if guild_settings.state not in (BotwState.SKIP, BotwState.DEFAULT):
                         past_winners = await db.get_botw_winners(
                             session, guild_settings._guild

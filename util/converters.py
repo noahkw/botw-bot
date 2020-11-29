@@ -42,6 +42,35 @@ class ReactionConverter(commands.Converter):
             )
 
 
+class DayOfWeekConverter(commands.Converter):
+    WEEKDAY_TO_INT = {
+        "sun": 0,
+        "mon": 1,
+        "tue": 2,
+        "wed": 3,
+        "thu": 4,
+        "fri": 5,
+        "sat": 6,
+    }
+
+    def __init__(self):
+        super().__init__()
+
+    async def convert(self, ctx, argument):
+        lowered = argument.lower()
+
+        if (weekday_int := self.WEEKDAY_TO_INT.get(lowered)) is None:
+            raise commands.BadArgument(
+                f"`{argument}` is not a valid value for the day of the week."
+            )
+        else:
+            return weekday_int
+
+    @staticmethod
+    def possible_values():
+        return tuple(DayOfWeekConverter.WEEKDAY_TO_INT.keys())
+
+
 _old_transform = commands.Command.transform
 
 
