@@ -14,7 +14,7 @@ from cogs import CustomCog, AinitMixin
 from const import SHOUT_EMOJI, SNOOZE_EMOJI
 from menu import ReminderListSource, SimpleConfirm
 from models import Reminder
-from util import has_passed, auto_help
+from util import has_passed, auto_help, safe_send
 
 logger = logging.getLogger(__name__)
 
@@ -157,31 +157,35 @@ class Reminders(CustomCog, AinitMixin):
             user = reminder.user
 
             if user and late:
-                await user.send(
+                await safe_send(
+                    user,
                     f"{self.shout_emoji} You told me to remind you some time ago. "
-                    f"Sorry for being late:\n{reminder.content}"
+                    f"Sorry for being late:\n{reminder.content}",
                 )
             elif user:
-                message = await user.send(
-                    f"{self.shout_emoji} You told me to remind you {diff} ago:\n{reminder.content}"
+                message = await safe_send(
+                    user,
+                    f"{self.shout_emoji} You told me to remind you {diff} ago:\n{reminder.content}",
                 )
-                ctx = await self.bot.get_context(message)
-                ctx.author = user
 
-                confirm = await SimpleConfirm(
-                    message, timeout=120.0, emoji=SNOOZE_EMOJI
-                ).prompt(ctx)
-                if confirm:
-                    try:
-                        new_due = await self.prompt_snooze_time(reminder)
-                        reminder.due = new_due
-                        self.scheduler.schedule(
-                            self.remind_user(reminder.reminder_id), new_due
-                        )
-                        await session.commit()
-                        return
-                    except commands.BadArgument as ba:
-                        await ctx.send(ba)
+                if message:
+                    ctx = await self.bot.get_context(message)
+                    ctx.author = user
+
+                    confirm = await SimpleConfirm(
+                        message, timeout=120.0, emoji=SNOOZE_EMOJI
+                    ).prompt(ctx)
+                    if confirm:
+                        try:
+                            new_due = await self.prompt_snooze_time(reminder)
+                            reminder.due = new_due
+                            self.scheduler.schedule(
+                                self.remind_user(reminder.reminder_id), new_due
+                            )
+                            await session.commit()
+                            return
+                        except commands.BadArgument as ba:
+                            await ctx.send(ba)
 
             reminder.done = True
             await session.commit()

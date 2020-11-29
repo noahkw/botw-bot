@@ -17,6 +17,7 @@ from .util import (
     git_version_label,
     draw_rotated_text,
     safe_mention,
+    safe_send,
 )
 
 __all__ = (
@@ -41,4 +42,5 @@ __all__ = (
     "git_short_history",
     "draw_rotated_text",
     "safe_mention",
+    "safe_send",
 )

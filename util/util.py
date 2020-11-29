@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import re
 import subprocess
 from random import getrandbits
@@ -6,6 +7,8 @@ from random import getrandbits
 import discord
 import typing
 from PIL import Image, ImageDraw
+
+logger = logging.getLogger(__name__)
 
 
 def chunker(iterable, n, return_index=False):
@@ -134,8 +137,17 @@ def draw_rotated_text(image, angle, xy, text, fill, *args, **kwargs):
     image.paste(color_image, mask)
 
 
-def safe_mention(user: typing.Union[discord.Member, discord.User, discord.TextChannel]):
-    if user:
-        return user.mention
+def safe_mention(obj: typing.Union[discord.Member, discord.User, discord.TextChannel]):
+    if obj:
+        return obj.mention
     else:
-        return "*Unknown member*"
+        return "*Unknown*"
+
+
+async def safe_send(user: discord.User, content: str):
+    # So far, this function just attempts to send the message to given user and logs a message if
+    # a 403 Forbidden was caught.
+    try:
+        return await user.send(content)
+    except discord.Forbidden:
+        logger.info("Could not message user %d", user.id)
