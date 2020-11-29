@@ -116,6 +116,7 @@ class Roles(CustomCog, AinitMixin):
     async def list(self, ctx):
         async with self.bot.Session() as session:
             assignable_roles = await db.get_roles(session, ctx.guild.id)
+            assignable_roles.sort(key=lambda a_role: a_role.role.position, reverse=True)
 
             roles = [a_role.role.mention for a_role in assignable_roles]
 
