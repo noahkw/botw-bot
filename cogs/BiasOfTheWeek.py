@@ -606,6 +606,25 @@ class BiasOfTheWeek(commands.Cog):
 
             await session.commit()
 
+    @biasoftheweek.command(
+        brief="Cleans up nominations of members that have since left the guild."
+    )
+    @botw_enabled()
+    @commands.has_permissions(administrator=True)
+    async def cleanup(self, ctx):
+        async with self.bot.Session() as session:
+            nominations_member_left = [
+                nomination
+                for nomination in await db.get_botw_nominations(session, ctx.guild.id)
+                if not nomination.member
+            ]
+
+            for nomination in nominations_member_left:
+                await db.delete_nominations(session, ctx.guild.id, nomination._member)
+
+            await session.commit()
+            await ctx.send(f"Removed {len(nominations_member_left)} nominations.")
+
     @biasoftheweek.command(name="load", brief="Parses a file containing idol names")
     @commands.is_owner()
     async def load_idols(self, ctx):
