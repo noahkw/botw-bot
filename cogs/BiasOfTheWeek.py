@@ -1,6 +1,11 @@
 import asyncio
 import logging
 import random
+from io import BytesIO
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 from typing import List
 
 import discord
@@ -545,6 +550,43 @@ class BiasOfTheWeek(commands.Cog):
                 await pages.start(ctx)
             else:
                 await ctx.send("So far there have been no winners.")
+
+    @biasoftheweek.command(brief="Displays various BotW stats")
+    async def stats(self, ctx):
+        with ctx.typing():
+            async with self.bot.Session() as session:
+                past_winners = [
+                    (str(past_winner.member), past_winner.date)
+                    for past_winner in await db.get_botw_winners(session, ctx.guild.id)
+                ]
+
+                if not past_winners:
+                    raise commands.BadArgument("So far there have been no winners.")
+
+                data = pd.DataFrame(past_winners, columns=["member", "date"])
+
+                win_counts = data.groupby("member").count()
+                win_counts.reset_index(inplace=True)
+
+                sns.set(rc={"figure.figsize": (30, 20)})
+                plt.figure()
+
+                fig, ax = plt.subplots()
+                ax.pie(
+                    win_counts["date"],
+                    labels=win_counts["member"],
+                    shadow=True,
+                    autopct=lambda p: "{:.0f}".format(p * len(past_winners) / 100),
+                )
+
+                buf = BytesIO()
+                plt.savefig(buf, format="png", dpi=200, bbox_inches="tight")
+                buf.seek(0)
+
+                await ctx.send(
+                    f"{ctx.author.mention}, here's the diagram.",
+                    file=discord.File(buf, filename=f"{str(ctx.guild)}_botw_stats.png"),
+                )
 
     @biasoftheweek.command(
         name="servername", aliases=["name"], brief="Changes the server name"
