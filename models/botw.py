@@ -3,6 +3,7 @@ import enum
 from sqlalchemy import Column, String, Integer, BigInteger, Boolean, Enum
 from sqlalchemy.ext.hybrid import hybrid_property
 
+from const import WEEKDAY_TO_INT
 from models.base import Base, PendulumDateTime
 from models.guild_settings import GuildSettingsMixin
 from util import safe_mention
@@ -128,3 +129,15 @@ class BotwSettings(GuildSettingsMixin, Base):
     @hybrid_property
     def nominations_channel(self):
         return self.bot.get_channel(self._nominations_channel)
+
+    @property
+    def announcement_day_str(self):
+        return list(WEEKDAY_TO_INT.keys())[
+            list(WEEKDAY_TO_INT.values()).index(self.announcement_day)
+        ]
+
+    @property
+    def winner_day_str(self):
+        return list(WEEKDAY_TO_INT.keys())[
+            list(WEEKDAY_TO_INT.values()).index(self.winner_day)
+        ]

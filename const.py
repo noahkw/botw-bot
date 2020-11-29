@@ -33,3 +33,14 @@ NUMBER_TO_EMOJI = {
     9: "\N{DIGIT NINE}\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}",
     10: "\N{KEYCAP TEN}",
 }
+
+# short week day strings -> int
+WEEKDAY_TO_INT = {
+    "sun": 0,
+    "mon": 1,
+    "tue": 2,
+    "wed": 3,
+    "thu": 4,
+    "fri": 5,
+    "sat": 6,
+}

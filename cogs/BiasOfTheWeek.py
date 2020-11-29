@@ -616,6 +616,10 @@ class BiasOfTheWeek(commands.Cog):
                     value=botw_settings.nominations_channel.mention,
                 )
                 .add_field(name="State", value=botw_settings.state.value)
+                .add_field(
+                    name="Announcement day", value=botw_settings.announcement_day_str
+                )
+                .add_field(name="Winner day", value=botw_settings.winner_day_str)
             )
 
             await ctx.send(embed=embed)
