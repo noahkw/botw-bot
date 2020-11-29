@@ -10,7 +10,6 @@ from discord.ext import commands, tasks
 from discord.ext.menus import MenuPages
 
 import db
-from const import CROSS_EMOJI
 from menu import Confirm, BotwWinnerListSource
 from models import BotwWinner, BotwState, Idol, Nomination
 from models.botw import BotwSettings
@@ -23,16 +22,27 @@ def setup(bot):
     bot.add_cog(BiasOfTheWeek(bot))
 
 
+class BotwNotEnabled(commands.CheckFailure):
+    pass
+
+
+class NotBotwWinner(commands.CheckFailure):
+    pass
+
+
 def has_winner_role():
     async def predicate(ctx):
         async with ctx.bot.Session() as session:
             botw_settings = await db.get_botw_settings(session, ctx.guild.id)
-            return (
+            if not (
                 botw_settings
                 and botw_settings.winner_changes
                 and ctx.bot.config["cogs"]["biasoftheweek"]["winner_role_name"]
                 in [role.name for role in ctx.message.author.roles]
-            )
+            ):
+                raise NotBotwWinner
+            else:
+                return True
 
     return commands.check(predicate)
 
@@ -41,7 +51,11 @@ def botw_enabled():
     async def predicate(ctx):
         async with ctx.bot.Session() as session:
             botw_settings = await db.get_botw_settings(session, ctx.guild.id)
-            return botw_settings and botw_settings.enabled
+
+            if not (botw_settings and botw_settings.enabled):
+                raise BotwNotEnabled
+            else:
+                return True
 
     return commands.check(predicate)
 
@@ -196,8 +210,10 @@ class BiasOfTheWeek(commands.Cog):
         if hasattr(ctx.command, "on_error"):
             return
 
-        if isinstance(error, commands.CheckFailure):
+        if isinstance(error, BotwNotEnabled):
             await ctx.send("BotW has not been enabled in this server.")
+        elif isinstance(error, NotBotwWinner):
+            await ctx.send("Only the current BotW winner may use this command.")
         else:
             logger.exception(error)
 
@@ -488,11 +504,6 @@ class BiasOfTheWeek(commands.Cog):
     async def server_name(self, ctx, *, name):
         await ctx.guild.edit(name=name)
 
-    @server_name.error
-    async def server_name_error(self, ctx, error):
-        if isinstance(error, commands.CheckFailure):
-            await ctx.send("Only the current BotW winner may change the server name.")
-
     @biasoftheweek.command(brief="Changes the server icon")
     @botw_enabled()
     @has_winner_role()
@@ -503,16 +514,6 @@ class BiasOfTheWeek(commands.Cog):
             await ctx.guild.edit(icon=file)
         except IndexError:
             raise commands.BadArgument("Icon missing.")
-
-    @icon.error
-    async def icon_error(self, ctx, error):
-        if isinstance(error, commands.CheckFailure):
-            await ctx.send("Only the current BotW winner may change the server icon.")
-        elif isinstance(error, commands.BadArgument):
-            await ctx.send("Attach the icon to your message.")
-        else:
-            await ctx.message.add_reaction(CROSS_EMOJI)
-            logger.error(error)
 
     @biasoftheweek.command(brief="Manually adds a past BotW winner")
     @botw_enabled()
