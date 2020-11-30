@@ -109,6 +109,19 @@ class BotwWinnerListSource(menus.ListPageSource):
         return embed
 
 
+class NominationListSource(menus.ListPageSource):
+    def __init__(self, data):
+        super().__init__(data, per_page=12)
+
+    async def format_page(self, menu, entries):
+        embed = Embed(
+            title=f"BotW Nominations - Page {menu.current_page + 1} / {self.get_max_pages()}"
+        )
+        for nomination in entries:
+            embed.add_field(**nomination.to_field())
+        return embed
+
+
 class IdolListSource(menus.ListPageSource):
     def __init__(self, data):
         super().__init__(data, per_page=4)

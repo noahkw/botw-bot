@@ -15,7 +15,7 @@ from discord.ext import commands, tasks
 from discord.ext.menus import MenuPages
 
 import db
-from menu import Confirm, BotwWinnerListSource
+from menu import Confirm, BotwWinnerListSource, NominationListSource
 from models import BotwWinner, BotwState, Idol, Nomination, BotwSettings
 from util import (
     ack,
@@ -478,11 +478,11 @@ class BiasOfTheWeek(commands.Cog):
             nominations = await db.get_botw_nominations(session, ctx.guild.id)
 
             if nominations:
-                embed = discord.Embed(title="Bias of the Week nominations")
-                for nomination in nominations:
-                    embed.add_field(**nomination.to_field())
-
-                await ctx.send(embed=embed)
+                pages = MenuPages(
+                    source=NominationListSource(nominations),
+                    clear_reactions_after=True,
+                )
+                await pages.start(ctx)
             else:
                 await ctx.send("So far, no idols have been nominated.")
 
