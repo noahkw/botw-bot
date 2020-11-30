@@ -5,34 +5,39 @@ postgres:
   connection_string: 'postgresql+asyncpg://user:pw@localhost:5432/db'
   sqlalchemy.url: 'postgresql://user:pw@localhost:5432/db' # for alembic
 enabled_cogs:
-  - 'cogs.BiasOfTheWeek'
-  - 'cogs.Utilities'
-  - 'cogs.Instagram'
-  - 'cogs.EmojiUtils'
-  - 'cogs.Tags'
-  - 'cogs.Trolling'
-  - 'cogs.WolframAlpha'
-  - 'cogs.Reminders'
-  - 'cogs.Weather'
-  - 'cogs.Profiles'
-  - 'cogs.Mirroring'
-  - 'cogs.Greeters'
-  - 'cogs.Fun'
-  - 'cogs.Gfycat'
-  - 'cogs.Roles'
-  - 'cogs.UrlShortener'
   - 'jishaku'
+  - 'cogs.Utilities'
+  - 'cogs.Tags'
+  - 'cogs.Reminders'
+  - 'cogs.Fun'
+  - 'cogs.Mirroring'
+  - 'cogs.Instagram'
+  - 'cogs.WolframAlpha'
+  - 'cogs.UrlShortener'
+  - 'cogs.Trolling'
+  - 'cogs.Profiles'
+  - 'cogs.Weather'
+  - 'cogs.EmojiUtils'
+  - 'cogs.BiasOfTheWeek'
+  - 'cogs.Roles'
+  - 'cogs.Greeters'
+  - 'cogs.Gfycat'
+  - 'cogs.Main'
 cogs:
   biasoftheweek:
     winner_role_name: 'BotW-Winner'
     past_winners_time: 180
-    winner_day: 3
   wolframalpha:
    app_id: 'XXXXXX-XXXXXXXXXX'
-  openweathermap:
+  weather:
     app_id: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
   instagram:
     cookies_file: 'ig_cookies.json'
   gfycat:
     client_id: 'X_XXXXXX'
     client_secret: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+  urlshortener:
+    access_token: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+    domain: 'bit.ly'
+  trolling:
+    poop_role_name: 'Poop'

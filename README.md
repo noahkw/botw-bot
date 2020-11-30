@@ -6,13 +6,16 @@ Current modules:
 - Emoji utilities
 - Fun
 - Gfycat
+- Greeters
 - Instagram
+- Main
 - Mirroring
 - Profiles
 - Reminders
-- Settings
+- Roles
 - Tags
 - Trolling
+- Url shortener
 - Utilities
 - Weather
 - Wolfram Alpha
@@ -20,16 +23,27 @@ Current modules:
 For an overview of all commands inside each module, see https://github.com/noahkw/botw-bot/wiki.
 
 ## Setup (docker)
-Clone the repo: `git clone git@github.com:noahkw/botw-bot.git`
+Clone the repo: `git clone git@github.com:noahkw/botw-bot.git`.
 
-Pull the docker image: `docker pull docker.pkg.github.com/noahkw/botw-bot/botw-bot:latest`
+Pull the docker image: `docker pull docker.pkg.github.com/noahkw/botw-bot/botw-bot:latest`.
 
-Rename `conf.ini.sample` to `conf.ini` and change it according to your use case.
-Most of the defaults should be fine, but make sure to enter your **token**,
-**server id** for the whitelist, **Wolfram Alpha app id**, **OpenWeatherMap app id**,
-**Instagram cookie file path**, **Gfycat client id and secret**,
-and the path to your **firebase key file**.
+Then create a *.env* file in the directory next to the *docker-compose.yml*.
+An example *.env* might look as follows:
 
-Replace `{CLONE_DIR}` with the absolute path of the cloned repo in `docker-compose.yml`.
+```
+BOTW_BOT_CLONE_DIR=/opt/botw-bot
+BOTW_BOT_PG_DATA_DIR=/opt/botw-botw-pg
+BOTW_BOT_PG_PW=PW_HERE
+```
 
-Start the bot as a daemon: `docker-compose up -d`
+- *BOTW_BOT_CLONE_DIR* should be the absolute path of the directory that you cloned this repository to
+- *BOTW_BOT_PG_DATA_DIR* should point to the directory where the postgres container will store its data
+- *BOTW_BOT_PG_PW* is the password used to authenticate with the postgres instance
+
+Rename `config.yml.sample` to `config.yml` and change it according to your use case.
+Most of the defaults should be fine, but make sure to enter your **discord token**,
+**database connection string** (use the same password as in the *.env* file you just created),
+**Wolfram Alpha app id**, **OpenWeatherMap app id**, **Instagram cookie file path**,
+**Gfycat client id and secret**, and your **bit.ly access token**.
+
+Start the bot as a daemon: `docker-compose up -d`.
