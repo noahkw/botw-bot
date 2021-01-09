@@ -80,6 +80,7 @@ class BotwBot(commands.Bot):
                 commands.MissingPermissions,
                 commands.DisabledCommand,
                 commands.CommandOnCooldown,
+                commands.NotOwner,
             ),
         ):
             await ctx.send(error)

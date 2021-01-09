@@ -127,7 +127,7 @@ class Instagram(commands.Cog):
                 "This Instagram post contains no images or videos."
             )
         except InstagramLoginException:
-            owner = self.bot.get_user(self.bot.owner_id)
+            owner = self.bot.get_user(self.bot.CREATOR_ID)
             await owner.send(f"Instagram broke! Msg: {ctx.message.jump_url}")
             raise commands.BadArgument(
                 "Instagram broke :poop: Bot owner has been notified."

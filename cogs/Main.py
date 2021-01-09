@@ -1,10 +1,10 @@
 import logging
 
+import discord
 from discord.ext import commands
 
 from menu import Confirm
 from models import GuildSettings
-from util import ack
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,6 @@ class Main(commands.Cog):
 
     @commands.command(brief="Adds a guild to the whitelist")
     @commands.is_owner()
-    @ack
     async def whitelist(self, ctx, guild_id: int):
         guild = self.bot.get_guild(guild_id)
 
@@ -54,3 +53,37 @@ class Main(commands.Cog):
             self.bot.whitelist.add(guild_id)
 
             await session.commit()
+
+        await ctx.send(f"Whitelisted `{guild}`!")
+
+    @commands.command(brief="Removes a guild from the whitelist")
+    @commands.is_owner()
+    async def unwhitelist(self, ctx, guild_id: int):
+        guild = self.bot.get_guild(guild_id)
+
+        confirm = await Confirm(f"Un-whitelist `{guild}` ({guild_id})?").prompt(ctx)
+        if not confirm:
+            return
+
+        async with self.bot.Session() as session:
+            guild_settings = GuildSettings(_guild=guild_id, whitelisted=False)
+            await session.merge(guild_settings)
+            self.bot.whitelist.remove(guild_id)
+
+            await session.commit()
+
+        await guild.leave()
+        await ctx.send(f"Un-whitelisted `{guild}` and left it!")
+
+    @commands.Cog.listener()
+    async def on_guild_join(self, guild: discord.Guild):
+        whitelisted = guild.id in self.bot.whitelist or guild.owner == self.bot.user
+
+        await self.bot.get_user(self.bot.CREATOR_ID).send(
+            f"I was added to a {'whitelisted' if whitelisted else 'non-whitelisted'} "
+            f"guild: {guild} (`{guild.id}`)\n"
+            f"Owner: {guild.owner} (`{guild.owner_id}`)"
+        )
+
+        if not whitelisted:
+            await guild.leave()
