@@ -5,6 +5,7 @@ from discord.ext import commands
 
 from menu import Confirm
 from models import GuildSettings
+from util import safe_send, safe_mention
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ def setup(bot):
 class Main(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.oauth_url = self.bot.config["discord"]["oauth_url"]
 
     @commands.command(brief="Sets the prefix for the current guild")
     @commands.has_permissions(administrator=True)
@@ -38,10 +40,22 @@ class Main(commands.Cog):
                 "The prefix has to be between 1 and 10 characters long."
             )
 
+    @commands.command(brief="Request the bot for your guild")
+    async def invite(self, ctx, guild_id: int):
+        await self.bot.get_user(self.bot.CREATOR_ID).send(
+            f"Request to whitelist guild `{guild_id}` from {ctx.author.mention} (`{ctx.author.id}`)."
+        )
+
+        await ctx.send(
+            f"{ctx.author.mention}, I've relayed your request to get me added to the guild with "
+            f"ID `{guild_id}`.\n"
+        )
+
     @commands.command(brief="Adds a guild to the whitelist")
     @commands.is_owner()
-    async def whitelist(self, ctx, guild_id: int):
+    async def whitelist(self, ctx, guild_id: int, requester_id: int):
         guild = self.bot.get_guild(guild_id)
+        requester = self.bot.get_user(requester_id)
 
         confirm = await Confirm(f"Whitelist `{guild}` ({guild_id})?").prompt(ctx)
         if not confirm:
@@ -54,7 +68,18 @@ class Main(commands.Cog):
 
             await session.commit()
 
-        await ctx.send(f"Whitelisted `{guild}`!")
+        message = await safe_send(
+            requester,
+            f"Hey, you may now invite me using the following URL:\n"
+            f"<{self.oauth_url}>",
+        )
+
+        if not message:
+            await ctx.send(
+                f"Not allowed to DM {safe_mention(requester)} (`{requester_id}`)."
+            )
+
+        await ctx.send(f"Whitelisted `{guild}` (`{guild_id}`)!")
 
     @commands.command(brief="Removes a guild from the whitelist")
     @commands.is_owner()
@@ -82,7 +107,7 @@ class Main(commands.Cog):
         await self.bot.get_user(self.bot.CREATOR_ID).send(
             f"I was added to a {'whitelisted' if whitelisted else 'non-whitelisted'} "
             f"guild: {guild} (`{guild.id}`)\n"
-            f"Owner: {guild.owner} (`{guild.owner_id}`)"
+            f"Owner: {guild.owner.mention} (`{guild.owner_id}`)"
         )
 
         if not whitelisted:
