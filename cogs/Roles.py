@@ -116,9 +116,19 @@ class Roles(CustomCog, AinitMixin):
     async def list(self, ctx):
         async with self.bot.Session() as session:
             assignable_roles = await db.get_roles(session, ctx.guild.id)
-            assignable_roles.sort(key=lambda a_role: a_role.role.position, reverse=True)
+            roles_to_show = []
 
-            roles = [a_role.role.mention for a_role in assignable_roles]
+            for a_role in assignable_roles:
+                if not a_role.role:
+                    session.delete(a_role)
+                    await ctx.send(
+                        f"Removing assignable role that no longer exists: `{a_role.aliases[0].alias}`"
+                    )
+                else:
+                    roles_to_show.append(a_role)
+
+            roles_to_show.sort(key=lambda a_role: a_role.role.position, reverse=True)
+            roles = [a_role.role.mention for a_role in roles_to_show]
 
             if len(roles) > 0:
                 await ctx.send(f'Available roles: {", ".join(roles)}')
@@ -126,6 +136,8 @@ class Roles(CustomCog, AinitMixin):
                 await ctx.send(
                     f"Try to make some roles self-assignable using `{ctx.prefix}role create`."
                 )
+
+            await session.commit()
 
     @roles.command()
     @commands.has_permissions(administrator=True)
@@ -168,6 +180,8 @@ class Roles(CustomCog, AinitMixin):
     async def delete(self, ctx, role: discord.Role):
         async with self.bot.Session() as session:
             await db.delete_role(session, role.id)
+
+            await session.commit()
 
     @roles.command()
     async def info(self, ctx, *, alias):
