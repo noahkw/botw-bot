@@ -199,7 +199,7 @@ class Reminders(CustomCog, AinitMixin):
         channel = message.channel
 
         answer = await self.bot.wait_for(
-            "message", check=lambda msg: msg.channel == channel
+            "message", check=lambda msg: msg.channel == channel and msg.author == user
         )
         parsed_date = parse_date(answer.content)
 
