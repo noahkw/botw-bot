@@ -67,9 +67,10 @@ class CardGameUtils(commands.Cog):
         if not len(message.embeds) == 1 or "cards" not in message.embeds[0].author.name:
             raise commands.BadArgument("Pass the inventory embed's message ID.")
 
+        groups_text = f"`{', '.join(exclude_groups)}`"
         prompt = await ctx.send(
             f"Starting fodder scraping session with the following filters:\n"
-            f"Excluded groups: `{', '.join(exclude_groups)}`.\n"
+            f"Excluded groups: {groups_text if exclude_groups else 'None specified'}.\n"
             f"**IV** <= `{max_iv}`, **Stars** <= `{max_stars}`.\n"
             "Go through the pages and click the reaction when you are done."
         )
@@ -130,4 +131,7 @@ class CardGameUtils(commands.Cog):
             ):
                 codes.add(code.group(1))
 
-        await ctx.send(f"Fodder codes:\n```{' '.join(codes)}```")
+        if len(codes) > 0:
+            await ctx.send(f"Fodder codes:\n```{' '.join(codes)}```")
+        else:
+            await ctx.send("Could not find any cards that match your filters.")
