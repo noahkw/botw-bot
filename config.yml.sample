@@ -23,6 +23,7 @@ enabled_cogs:
   - 'cogs.Roles'
   - 'cogs.Greeters'
   - 'cogs.Gfycat'
+  - 'cogs.CardGameUtils'
   - 'cogs.Main'
 cogs:
   biasoftheweek:
@@ -42,3 +43,5 @@ cogs:
     domain: 'bit.ly'
   trolling:
     poop_role_name: 'Poop'
+  cardgameutils:
+    enabled_guilds: [XXXXXXXXXXXXXXXXXX, XXXXXXXXXXXXXXXXX]
