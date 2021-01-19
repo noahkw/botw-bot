@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import typing
 
 import discord
 from discord.ext import commands
@@ -53,16 +54,23 @@ class CardGameUtils(commands.Cog):
         if result:
             return result.group(1), result.group(2)
 
-    @commands.command()
+    @commands.command(brief="Scrapes your Jinsoul bot inventory for fodder")
     @card_game_utils_enabled()
     async def fodder(
-        self, ctx, message: discord.Message, max_iv: int = 9, max_rank: int = 4
+        self,
+        ctx,
+        message: discord.Message,
+        max_iv: typing.Optional[int] = 9,
+        max_stars: typing.Optional[int] = 4,
+        *exclude_groups,
     ):
         if not len(message.embeds) == 1 or "cards" not in message.embeds[0].author.name:
             raise commands.BadArgument("Pass the inventory embed's message ID.")
 
         prompt = await ctx.send(
-            "Starting fodder scraping session...\n"
+            f"Starting fodder scraping session with the following filters:\n"
+            f"Excluded groups: `{', '.join(exclude_groups)}`.\n"
+            f"**IV** <= `{max_iv}`, **Stars** <= `{max_stars}`.\n"
             "Go through the pages and click the reaction when you are done."
         )
         await prompt.add_reaction(CHECK_EMOJI)
@@ -109,12 +117,16 @@ class CardGameUtils(commands.Cog):
             collection_or_vault = re.search(
                 self.CARD_COLLECTION_VAULT_REGEX, name, flags=re.DOTALL
             )
+            excluded_group = any(
+                group.lower() in name.lower() for group in exclude_groups
+            )
 
             if (
-                not collection_or_vault
+                not excluded_group
+                and not collection_or_vault
                 and iv
                 and int(iv.group(1)) <= max_iv
-                and len(stars) <= max_rank
+                and len(stars) <= max_stars
             ):
                 codes.add(code.group(1))
 
