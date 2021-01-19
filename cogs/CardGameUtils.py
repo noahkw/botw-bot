@@ -34,7 +34,7 @@ class CardGameUtils(commands.Cog):
     CARD_CODE_REGEX = r"Code: ([A-Z0-9]{4})"
     CARD_IV_REGEX = r"\(IV: ([0-9]0?)\)"
     CARD_STAR_REGEX = r":star:"
-    CARD_COLLECTION_VAULT_REGEX = r"(:gem:|:lock:)"
+    CARD_COLLECTION_VAULT_REGEX = r"(:gem:|:lock:|:moneybag:)"
     CARD_PAGE_REGEX = r"([0-9]+)/([0-9]*) pages"
 
     def __init__(self, bot):
