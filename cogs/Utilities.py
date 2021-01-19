@@ -1,5 +1,6 @@
 import logging
 import random
+import re
 import typing
 
 import discord
@@ -19,6 +20,10 @@ def setup(bot):
 
 class Utilities(commands.Cog):
     MOCK_HISTORY_LOOKBACK = 10
+    CARD_CODE_REGEX = r"Code: ([A-Z0-9]{4})"
+    CARD_IV_REGEX = r"\(IV: ([0-9]0?)\)"
+    CARD_STAR_REGEX = r":star:"
+    CARD_COLLECTION_VAULT_REGEX = r"(:gem:|:lock:)"
 
     def __init__(self, bot):
         self.bot = bot
@@ -135,3 +140,29 @@ class Utilities(commands.Cog):
     @commands.command(brief="Sends the guild's member count")
     async def members(self, ctx):
         await ctx.send(f"Member count: `{ctx.guild.member_count}`.")
+
+    @commands.command()
+    async def fodder(
+        self, ctx, message: discord.Message, max_iv: int = 9, max_rank: int = 4
+    ):
+        cards = [(field.name, field.value) for field in message.embeds[0].fields]
+
+        codes = []
+
+        for name, value in cards:
+            iv = re.search(self.CARD_IV_REGEX, value, flags=re.DOTALL)
+            stars = re.findall(self.CARD_STAR_REGEX, value, flags=re.DOTALL)
+            code = re.search(self.CARD_CODE_REGEX, value, flags=re.DOTALL)
+            collection_or_vault = re.search(
+                self.CARD_COLLECTION_VAULT_REGEX, name, flags=re.DOTALL
+            )
+
+            if (
+                not collection_or_vault
+                and iv
+                and int(iv.group(1)) <= max_iv
+                and len(stars) <= max_rank
+            ):
+                codes.append(code.group(1))
+
+        await ctx.send(f"Fodder codes:\n```{' '.join(codes)}```")
