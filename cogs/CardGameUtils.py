@@ -31,7 +31,7 @@ def card_game_utils_enabled():
 
 
 class CardGameUtils(commands.Cog):
-    CARD_CODE_REGEX = r"Code: ([A-Z0-9]{4})"
+    CARD_CODE_REGEX = r"Code: ([A-Z0-9]+)"
     CARD_IV_REGEX = r"\(IV: ([0-9]0?)\)"
     CARD_STAR_REGEX = r":star:"
     CARD_COLLECTION_VAULT_REGEX = r"(:gem:|:lock:|:moneybag:)"
