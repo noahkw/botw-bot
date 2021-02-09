@@ -151,3 +151,7 @@ async def safe_send(user: discord.User, content: str):
         return await user.send(content)
     except discord.Forbidden:
         logger.info("Could not message user %d", user.id)
+
+
+def format_emoji(emoji: discord.Emoji):
+    return f"{emoji} `{emoji.name}`"

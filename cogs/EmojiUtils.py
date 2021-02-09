@@ -1,13 +1,17 @@
+import asyncio
 import logging
+from pathlib import Path
 
+import aiohttp
 import discord
 import pendulum
 from discord.ext import commands
 from sqlalchemy.exc import NoResultFound
 
 import db
+from menu import Confirm
 from models import EmojiSettings
-from util import chunker, Cooldown, auto_help
+from util import chunker, Cooldown, auto_help, format_emoji, EmojiConverter
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +30,12 @@ class EmojiUtils(commands.Cog):
         self.bot = bot
         self.cooldowns = {}  # guild.id -> cooldown
         self.last_updates = {}  # guild.id -> on_guild_emojis_update after obj
+        self.session = aiohttp.ClientSession()
 
         EmojiSettings.inject_bot(bot)
+
+    def cog_unload(self):
+        asyncio.create_task(self.session.close())
 
     async def _send_emoji_list(self, channel: discord.TextChannel, after=None):
         emojis = after if after else channel.guild.emojis
@@ -72,6 +80,13 @@ class EmojiUtils(commands.Cog):
                     f"Recently added: {''.join(str(e) for e in recent_emoji)}"
                 )
 
+    async def _download_emoji(self, emoji_url):
+        async with self.session.get(emoji_url) as response:
+            if response.status != 200:
+                raise commands.BadArgument("Could not fetch the given URL.")
+
+            return await response.read()
+
     @auto_help
     @commands.group(
         name="emoji",
@@ -81,6 +96,65 @@ class EmojiUtils(commands.Cog):
     async def emoji(self, ctx):
         if not ctx.invoked_subcommand:
             await ctx.send_help(self.emoji)
+
+    @emoji.command(name="add", brief="Adds a custom emoji")
+    @commands.cooldown(1, per=5, type=commands.BucketType.user)
+    @commands.bot_has_permissions(manage_emojis=True)
+    async def emoji_add(self, ctx, name: str = None, *, emoji: EmojiConverter):
+        if type(emoji) is discord.Attachment:
+            emoji_bytes = await emoji.read()
+            name = name or Path(emoji.filename).stem
+        elif type(emoji) is str:
+            try:
+                emoji_bytes = await asyncio.wait_for(self._download_emoji(emoji), 5.0)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Emoji URL download timed out. User %s (%s); URL %s",
+                    str(ctx.author),
+                    ctx.author.id,
+                    emoji,
+                )
+                raise commands.BadArgument("Download timed out.")
+
+            name = name or Path(emoji).stem
+
+        try:
+            custom_emoji = await ctx.guild.create_custom_emoji(
+                name=name, image=emoji_bytes, reason=f"Added by {ctx.author}"
+            )
+        except discord.HTTPException:
+            logger.exception("Emoji upload failed for URL %s", emoji)
+            raise commands.BadArgument(
+                "Bad request. Make sure that the file is < 256 KB and that "
+                "the emoji name contains no special characters."
+            )
+        except discord.InvalidArgument:
+            raise commands.BadArgument(
+                "Bad image file. Must be either JPG, PNG, or GIF."
+            )
+
+        await ctx.send(
+            f"Added custom emoji {custom_emoji} with name `{custom_emoji.name}`."
+        )
+
+    @emoji.command(
+        name="remove",
+        brief="Removes one or multiple custom emoji",
+        aliases=["delete", "rm"],
+    )
+    @commands.bot_has_permissions(manage_emojis=True)
+    async def emoji_remove(self, ctx, *emojis: commands.EmojiConverter):
+        emojis_formatted = "\n".join(format_emoji(emoji) for emoji in emojis)
+        confirm = await Confirm(
+            f"Are you sure you want to remove the following emoji?\n{emojis_formatted}"
+        ).prompt(ctx)
+
+        if confirm:
+            emoji_names = ", ".join(f"`{emoji.name}`" for emoji in emojis)
+            await asyncio.gather(
+                *[emoji.delete(reason=f"Deleted by {ctx.author}") for emoji in emojis]
+            )
+            await ctx.send(f"Deleted emoji {emoji_names}.")
 
     @emoji.command(name="list", brief="Sends a list of the guild's emoji")
     async def emoji_list(self, ctx, channel: discord.TextChannel = None):

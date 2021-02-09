@@ -178,7 +178,9 @@ class Tags(CustomCog, AinitMixin):
             async with self.bot.Session(expire_on_commit=False) as session:
                 tag = Tag(
                     trigger=trigger,
-                    reaction=reaction,
+                    reaction=reaction.url
+                    if type(reaction) is discord.Attachment
+                    else reaction,
                     in_msg=in_msg,
                     _creator=ctx.author.id,
                     _guild=ctx.guild.id,

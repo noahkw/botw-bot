@@ -3,6 +3,7 @@ from .converters import (
     ReactionConverter,
     DayOfWeekConverter,
     GreeterTypeConverter,
+    EmojiConverter,
 )
 from .decorators import auto_help, ack
 from .dnf_parser import DNFParser
@@ -23,6 +24,7 @@ from .util import (
     draw_rotated_text,
     safe_mention,
     safe_send,
+    format_emoji,
 )
 
 __all__ = (
@@ -49,4 +51,6 @@ __all__ = (
     "safe_mention",
     "safe_send",
     "GreeterTypeConverter",
+    "format_emoji",
+    "EmojiConverter",
 )

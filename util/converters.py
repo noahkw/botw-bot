@@ -27,7 +27,11 @@ class GreeterTypeConverter(commands.Converter):
             raise commands.BadArgument(f"Greeter type '{argument}' does not exist")
 
 
-class ReactionConverter(commands.Converter):
+class AttachmentConverter(commands.Converter):
+    pass
+
+
+class ReactionConverter(AttachmentConverter):
     def __init__(self):
         super().__init__()
         self.clean_content = commands.clean_content()
@@ -40,6 +44,18 @@ class ReactionConverter(commands.Converter):
         else:
             raise commands.BadArgument(
                 "Found neither a reaction string, nor exactly one attachment."
+            )
+
+
+class EmojiConverter(AttachmentConverter):
+    async def convert(self, ctx, argument):
+        # default value of using the first attachment is handled in the 'hijacked' transform method below
+        if len(argument) > 0:
+            # URL supplied, return it
+            return argument
+        else:
+            raise commands.BadArgument(
+                "Found neither a URL, nor exactly one attachment."
             )
 
 
@@ -66,9 +82,13 @@ _old_transform = commands.Command.transform
 
 
 def _transform(self, ctx, param):
-    if param.annotation is ReactionConverter and param.default is param.empty:
+    if (
+        type(param.annotation) is type
+        and issubclass(param.annotation, AttachmentConverter)
+        and param.default is param.empty
+    ):
         if ctx.message.attachments:
-            default = ctx.message.attachments[0].url
+            default = ctx.message.attachments[0]
             param = Parameter(
                 param.name,
                 param.kind,
