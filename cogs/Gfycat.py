@@ -87,11 +87,11 @@ class Gfycat(CustomCog, AinitMixin):
     @auto_help
     @commands.group(
         aliases=["gfy"],
-        invoke_without_command=True,
         brief="Display content from Gfycat",
     )
     async def gfycat(self, ctx):
-        await ctx.send_help(self.gfycat)
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.gfycat)
 
     @gfycat.command()
     async def list(

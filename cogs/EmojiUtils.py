@@ -76,17 +76,18 @@ class EmojiUtils(commands.Cog):
     @commands.group(
         name="emoji",
         brief="Emoji related convenience commands",
-        invoke_without_command=True,
     )
-    @commands.has_permissions(administrator=True)
+    @commands.has_permissions(manage_emojis=True)
     async def emoji(self, ctx):
-        await ctx.send_help(self.emoji)
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.emoji)
 
     @emoji.command(name="list", brief="Sends a list of the guild's emoji")
     async def emoji_list(self, ctx, channel: discord.TextChannel = None):
         await self._send_emoji_list(channel or ctx.channel)
 
     @emoji.command(name="channel", brief="Configures given channel for emoji updates")
+    @commands.has_permissions(manage_guild=True)
     async def channel(self, ctx, channel: discord.TextChannel):
         """
         Configures the given channel for emoji updates.

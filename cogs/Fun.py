@@ -26,10 +26,10 @@ class Fun(commands.Cog):
     @commands.group(
         aliases=["m", "meme"],
         brief="Create meme images/videos",
-        invoke_without_command=True,
     )
     async def memes(self, ctx):
-        await ctx.send_help(self.memes)
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.memes)
 
     def make_swantf_image(self, text):
         with open(self.SWANTF_IMG_PATH, "rb") as f:

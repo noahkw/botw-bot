@@ -246,11 +246,10 @@ class BiasOfTheWeek(commands.Cog):
         name="biasoftheweek",
         aliases=["botw"],
         brief="Organize Bias of the Week events",
-        invoke_without_command=True,
     )
-    @botw_enabled()
     async def biasoftheweek(self, ctx):
-        await ctx.send_help(self.biasoftheweek)
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.biasoftheweek)
 
     @biasoftheweek.command(brief="Sets up BotW in the server")
     @commands.has_permissions(administrator=True)
@@ -533,7 +532,6 @@ class BiasOfTheWeek(commands.Cog):
             await session.commit()
 
     @biasoftheweek.command(brief="Displays past BotW winners")
-    @botw_enabled()
     async def history(self, ctx):
         async with self.bot.Session() as session:
             if (

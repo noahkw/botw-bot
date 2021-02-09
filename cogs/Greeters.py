@@ -73,12 +73,12 @@ class Greeters(commands.Cog):
     @auto_help
     @commands.group(
         aliases=["greeter"],
-        invoke_without_command=True,
         brief="Configure greeters for the server",
     )
     @commands.has_permissions(administrator=True)
     async def greeters(self, ctx):
-        await ctx.send_help(self.greeters)
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.greeters)
 
     @greeters.command(brief="Adds or displays the join greeter")
     @commands.has_permissions(administrator=True)

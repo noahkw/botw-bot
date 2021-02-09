@@ -50,9 +50,10 @@ class UrlShortener(commands.Cog):
                     data["description"] if "description" in data else data
                 )
 
-    @commands.group(invoke_without_command=True, brief="Shorten urls")
+    @commands.group(brief="Shorten urls")
     async def url(self, ctx):
-        await ctx.send_help(self.url)
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.url)
 
     @url.command(aliases=["s"], brief="Shortens given URL(s)")
     @commands.cooldown(1, per=60, type=commands.BucketType.user)

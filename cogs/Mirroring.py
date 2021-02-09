@@ -56,7 +56,8 @@ class Mirroring(CustomCog, AinitMixin):
     @commands.group(brief="Create channel mirrors between servers")
     @commands.is_owner()
     async def mirror(self, ctx):
-        pass
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.mirror)
 
     def append_mirror(self, mirror):
         origin_mirrors = self.mirrors.setdefault(mirror._origin, [])
