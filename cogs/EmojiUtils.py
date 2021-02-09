@@ -145,6 +145,9 @@ class EmojiUtils(commands.Cog):
     @commands.bot_has_permissions(manage_emojis=True)
     async def emoji_remove(self, ctx, *emojis: commands.EmojiConverter):
         emojis_formatted = "\n".join(format_emoji(emoji) for emoji in emojis)
+        for emoji in emojis:
+            if emoji.guild != ctx.guild:
+                raise commands.BadArgument(f"{emoji} is in another guild.")
         confirm = await Confirm(
             f"Are you sure you want to remove the following emoji?\n{emojis_formatted}"
         ).prompt(ctx)
