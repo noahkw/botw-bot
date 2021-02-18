@@ -61,7 +61,7 @@ class OneTimeCookieJar(aiohttp.CookieJar):
 
 
 class Instagram(commands.Cog):
-    URL_REGEX = r"https?://www.instagram.com/(p|tv)/(.*?)/"
+    URL_REGEX = r"https?://(www.)?instagram.com/(p|tv|reel)/(.*?)/"
     FILESIZE_MIN = 10 ** 3
     FILESIZE_MAX = 8 * 10 ** 6  # 8 MB
 
