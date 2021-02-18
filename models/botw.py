@@ -121,6 +121,7 @@ class BotwSettings(GuildSettingsMixin, Base):
     state = Column("state", Enum(BotwState), default=BotwState.DEFAULT)
     announcement_day = Column(Integer, nullable=False)
     winner_day = Column(Integer, nullable=False)
+    renomination_cooldown = Column(Integer, nullable=True)
 
     @hybrid_property
     def botw_channel(self):

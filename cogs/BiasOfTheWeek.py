@@ -381,6 +381,27 @@ class BiasOfTheWeek(commands.Cog):
             f"Bias of the Week is now disabled in this server! `{ctx.prefix}botw setup` to re-enable it."
         )
 
+    @biasoftheweek.command(brief="Sets the cooldown for renominations in days")
+    @commands.has_permissions(administrator=True)
+    @botw_enabled()
+    async def cooldown(self, ctx, cooldown: int = None):
+        async with self.bot.Session() as session:
+            botw_settings = await db.get_botw_settings(session, ctx.guild.id)
+
+            if not cooldown:
+                await ctx.send(
+                    f"The current cooldown for renominations is "
+                    f"`{botw_settings.renomination_cooldown or self.past_winners_time}` days."
+                )
+            else:
+                botw_settings.renomination_cooldown = cooldown
+                await session.merge(botw_settings)
+                await session.commit()
+
+                await ctx.send(
+                    f"The cooldown for renominations has been set to `{cooldown}` days."
+                )
+
     @biasoftheweek.command(brief="Nominates an idol")
     @botw_enabled()
     async def nominate(
@@ -393,6 +414,11 @@ class BiasOfTheWeek(commands.Cog):
         `{prefix}botw nominate "Red Velvet" "Irene"`
         """
         async with self.bot.Session() as session:
+            botw_settings = await db.get_botw_settings(session, ctx.guild.id)
+            renomination_cooldown = (
+                botw_settings.renomination_cooldown or self.past_winners_time
+            )
+
             idol = Idol(group=group, name=name)
 
             best_match = await db.get_similar_idol(session, idol)
@@ -413,11 +439,11 @@ class BiasOfTheWeek(commands.Cog):
                 session,
                 ctx.guild.id,
                 idol,
-                pendulum.now("UTC").subtract(days=self.past_winners_time),
+                pendulum.now("UTC").subtract(days=renomination_cooldown),
             ):
                 # check whether idol has won in the past
                 raise commands.BadArgument(
-                    f"**{idol}** has already won in the past `{self.past_winners_time}` days. "
+                    f"**{idol}** has already won in the past `{renomination_cooldown}` days. "
                     f"Please nominate someone else."
                 )
             elif nomination := await db.get_botw_nomination(
@@ -629,7 +655,7 @@ class BiasOfTheWeek(commands.Cog):
             )
             await session.commit()
 
-    @biasoftheweek.command(brief="Forces a winner for the coming week.")
+    @biasoftheweek.command(brief="Forces a winner for the coming week")
     @botw_enabled()
     @commands.has_permissions(administrator=True)
     async def forcewinner(self, ctx, member: discord.Member):
@@ -731,6 +757,10 @@ class BiasOfTheWeek(commands.Cog):
                     name="Announcement day", value=botw_settings.announcement_day_str
                 )
                 .add_field(name="Winner day", value=botw_settings.winner_day_str)
+                .add_field(
+                    name="Renomination cooldown",
+                    value=f"{botw_settings.renomination_cooldown or self.past_winners_time} days",
+                )
             )
 
             await ctx.send(embed=embed)
