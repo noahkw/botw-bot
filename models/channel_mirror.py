@@ -47,7 +47,13 @@ class ChannelMirror(Base):
                 )
         except discord.Forbidden:
             await self.bot.get_user(self.bot.CREATOR_ID).send(
-                f"We don't have access to mirror's webhook: "
+                f"We don't have access to mirror's webhook (forbidden): "
+                f"```origin: {self._origin}, dest: {self._destination}```"
+            )
+            return False
+        except discord.NotFound:
+            await self.bot.get_user(self.bot.CREATOR_ID).send(
+                f"We don't have access to mirror's webhook (deleted): "
                 f"```origin: {self._origin}, dest: {self._destination}```"
             )
             return False

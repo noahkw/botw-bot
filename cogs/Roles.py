@@ -36,7 +36,11 @@ class Roles(CustomCog, AinitMixin):
             role_clears = await db.get_role_clears(session)
 
             for role_clear in role_clears:
-                if role_clear.is_due():
+                if not role_clear.guild:
+                    await db.delete_role_clear(
+                        session, role_clear._member, role_clear._role
+                    )
+                elif role_clear.is_due():
                     await self._clear_role(
                         role_clear.guild, role_clear.member, role_clear.role
                     )
