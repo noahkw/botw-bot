@@ -46,9 +46,11 @@ class Mirroring(CustomCog, AinitMixin):
             _mirrors = await db.get_mirrors(session)
 
             for mirror in _mirrors:
-                valid = await mirror.sanity_check()
+                valid = await mirror.sanity_check(session)
                 if valid:  # ignore mirrors that we can't access anymore
                     self.append_mirror(mirror)
+
+            await session.commit()
 
         logger.info(f"# Initial mirrors from db: {len(self.mirrors)}")
 

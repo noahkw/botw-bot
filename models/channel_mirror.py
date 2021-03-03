@@ -37,7 +37,7 @@ class ChannelMirror(Base):
         self._webhook = webhook.id
         self._webhook_obj = webhook
 
-    async def sanity_check(self):
+    async def sanity_check(self, session):
         try:
             if (
                 not await self.webhook
@@ -56,6 +56,7 @@ class ChannelMirror(Base):
                 f"We don't have access to mirror's webhook (deleted): "
                 f"```origin: {self._origin}, dest: {self._destination}```"
             )
+            session.delete(self)
             return False
         else:
             return True
