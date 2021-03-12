@@ -1,4 +1,5 @@
-from sqlalchemy import select, delete, func
+import pendulum
+from sqlalchemy import select, delete, func, desc
 
 from models import (
     Nomination,
@@ -15,6 +16,7 @@ from models import (
     Tag,
     Reminder,
     ChannelMirror,
+    CommandLog,
 )
 
 
@@ -221,3 +223,19 @@ async def delete_greeter(session, guild_id, greeter_type):
         .returning(Greeter._channel, Greeter.template)
     )
     return (await session.execute(statement)).first()
+
+
+async def get_command_usage_by(session, by, command_name, weeks):
+    by_ = CommandLog._user if by == "user" else CommandLog._guild
+    statement = (
+        select(by_, CommandLog.command_name, func.count(CommandLog._command_log))
+        .where(
+            (CommandLog.command_name == command_name)
+            & (CommandLog.date >= pendulum.now("UTC").subtract(weeks=weeks))
+        )
+        .group_by(by_, CommandLog.command_name)
+        .order_by(desc(func.count(CommandLog._command_log)))
+    )
+    result = (await session.execute(statement)).all()
+
+    return result

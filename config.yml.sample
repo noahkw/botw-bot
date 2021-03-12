@@ -24,6 +24,7 @@ enabled_cogs:
   - 'cogs.Greeters'
   - 'cogs.Gfycat'
   - 'cogs.CardGameUtils'
+  - 'cogs.Logging'
   - 'cogs.Main'
 cogs:
   biasoftheweek:

@@ -14,6 +14,7 @@ from discord.ext import commands
 from regex import regex
 from yarl import URL
 
+from cogs.Logging import log_usage
 from const import INSPECT_EMOJI
 from menu import SimpleConfirm
 from util import chunker, auto_help
@@ -115,6 +116,7 @@ class Instagram(commands.Cog):
                 for media in media
             ]
 
+    @log_usage(command_name="ig_show")
     async def show_media(self, ctx, url):
         try:
             media = await self.get_media(url)

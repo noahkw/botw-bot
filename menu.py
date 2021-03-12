@@ -54,6 +54,25 @@ class SimpleConfirm(menus.Menu):
         return self.result
 
 
+class CommandUsageListSource(menus.ListPageSource):
+    def __init__(self, data, command_name, weeks, per_page=10):
+        super().__init__(data, per_page=per_page)
+        self.command_name = command_name
+        self.weeks = weeks
+
+    async def format_page(self, menu, entries):
+        embed = Embed(title="Command Usage")
+        embed.add_field(
+            name=f"Usages of command **{self.command_name}** in the past {self.weeks} week(s)",
+            value="\n".join(
+                f"{menu.bot.get_user(usage[0])} (`{usage[0]}`): **{usage[2]}**"
+                for usage in entries
+            ),
+        )
+
+        return embed
+
+
 class TagListSource(menus.ListPageSource):
     def __init__(self, data, per_page=10):
         super().__init__(data, per_page=per_page)
