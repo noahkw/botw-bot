@@ -59,8 +59,14 @@ class Logging(commands.Cog):
     ):
         async with self.bot.Session() as session:
             usages = await db.get_command_usage_by(session, by, command_name, weeks)
-            pages = MenuPages(
-                source=CommandUsageListSource(usages, command_name, weeks),
-                clear_reactions_after=True,
-            )
-            await pages.start(ctx)
+
+            if len(usages) > 0:
+                pages = MenuPages(
+                    source=CommandUsageListSource(usages, by, command_name, weeks),
+                    clear_reactions_after=True,
+                )
+                await pages.start(ctx)
+            else:
+                await ctx.send(
+                    f"No usages for command `{command_name}` in the given time frame."
+                )
