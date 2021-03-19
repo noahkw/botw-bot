@@ -9,7 +9,7 @@ git+https://github.com/Rapptz/discord-ext-menus
 git+https://github.com/sqlalchemy/sqlalchemy.git@8d588b06d984cb053be53e779cfa11b1d5166f03
 jishaku==1.20.0.220
 pendulum==2.1.2
-Pillow==8.0.1
+Pillow==8.1.1
 psycopg2-binary==2.8.6
 PyYAML==5.3.1
 seaborn==0.11.0
