@@ -57,7 +57,7 @@ class CardGameUtils(commands.Cog):
 
     @commands.command(brief="Scrapes your Jinsoul bot inventory for fodder")
     @card_game_utils_enabled()
-    @log_usage(command_name="fodder")
+    @log_usage(command_name="fodder", log_args=False)
     async def fodder(
         self,
         ctx,

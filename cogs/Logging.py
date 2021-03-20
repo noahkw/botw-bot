@@ -9,11 +9,12 @@ from menu import CommandUsageListSource
 from models import CommandLog
 
 
-def log_usage(command_name=None):
+def log_usage(command_name=None, log_args=True):
     def deco(func):
         @wraps(func)
         async def logged_func(self, ctx, *args, **kwargs):
             async with self.bot.Session() as session:
+                arg_list = args if log_args else []
                 session.add(
                     CommandLog(
                         command_name=command_name or func.__name__,
@@ -21,7 +22,8 @@ def log_usage(command_name=None):
                         _user=ctx.author.id,
                         _guild=ctx.guild.id,
                         args=", ".join(
-                            list(args) + [f"{k}={v}" for k, v in kwargs.items()]
+                            [repr(arg) for arg in arg_list]
+                            + [f"{k}={str(v)}" for k, v in kwargs.items()]
                         ),
                     )
                 )
