@@ -7,6 +7,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import aiohttp
+import discord
 import yarl
 from aiohttp.typedefs import LooseCookies
 from discord import File
@@ -150,7 +151,10 @@ class Instagram(commands.Cog):
                     urls.append(url)
 
         # remove discord's default instagram embed
-        await ctx.message.edit(suppress=True)
+        try:
+            await ctx.message.edit(suppress=True)
+        except discord.Forbidden:
+            pass
 
         url_chunks = chunker(urls, 5)
         for chunk in url_chunks:
