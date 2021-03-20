@@ -8,7 +8,7 @@ from discord.ext.menus import MenuPages
 
 import db
 from cogs import CustomCog, AinitMixin
-from menu import Confirm, TagListSource, PseudoMenu, SelectionMenu, DetailTagListSource
+from menu import Confirm, TagListSource, SelectionMenu, DetailTagListSource
 from models import Tag
 from util import ordered_sublists, ratio, auto_help, ReactionConverter, BoolConverter
 
@@ -290,16 +290,6 @@ class Tags(CustomCog, AinitMixin):
             clear_reactions_after=True,
         )
         await pages.start(ctx)
-
-    @list.command(name="dm", brief="Sends the list via DM")
-    async def list_dm(self, ctx):
-        """
-        Sends a list of all tags in the server via DM.
-        """
-        menu = PseudoMenu(
-            TagListSource(self._get_tags(ctx.guild), per_page=15), ctx.author
-        )
-        await menu.start()
 
     @tag.group(
         aliases=["search"],
