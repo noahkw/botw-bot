@@ -6,6 +6,7 @@ from PIL import Image, ImageFont
 from discord import File
 from discord.ext import commands
 
+from cogs.Logging import log_usage
 from util import draw_rotated_text
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ class Fun(commands.Cog):
             return buffer
 
     @memes.command(brief="Creates meme image from Trump/Swan interview template")
+    @log_usage(command_name="swantf")
     async def swantf(self, ctx, *, text: commands.clean_content):
         if len(text) >= self.SWANTF_MAX_CHARS:
             raise commands.BadArgument(

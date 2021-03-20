@@ -11,6 +11,7 @@ from discord.utils import find
 
 import db
 from cogs import CustomCog, AinitMixin
+from cogs.Logging import log_usage
 from const import SHOUT_EMOJI, SNOOZE_EMOJI
 from menu import ReminderListSource, SimpleConfirm
 from models import Reminder
@@ -105,6 +106,7 @@ class Reminders(CustomCog, AinitMixin):
             await ctx.send_help(self.reminders_)
 
     @reminders_.command(brief="Adds a new reminder")
+    @log_usage(command_name="remind")
     async def add(self, ctx, *, args: ReminderConverter):
         """
         Adds a new reminder.

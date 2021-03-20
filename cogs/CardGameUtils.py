@@ -6,6 +6,7 @@ import typing
 import discord
 from discord.ext import commands
 
+from cogs.Logging import log_usage
 from const import CHECK_EMOJI
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,7 @@ class CardGameUtils(commands.Cog):
 
     @commands.command(brief="Scrapes your Jinsoul bot inventory for fodder")
     @card_game_utils_enabled()
+    @log_usage(command_name="fodder")
     async def fodder(
         self,
         ctx,
