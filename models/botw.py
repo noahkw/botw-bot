@@ -98,15 +98,32 @@ class BotwWinner(NominationMixin, Base):
             and self.date == other.date
         )
 
-    def to_field(self, winner_day=None):
+    @property
+    def year(self):
+        return self.date.year
+
+    def week(self, winner_day):
+        # fix pendulum bug where it returns the last week of the previous year, instead of 1
+        # week > 49 and in January? --> default to week 1
+        if self.date.week_of_year > 49 and self.date.month == 1:
+            return 1
+
+        # def weeks_for_year(year):
+        #     from datetime import date
+        #     last_week = date(year, 12, 28)
+        #     return last_week.isocalendar()[1]
+
         week = (
             self.date.week_of_year
             if self.date.day_of_week < winner_day and self.date.day_of_week != 0
-            else self.date.week_of_year + 1
+            else (self.date.week_of_year + 1)  # % (weeks_for_year(self.date.year) + 1)
         )
-        year = self.date.year
+
+        return week
+
+    def to_field(self, winner_day=None):
         return {
-            "name": f"{year}-{week}",
+            "name": f"{self.year}-{self.week(winner_day)}",
             "value": f"{self.idol} by {safe_mention(self.member)}",
         }
 
