@@ -192,9 +192,14 @@ class BiasOfTheWeek(commands.Cog):
             )
 
     async def _remove_winner_role(self, guild: discord.Guild, winner: BotwWinner):
-        member = winner.member
-        logger.info(f"Removing winner role from {member} in {guild}")
-        member = guild.get_member(member.id)
+        try:
+            member = winner.member
+            logger.info(f"Removing winner role from {member} in {guild}")
+            member = guild.get_member(member.id)
+        except AttributeError:
+            # previous winner not in cache, just return
+            return
+
         botw_winner_role = discord.utils.get(guild.roles, name=self.winner_role_name)
         await member.remove_roles(botw_winner_role)
 
@@ -222,11 +227,15 @@ class BiasOfTheWeek(commands.Cog):
         botw_settings = BotwSettings(_guild=guild, enabled=False)
         await session.merge(botw_settings)
 
-    async def _set_channel_name(self, channel: discord.TextChannel, winner: BotwWinner):
+    async def _prepare_channel(
+        self, channel: discord.TextChannel, winner: BotwWinner, winner_day: int
+    ):
         try:
             # try to edit the channel name, pass if we're not allowed to
             channel_name = f"botw-{winner.idol}-{winner.member.name}"
             await channel.edit(name=channel_name)
+
+            await channel.send(f"Week {winner.week(winner_day)} - **{winner.idol}**")
         except discord.Forbidden:
             pass
 
@@ -837,8 +846,10 @@ class BiasOfTheWeek(commands.Cog):
                         else:
                             winner = past_winners[0]
 
-                        await self._set_channel_name(
-                            guild_settings.botw_channel, winner
+                        await self._prepare_channel(
+                            guild_settings.botw_channel,
+                            winner,
+                            guild_settings.winner_day,
                         )
 
                         try:  # assign winner role if possible
