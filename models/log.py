@@ -11,7 +11,7 @@ class CommandLog(Base):
     command_name = Column(String, nullable=False)
     cog = Column(String, nullable=False)
     _user = Column(BigInteger, nullable=False)
-    _guild = Column(BigInteger, nullable=False)
+    _guild = Column(BigInteger, nullable=True)
     date = Column(PendulumDateTime, default=PendulumDateTime.now())
     args = Column(Text)
 

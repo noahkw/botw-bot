@@ -20,7 +20,7 @@ def log_usage(command_name=None, log_args=True):
                         command_name=command_name or func.__name__,
                         cog=type(self).__name__,
                         _user=ctx.author.id,
-                        _guild=ctx.guild.id,
+                        _guild=ctx.guild.id if ctx.guild else None,
                         args=", ".join(
                             [repr(arg) for arg in arg_list]
                             + [f"{k}={str(v)}" for k, v in kwargs.items()]
