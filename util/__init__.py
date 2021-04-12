@@ -25,6 +25,7 @@ from .util import (
     safe_mention,
     safe_send,
     format_emoji,
+    detail_mention,
 )
 
 __all__ = (
@@ -53,4 +54,5 @@ __all__ = (
     "GreeterTypeConverter",
     "format_emoji",
     "EmojiConverter",
+    "detail_mention",
 )

@@ -155,3 +155,18 @@ async def safe_send(user: discord.User, content: str):
 
 def format_emoji(emoji: discord.Emoji):
     return f"{emoji} `{emoji.name}`"
+
+
+def detail_mention(obj: discord.Object, id: typing.Optional[int] = None):
+    # try:
+    try:
+        mention = safe_mention(obj)
+    except AttributeError:
+        mention = ""
+
+    try:
+        id_ = f"(`{obj.id}`)"
+    except AttributeError:
+        id_ = f"(`{id}`)" or ""
+
+    return f"{mention} {str(obj)} {id_}"
