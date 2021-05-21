@@ -17,6 +17,9 @@ from models import (
     Reminder,
     ChannelMirror,
     CommandLog,
+    twt_settings,
+    twt_accounts,
+    twt_filters,
 )
 
 
@@ -90,6 +93,44 @@ async def get_botw_nomination(session, guild_id, member_id):
 
     return result[0] if result else None
 
+
+async def get_twitter_settings(session, guild_id):
+    statement = select(twt_settings).where(twt_settings._guild == guild_id)
+    result = (await session.execute(statement)).all()
+
+    return [r for (r,) in result]
+
+async def get_twitter_accounts(session, account_id=None, _guild=None):
+    if _guild and account_id:
+        statement = select(twt_accounts).where( (twt_accounts.account_id == account_id) & (twt_accounts._guild == _guild) )
+    elif account_id:
+        statement = select(twt_accounts).where(twt_accounts.account_id == account_id)
+    elif _guild:
+        statement = select(twt_accounts).where(twt_accounts._guild == _guild)
+    else:
+        statement = select(twt_accounts)
+    result = (await session.execute(statement)).all()
+
+    return [r for (r,) in result]
+
+async def get_twitter_filters(session, hashtag=None, guild_id=None, tag_list=None, guild_list=None):
+    if hashtag and guild_id:
+        statement = select(twt_filters).where((twt_filters.hashtag == hashtag) & (twt_filters._guild == guild_id))
+    if tag_list and guild_list:
+        statement = select(twt_filters).where(twt_filters._guild.in_(guild_list) & twt_filters.hashtag.in_(tag_list))
+    result = (await session.execute(statement)).all()
+
+    return [r for (r,) in result]
+
+async def delete_twitter_filters(session, hashtag, guild_id):
+    statement = delete(twt_filters).where((twt_filters.hashtag == hashtag) & (twt_filters._guild == guild_id))
+
+    await session.execute(statement)
+
+async def delete_accounts(session, account_id, guild_id):
+    statement = delete(twt_accounts).where((twt_accounts.account_id == account_id) & (twt_accounts._guild == guild_id) )
+
+    await session.execute(statement)
 
 async def delete_nominations(session, guild_id, member_id=None):
     if member_id:
