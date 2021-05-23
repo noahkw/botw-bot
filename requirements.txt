@@ -5,6 +5,7 @@ dateparser==1.0.0
 discord.py==1.5.1
 git+https://github.com/noahkw/aioscheduler
 git+https://github.com/noahkw/gfypy
+git+https://github.com/odrling/peony-twitter
 git+https://github.com/Rapptz/discord-ext-menus
 git+https://github.com/sqlalchemy/sqlalchemy.git@8d588b06d984cb053be53e779cfa11b1d5166f03
 jishaku==1.20.0.220

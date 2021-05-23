@@ -7,7 +7,7 @@ from .profile import Profile
 from .role import RoleAlias, RoleClear, AssignableRole
 from .greeter import Greeter, GreeterType
 from .log import CommandLog
-from .twitter import twt_settings, twt_accounts, twt_filters
+from .twitter import TwtSettings, TwtAccounts, TwtFilters
 
 __all__ = (
     "BotwState",
@@ -27,7 +27,7 @@ __all__ = (
     "GreeterType",
     "BotwSettings",
     "CommandLog",
-    "twt_settings",
-    "twt_accounts",
-    "twt_filters",
+    "TwtSettings",
+    "TwtAccounts",
+    "TwtFilters",
 )
