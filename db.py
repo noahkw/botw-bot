@@ -17,9 +17,10 @@ from models import (
     Reminder,
     ChannelMirror,
     CommandLog,
-    TwtSettings,
-    TwtAccounts,
-    TwtFilters,
+    TwtSetting,
+    TwtAccount,
+    TwtSorting,
+    TwtFilter,
 )
 
 
@@ -95,7 +96,7 @@ async def get_botw_nomination(session, guild_id, member_id):
 
 
 async def get_twitter_settings(session, guild_id):
-    statement = select(TwtSettings).where(TwtSettings._guild == guild_id)
+    statement = select(TwtSetting).where(TwtSetting._guild == guild_id)
     result = (await session.execute(statement)).all()
 
     return [r for (r,) in result]
@@ -103,50 +104,71 @@ async def get_twitter_settings(session, guild_id):
 
 async def get_twitter_accounts(session, account_id=None, _guild=None):
     if _guild and account_id:
-        statement = select(TwtAccounts).where(
-            (TwtAccounts.account_id == account_id) & (TwtAccounts._guild == _guild)
+        statement = select(TwtAccount).where(
+            (TwtAccount.account_id == account_id) & (TwtAccount._guild == _guild)
         )
     elif account_id:
-        statement = select(TwtAccounts).where(TwtAccounts.account_id == account_id)
+        statement = select(TwtAccount).where(TwtAccount.account_id == account_id)
     elif _guild:
-        statement = select(TwtAccounts).where(TwtAccounts._guild == _guild)
+        statement = select(TwtAccount).where(TwtAccount._guild == _guild)
     else:
-        statement = select(TwtAccounts)
+        statement = select(TwtAccount)
     result = (await session.execute(statement)).all()
 
     return [r for (r,) in result]
 
 
-async def get_twitter_filters(
+async def get_twitter_sorting(
     session, hashtag=None, guild_id=None, tag_list=None, guild_list=None
 ):
     if hashtag and guild_id:
-        statement = select(TwtFilters).where(
-            (TwtFilters.hashtag == hashtag) & (TwtFilters._guild == guild_id)
+        statement = select(TwtSorting).where(
+            (TwtSorting.hashtag == hashtag) & (TwtSorting._guild == guild_id)
         )
     elif guild_id:
-        statement = select(TwtFilters).where(TwtFilters._guild == guild_id)
+        statement = select(TwtSorting).where(TwtSorting._guild == guild_id)
     elif tag_list and guild_list:
-        statement = select(TwtFilters).where(
-            TwtFilters._guild.in_(guild_list) & TwtFilters.hashtag.in_(tag_list)
+        statement = select(TwtSorting).where(
+            TwtSorting._guild.in_(guild_list) & TwtSorting.hashtag.in_(tag_list)
         )
     result = (await session.execute(statement)).all()
 
     return [r for (r,) in result]
 
 
-async def delete_twitter_filters(session, hashtag, guild_id):
-    statement = delete(TwtFilters).where(
-        (TwtFilters.hashtag == hashtag) & (TwtFilters._guild == guild_id)
+async def get_twitter_filters(session, _filter=None, guild_id=None):
+    if guild_id and _filter:
+        statement = select(TwtFilter).where(
+            (TwtFilter._filter == _filter) & (TwtFilter._guild == guild_id)
+        )
+    elif guild_id:
+        statement = select(TwtFilter).where(TwtFilter._guild == guild_id)
+    result = (await session.execute(statement)).all()
+
+    return [r for (r,) in result]
+
+
+async def delete_twitter_sorting(session, hashtag, guild_id):
+    statement = delete(TwtSorting).where(
+        (TwtSorting.hashtag == hashtag) & (TwtSorting._guild == guild_id)
     )
 
     await session.execute(statement)
 
 
 async def delete_accounts(session, account_id, guild_id):
-    statement = delete(TwtAccounts).where(
-        (TwtAccounts.account_id == account_id) & (TwtAccounts._guild == guild_id)
+    statement = delete(TwtAccount).where(
+        (TwtAccount.account_id == account_id) & (TwtAccount._guild == guild_id)
     )
+
+    await session.execute(statement)
+
+
+async def delete_twitter_filters(session, _filter=None, guild_id=None):
+    if _filter and guild_id:
+        statement = delete(TwtFilter).where(
+            (TwtFilter._filter == _filter) & (TwtFilter._guild == guild_id)
+        )
 
     await session.execute(statement)
 
