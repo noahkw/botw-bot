@@ -453,7 +453,6 @@ class Twitter(CustomCog, AinitMixin):
             )
         accounts_followed = [guild.account_id for guild in accounts_followed]
         accounts_embed = discord.Embed()
-        # accounts_embed.set_author(name="Accounts Followed")
         user_name_list = []
         value_string = "_"
         if accounts_followed:
@@ -463,9 +462,7 @@ class Twitter(CustomCog, AinitMixin):
             value_string = " \n".join(
                 f"@{account.screen_name} - {account.name}" for account in user_name_list
             )
-        # for account in user_name_list:
         accounts_embed.add_field(
-            # name=f"@{account.screen_name}",
             name="Accounts Followed",
             value=value_string,
         )
@@ -480,10 +477,7 @@ class Twitter(CustomCog, AinitMixin):
         async with self.bot.Session() as session:
             channels_list = await db.get_twitter_sorting(session, guild_id=ctx.guild.id)
         hashtag_embed = discord.Embed()
-        # hashtag_embed.set_author(name="Hashtag to Channel Map")
-        # for server in channels_list:
         hashtag_embed.add_field(
-            # name=f"#{server.hashtag}",
             name="Hashtag to Channel Map",
             value=" \n".join(
                 f"#{server.hashtag} - {self.bot.get_channel(server._channel).mention}"
@@ -498,13 +492,10 @@ class Twitter(CustomCog, AinitMixin):
     async def filters(self, ctx):
         async with self.bot.Session() as session:
             filter_list = await db.get_twitter_filters(session, guild_id=ctx.guild.id)
-        # filter_list = [_filter._filter for _filter in filter_list]
-        # hashtag_embed.set_author(name="Hashtag to Channel Map")
         filter_embed = discord.Embed()
         value_string = "_"
         if filter_list:
             value_string = ", ".join([_filter._filter for _filter in filter_list])
-            # for server in filter_list:
         filter_embed.add_field(name="Server Tweet Filters", value=value_string)
         await ctx.send(embed=filter_embed)
 
