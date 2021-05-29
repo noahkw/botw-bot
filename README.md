@@ -16,6 +16,7 @@ Current modules:
 - Roles
 - Tags
 - Trolling
+- Twitter
 - Url shortener
 - Utilities
 - Weather
@@ -45,6 +46,6 @@ Rename `config.yml.sample` to `config.yml` and change it according to your use c
 Most of the defaults should be fine, but make sure to enter your **discord token**,
 **database connection string** (use the same password as in the *.env* file you just created),
 **Wolfram Alpha app id**, **OpenWeatherMap app id**, **Instagram cookie file path**,
-**Gfycat client id and secret**, and your **bit.ly access token**.
+**Gfycat client id and secret**, **Twitter App and User Tokens**, and your **bit.ly access token**.
 
 Start the bot as a daemon: `docker-compose up -d`.

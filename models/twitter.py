@@ -1,36 +1,47 @@
-from sqlalchemy import Column, BigInteger, Integer, String, Boolean
+from sqlalchemy import Column, BigInteger, String, Boolean
+from sqlalchemy.ext.hybrid import hybrid_property
 
 from models.base import Base
 
 
-class TwtSetting(Base):
+class TwitterMixin:
+    _guild = Column(BigInteger, primary_key=True)
+
+    @hybrid_property
+    def guild(self):
+        return self.bot.get_guild(self._guild)
+
+    @classmethod
+    def inject_bot(cls, bot):
+        cls.bot = bot
+
+
+class TwtSetting(TwitterMixin, Base):
     __tablename__ = "TwtSetting"
 
-    _guild = Column(BigInteger, primary_key=True)
     use_group_channel = Column(Boolean, nullable=False)
     default_channel = Column(BigInteger, nullable=False)
+    enabled = Column(Boolean, nullable=False)
 
 
-class TwtAccount(Base):
+class TwtAccount(TwitterMixin, Base):
     __tablename__ = "TwtAccount"
 
-    _TwtAccount = Column(Integer, primary_key=True)
-    _guild = Column(BigInteger, nullable=False)
-    account_id = Column(String, nullable=False)
+    account_id = Column(String, primary_key=True)
 
 
-class TwtSorting(Base):
+class TwtSorting(TwitterMixin, Base):
     __tablename__ = "TwtSorting"
 
-    _TwtSorting = Column(Integer, primary_key=True)
-    _guild = Column(BigInteger, nullable=False)
-    hashtag = Column(String, nullable=False)
+    hashtag = Column(String, primary_key=True)
     _channel = Column(BigInteger, nullable=False)
 
+    @hybrid_property
+    def channel(self):
+        return self.bot.get_channel(self._channel)
 
-class TwtFilter(Base):
+
+class TwtFilter(TwitterMixin, Base):
     __tablename__ = "TwtFilter"
 
-    _TwtFilter = Column(Integer, primary_key=True)
-    _guild = Column(BigInteger, nullable=False)
-    _filter = Column(String, nullable=False)
+    _filter = Column(String, primary_key=True)
