@@ -89,7 +89,8 @@ class Twitter(CustomCog, AinitMixin):
                     logger.debug(
                         f"Processing @{tweet.user.screen_name} - {tweet.id_str}"
                     )
-                    await self.manage_twt(tweet)
+                    async with self.bot.Session() as session:
+                        await self.manage_twt(tweet, session)
 
     async def restart_stream(self, session):
         self.gen_accounts = await self.generate_accounts(session)
@@ -199,7 +200,8 @@ class Twitter(CustomCog, AinitMixin):
                     logger.info(
                         f"Processing: @{tweet.user.screen_name} - {tweet.id_str} in {ctx.guild.name}"
                     )
-                    await self.manage_twt(tweet, guild_id=ctx.guild.id)
+                    async with self.bot.Session() as session:
+                        await self.manage_twt(tweet, session, guild_id=ctx.guild.id)
 
     @twitter.group(
         name="configure",
@@ -482,27 +484,25 @@ class Twitter(CustomCog, AinitMixin):
         filter_embed.add_field(name="Server Tweet Filters", value=value_string)
         await ctx.send(embed=filter_embed)
 
-    async def manage_twt(self, tweet, guild_id=None):
-        async with self.bot.Session() as session:
-            tags_list = [tag.text for tag in tweet.entities.hashtags]
-            if tags_list:
-                if guild_id:
-                    server_list_accs = [guild_id]
-                else:
-                    server_list_accs = await db.get_twitter_accounts(
-                        session, account_id=tweet.user.id_str
-                    )
-                    server_list_accs = [server._guild for server in server_list_accs]
-                tweet_text = tweet.full_text if "full_text" in tweet else tweet.text
-                server_list = await self.get_servers(
-                    session, server_list_accs, tweet_text
+    async def manage_twt(self, tweet, session, guild_id=None):
+        # async with self.bot.Session() as session:
+        tags_list = [tag.text for tag in tweet.entities.hashtags]
+        if tags_list:
+            if guild_id:
+                server_list_accs = [guild_id]
+            else:
+                server_list_accs = await db.get_twitter_accounts(
+                    session, account_id=tweet.user.id_str
                 )
-                if server_list:
-                    channels_list = await self.get_channels(
-                        servers=server_list, tags=tags_list, session=session
-                    )
-                    tweet_txt, file_list = await self.create_post(tweet)
-                    await self.manage_post_tweet(tweet_txt, file_list, channels_list)
+                server_list_accs = [server._guild for server in server_list_accs]
+            tweet_text = tweet.full_text if "full_text" in tweet else tweet.text
+            server_list = await self.get_servers(session, server_list_accs, tweet_text)
+            if server_list:
+                channels_list = await self.get_channels(
+                    servers=server_list, tags=tags_list, session=session
+                )
+                tweet_txt, file_list = await self.create_post(tweet)
+                await self.manage_post_tweet(tweet_txt, file_list, channels_list)
 
     async def get_account(self, ctx, account):
         try:
