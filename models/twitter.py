@@ -17,7 +17,7 @@ class TwitterMixin:
 
 
 class TwtSetting(TwitterMixin, Base):
-    __tablename__ = "TwtSetting"
+    __tablename__ = "twt_settings"
 
     use_group_channel = Column(Boolean, nullable=False)
     default_channel = Column(BigInteger, nullable=False)
@@ -29,13 +29,13 @@ class TwtSetting(TwitterMixin, Base):
 
 
 class TwtAccount(TwitterMixin, Base):
-    __tablename__ = "TwtAccount"
+    __tablename__ = "twt_accounts"
 
     account_id = Column(String, primary_key=True)
 
 
 class TwtSorting(TwitterMixin, Base):
-    __tablename__ = "TwtSorting"
+    __tablename__ = "twt_sortings"
 
     hashtag = Column(String, primary_key=True)
     _channel = Column(BigInteger, nullable=False)
@@ -46,6 +46,6 @@ class TwtSorting(TwitterMixin, Base):
 
 
 class TwtFilter(TwitterMixin, Base):
-    __tablename__ = "TwtFilter"
+    __tablename__ = "twt_filters"
 
     _filter = Column(String, primary_key=True)
