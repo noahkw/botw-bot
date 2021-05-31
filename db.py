@@ -1,5 +1,5 @@
 import pendulum
-from sqlalchemy import select, delete, func, desc, distinct
+from sqlalchemy import select, delete, func, desc
 
 from models import (
     Nomination,
@@ -127,7 +127,7 @@ async def get_twitter_accounts(session, account_id=None, guild_id=None):
 
 
 async def get_twitter_accounts_distinct(session):
-    statement = select(distinct(TwtAccount.account_id))
+    statement = select(TwtAccount.account_id).distinct()
     result = (await session.execute(statement)).all()
 
     return [r for (r,) in result]
