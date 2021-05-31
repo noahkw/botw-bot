@@ -17,7 +17,8 @@ def setup(bot):
 
 
 class CardGameUtilsNotEnabled(commands.CheckFailure):
-    pass
+    def __init__(self):
+        super().__init__("Card Game Utils have not been enabled in this server.")
 
 
 def card_game_utils_enabled():
@@ -40,15 +41,6 @@ class CardGameUtils(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-
-    async def cog_command_error(self, ctx, error):
-        if hasattr(ctx.command, "on_error"):
-            return
-
-        if isinstance(error, CardGameUtilsNotEnabled):
-            await ctx.send("Card Game Utils have not been enabled in this server.")
-        else:
-            logger.exception(error)
 
     def _get_page(self, footer):
         result = re.search(self.CARD_PAGE_REGEX, footer)

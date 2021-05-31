@@ -34,11 +34,13 @@ def setup(bot):
 
 
 class BotwNotEnabled(commands.CheckFailure):
-    pass
+    def __init__(self):
+        super().__init__("BotW has not been enabled in this server.")
 
 
 class NotBotwWinner(commands.CheckFailure):
-    pass
+    def __init__(self):
+        super().__init__("Only the current BotW winner may use this command.")
 
 
 def has_winner_role():
@@ -239,17 +241,6 @@ class BiasOfTheWeek(commands.Cog):
         except discord.Forbidden:
             pass
 
-    async def cog_command_error(self, ctx, error):
-        if hasattr(ctx.command, "on_error"):
-            return
-
-        if isinstance(error, BotwNotEnabled):
-            await ctx.send("BotW has not been enabled in this server.")
-        elif isinstance(error, NotBotwWinner):
-            await ctx.send("Only the current BotW winner may use this command.")
-        else:
-            logger.exception(error)
-
     @auto_help
     @commands.group(
         name="biasoftheweek",
@@ -339,6 +330,7 @@ class BiasOfTheWeek(commands.Cog):
                     winner_changes=botw_winner_changes,
                     announcement_day=announcement_day,
                     winner_day=winner_day,
+                    enabled=True,
                 )
 
                 await session.merge(botw_settings)

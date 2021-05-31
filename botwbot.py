@@ -82,6 +82,7 @@ class BotwBot(commands.Bot):
                 commands.CommandOnCooldown,
                 commands.NotOwner,
                 commands.BotMissingPermissions,
+                commands.CheckFailure,
             ),
         ):
             await ctx.send(error)
