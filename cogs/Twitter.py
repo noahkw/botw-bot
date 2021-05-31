@@ -40,8 +40,7 @@ def setup(bot):
 def twitter_enabled():
     async def predicate(ctx):
         async with ctx.bot.Session() as session:
-            _server = await db.get_twitter_settings(session, ctx.guild.id)
-            return _server
+            return await db.get_twitter_settings(session, guild_id=ctx.guild.id)
 
     return commands.check(predicate)
 
@@ -51,10 +50,11 @@ class Twitter(CustomCog, AinitMixin):
     FILESIZE_MAX = 8 * 10 ** 6  # 8 MB
     URL_REGEX = r"(https?://)?(www.)?twitter.com/(\S+)/status/(\d+)(\?s=\d+)?"
     EVENT_DATE_REGEX = r"(\s+|^)(\d{6}|\d{8})\s+"
+    TEST_TWEET_ID = 1230927030163628032
+    KR_UTC_OFFSET = timedelta(hours=9)
 
     def __init__(self, bot):
         super().__init__(bot)
-
         self.bot = bot
         self.feed = None
         self.stream_thing = None
@@ -63,24 +63,20 @@ class Twitter(CustomCog, AinitMixin):
         self.session = aiohttp.ClientSession()
         self.keys = self.bot.config["cogs"]["twitter"]
         TwtSorting.inject_bot(self.bot)
+        TwtSetting.inject_bot(self.bot)
         super(AinitMixin).__init__()
 
     async def _ainit(self):
-        await self.bot.wait_until_ready()
+        # await self.bot.wait_until_ready()
         self.client = PeonyClient(**self.keys, loop=self.bot.loop)
-        self.gen_accounts = await self.generate_accounts()
-        logger.info(f"Loaded {len(self.gen_accounts)} twitter accounts to follow")
-        if self.gen_accounts:
-            self.stream_task = asyncio.create_task(self.streaming())
-
-    async def generate_accounts(self):
         async with self.bot.Session() as session:
-            accounts_list = await db.get_twitter_accounts(session)
+            await self.restart_stream(session)
+
+    async def generate_accounts(self, session):
+        accounts_list = await db.get_twitter_accounts(session)
         # remove duplicate accounts
         accounts_list = list(set([server.account_id for server in accounts_list]))
-        logger.info(
-            f"Generated new accounts list with {len(accounts_list)} twitter accounts to follow"
-        )
+        logger.debug(f"Generated new accounts list with {len(accounts_list)} accounts")
         return accounts_list
 
     async def streaming(self):
@@ -90,29 +86,35 @@ class Twitter(CustomCog, AinitMixin):
             self.stream_thing = stream
             async for tweet in self.stream_thing:
                 if on_tweet_with_media(tweet):
-                    logger.info(
-                        f"stream processing @{tweet.user.screen_name} - {tweet.id_str}"
+                    logger.debug(
+                        f"Processing @{tweet.user.screen_name} - {tweet.id_str}"
                     )
                     await self.manage_twt(tweet)
+
+    async def restart_stream(self, session):
+        self.gen_accounts = await self.generate_accounts(session)
+        if self.stream_task:
+            self.stream_task.cancel()
+        if self.gen_accounts:
+            logger.info(f"Started stream with {len(self.gen_accounts)} accounts")
+            self.stream_task = asyncio.create_task(self.streaming())
 
     @auto_help
     @commands.group(
         name="twitter",
         aliases=["twt"],
         brief="Automatically post twitter pics to specific channels based on tags and accounts",
-        invoke_without_command=True,
     )
     async def twitter(self, ctx):
-        await ctx.send_help(self.twitter)
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.twitter)
 
     @twitter.command(brief="Prints Twitter Stats")
     @commands.is_owner()
     async def stats(self, ctx):
         accts_followed = len(self.gen_accounts)
         time_start = time.time()
-        await self.client.api.statuses.show.get(
-            id=1230927030163628032, include_entities=False, trim_user=True
-        )
+        await self.client.api.statuses.show.get(id=self.TEST_TWEET_ID)
         time_end = time.time()
         stats_embed = discord.Embed()
         stats_embed.set_author(name="Twitter Cog Global Stats")
@@ -137,13 +139,15 @@ class Twitter(CustomCog, AinitMixin):
         `{prefix}twitter enable`
         """
         async with self.bot.Session() as session:
-            server_settings = await db.get_twitter_settings(session, ctx.guild.id)
+            server_settings = await db.get_twitter_settings(
+                session, guild_id=ctx.guild.id
+            )
             if server_settings:
-                if server_settings[0].enabled:
+                if server_settings.enabled:
                     await ctx.send(f"Twitter already enabled for {ctx.guild.name}")
                 else:
                     logger.info(f"{ctx.guild.name} re-enabled twitter")
-                    server_settings[0].enabled = True
+                    server_settings.enabled = True
             else:
                 server_settings = TwtSetting(
                     _guild=ctx.guild.id,
@@ -152,7 +156,7 @@ class Twitter(CustomCog, AinitMixin):
                     enabled=True,
                 )
                 session.add(server_settings)
-                logger.info(f"{ctx.guild.name} enabled twitter")
+                logger.info(f"{ctx.guild.name} ({ctx.guild.id}) enabled twitter")
             await session.commit()
 
     @twitter.command(brief="Disable Twitter pic posting on server")
@@ -167,8 +171,10 @@ class Twitter(CustomCog, AinitMixin):
         `{prefix}twitter enable`
         """
         async with self.bot.Session() as session:
-            server_settings = await db.get_twitter_settings(session, ctx.guild.id)
-            server_settings[0].enabled = False
+            server_settings = await db.get_twitter_settings(
+                session, guild_id=ctx.guild.id
+            )
+            server_settings.enabled = False
             logger.info(f"{ctx.guild.name} disbaled twitter")
             await session.commit()
 
@@ -184,15 +190,14 @@ class Twitter(CustomCog, AinitMixin):
         {prefix}twitter post https://twitter.com/Mias_Other_Half/status/1379979650605137928
         """
         tweet_urls = re.finditer(self.URL_REGEX, tweet_url)
-        tweet_ids = [_tweet_url.group(4) for _tweet_url in tweet_urls]
+        tweet_ids = [tweet_url_.group(4) for tweet_url_ in tweet_urls]
 
         if tweet_ids:
-            # async with self.bot.Session() as session:
             for tweet_id in tweet_ids:
                 tweet = await self.get_tweet(ctx, tweet_id)
                 if tweet:
                     logger.info(
-                        f"Processing for: @{tweet.user.screen_name} - {tweet.id_str} in {ctx.guild.name}"
+                        f"Processing: @{tweet.user.screen_name} - {tweet.id_str} in {ctx.guild.name}"
                     )
                     await self.manage_twt(tweet, guild_id=ctx.guild.id)
 
@@ -200,11 +205,11 @@ class Twitter(CustomCog, AinitMixin):
         name="configure",
         aliases=["config"],
         brief="Set server specific details, default_channel and role",
-        invoke_without_command=True,
     )
     @twitter_enabled()
     async def configure(self, ctx):
-        await ctx.send_help(self.set)
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.configure)
 
     @configure.command(
         name="default_channel",
@@ -221,20 +226,22 @@ class Twitter(CustomCog, AinitMixin):
         Leave blank to clear default channel
         """
         async with self.bot.Session() as session:
-            server_settings = await db.get_twitter_settings(session, ctx.guild.id)
-            server_settings[0].default_channel = channel.id if channel else 0
-            server_settings[0].use_group_channel = bool(channel)
+            server_settings = await db.get_twitter_settings(
+                session, guild_id=ctx.guild.id
+            )
+            server_settings.default_channel = channel.id if channel else 0
+            server_settings.use_group_channel = bool(channel)
 
             await session.commit()
 
     @twitter.group(
         name="add",
         brief="Add sorting strategies based on channels, tags, and accounts",
-        invoke_without_command=True,
     )
     @twitter_enabled()
     async def add(self, ctx):
-        await ctx.send_help(self.add)
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.add)
 
     @add.command(
         name="hashtag",
@@ -261,16 +268,19 @@ class Twitter(CustomCog, AinitMixin):
                 session, hashtag=tag_conditioned, guild_id=ctx.guild.id
             )
             if twitter_sorting:
-                # twitter_sorting[0].channel = channel.id
                 await db.delete_twitter_sorting(session, tag_conditioned, ctx.guild.id)
-                logger.info(f"{ctx.guild.name} updated {tag_conditioned} to #{channel}")
+                logger.debug(
+                    f"{ctx.guild.name} updated {tag_conditioned} to #{channel}"
+                )
                 await ctx.send(f"#{tag_conditioned} channel updated to {channel}")
             else:
                 logger.info(f"{ctx.guild.name} added {tag_conditioned} to #{channel}")
+
             twitter_sorting = TwtSorting(
                 _guild=ctx.guild.id, hashtag=tag_conditioned, _channel=channel.id
             )
             session.add(twitter_sorting)
+
             await session.commit()
 
     @add.command(
@@ -280,7 +290,7 @@ class Twitter(CustomCog, AinitMixin):
     @twitter_enabled()
     @commands.has_permissions(manage_messages=True)
     @ack
-    async def add_filter(self, ctx, _filter: commands.clean_content):
+    async def add_filter(self, ctx, filter_: commands.clean_content):
         """
         Add a filter to your tweet stream, any tweets containing these filters will not be posted.
 
@@ -290,13 +300,13 @@ class Twitter(CustomCog, AinitMixin):
         async with self.bot.Session() as session:
             # check if filter already exists
             twitter_filter = await db.get_twitter_filters(
-                session, _filter=_filter, guild_id=ctx.guild.id
+                session, filter_=filter_, guild_id=ctx.guild.id
             )
             if twitter_filter:
-                await ctx.send(f'Filter "{_filter}" already exists')
+                await ctx.send(f'Filter "{filter_}" already exists')
             else:
-                twitter_filter = TwtFilter(_guild=ctx.guild.id, _filter=_filter)
-                logger.info(f"{ctx.guild.name} added filter - {_filter}")
+                twitter_filter = TwtFilter(_guild=ctx.guild.id, _filter=filter_)
+                logger.info(f"{ctx.guild.name} added filter - {filter_}")
                 session.add(twitter_filter)
                 await session.commit()
 
@@ -320,7 +330,7 @@ class Twitter(CustomCog, AinitMixin):
 
         async with self.bot.Session() as session:
             accounts_list = await db.get_twitter_accounts(
-                session, account_id=account.id_str, _guild=ctx.guild.id
+                session, account_id=account.id_str, guild_id=ctx.guild.id
             )
 
             if not accounts_list:  # check if not already followed
@@ -329,19 +339,16 @@ class Twitter(CustomCog, AinitMixin):
                 session.add(new_account)
                 await session.commit()
 
-                self.gen_accounts = await self.generate_accounts()
-                if self.stream_task:
-                    self.stream_task.cancel()
-                self.stream_task = asyncio.create_task(self.streaming())
+                await self.restart_stream(session)
 
     @twitter.group(
         name="remove",
         brief="Remove sorting strategies based on channels, tags, and accounts",
-        invoke_without_command=True,
     )
     @twitter_enabled()
     async def remove(self, ctx):
-        await ctx.send_help(self.add)
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.remove)
 
     @remove.command(
         name="hashtag",
@@ -360,7 +367,7 @@ class Twitter(CustomCog, AinitMixin):
         # in case they enter it with the hashtag character
         tag_conditioned = hashtag.split("#")[-1]
         async with self.bot.Session() as session:
-            logger.info(f"{ctx.guild.name} deleted hastag {tag_conditioned}")
+            logger.info(f"{ctx.guild.name} deleted hashtag {tag_conditioned}")
             await db.delete_twitter_sorting(session, tag_conditioned, ctx.guild.id)
             await session.commit()
 
@@ -388,11 +395,7 @@ class Twitter(CustomCog, AinitMixin):
             logger.info(f"{ctx.guild.name} removed account {account.id}")
             await db.delete_accounts(session, account.id_str, ctx.guild.id)
             await session.commit()
-
-        self.gen_accounts = await self.generate_accounts()
-        if self.stream_task:
-            self.stream_task.cancel()
-        self.stream_task = asyncio.create_task(self.streaming())
+            await self.restart_stream(session)
 
     @remove.command(
         name="filter",
@@ -418,11 +421,11 @@ class Twitter(CustomCog, AinitMixin):
     @twitter.group(
         name="show",
         brief="Show what accounts or sorting strategies currently enabled",
-        invoke_without_command=True,
     )
     @twitter_enabled()
     async def show(self, ctx):
-        await ctx.send_help(self.show)
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.show)
 
     @show.command(name="accounts", brief="List all accounts followed by this server")
     @twitter_enabled()
@@ -430,7 +433,7 @@ class Twitter(CustomCog, AinitMixin):
     async def accounts(self, ctx):
         async with self.bot.Session() as session:
             accounts_followed = await db.get_twitter_accounts(
-                session, _guild=ctx.guild.id
+                session, guild_id=ctx.guild.id
             )
         accounts_followed = [guild.account_id for guild in accounts_followed]
         accounts_embed = discord.Embed()
@@ -479,38 +482,6 @@ class Twitter(CustomCog, AinitMixin):
         filter_embed.add_field(name="Server Tweet Filters", value=value_string)
         await ctx.send(embed=filter_embed)
 
-    # @twitter.command(brief="Process the timeline of a Twitter account")
-    # @twitter_enabled()
-    # @commands.has_permissions(manage_messages=True)
-    # @ack
-    async def process(self, ctx, account):
-        """
-        Process the timeline of a twitter account to be sorted into channels
-        based on the hashtag sorting rules the server has implemented
-
-        Example usage:
-        `{prefix}twitter process thinkB329`
-
-        """
-        # TODO: FINISH THIS COMMAND SOMEDAY MAYBE
-        account_conditioned = account.split("@")[-1]
-        try:
-            await self.get_account(ctx, account=account_conditioned)
-        except TwitterAccountError:
-            return None
-
-        timeline = await self.client.api.statuses.user_timeline.get(
-            screen_name=account,
-            include_rts=False,
-            exclude_replies=True,
-            include_entities=True,
-            count=10,
-            tweet_mode="extended",
-        )
-
-        for tweet in timeline:
-            await self.manage_twt(tweet, guild_id=ctx.guild.id)
-
     async def manage_twt(self, tweet, guild_id=None):
         async with self.bot.Session() as session:
             tags_list = [tag.text for tag in tweet.entities.hashtags]
@@ -557,24 +528,23 @@ class Twitter(CustomCog, AinitMixin):
         except (peony.exceptions.StatusNotFound, peony.exceptions.HTTPNotFound):
             await ctx.send("Tweet not found")
             return None
+
         return tweet
 
     async def get_servers(self, session, server_list, tweet_txt):
-        new_server_list = []
-        for server in server_list:
-            server_filters = await db.get_twitter_filters(session, guild_id=server)
-            server_settings = await db.get_twitter_settings(session, server)
-            filter_found = False
-            if not server_settings[0].enabled:
-                filter_found = True
-            elif server_filters:
-                for _filter in server_filters:
-                    if _filter._filter in tweet_txt:
-                        filter_found = True
-                        break
-            if not filter_found:
-                new_server_list.append(server)
-        return new_server_list
+        server_set = set(server_list)
+        tweet_words = tweet_txt.split()
+        filtered_servers = await db.get_twitter_filters(
+            session, guild_list=server_list, word_list=tweet_words
+        )
+        disabled_servers = await db.get_twitter_settings(
+            session, guild_list=server_list, disabled_servers=True
+        )
+        filtered_servers = set([srv._guild for srv in filtered_servers])
+        disabled_servers = set([srv._guild for srv in disabled_servers])
+        filtered_servers = filtered_servers | disabled_servers
+
+        return list(server_set - filtered_servers)
 
     async def get_channels(self, servers, tags, session):
         servers_channels_raw = await db.get_twitter_sorting(
@@ -586,14 +556,16 @@ class Twitter(CustomCog, AinitMixin):
         for server in servers_channels_raw:
             # just one of each, so we use a set since
             # multiple hashtags can map to the same channel
-            servers_dict[server._guild].add(server._channel)
+            servers_dict[server._guild].add(server.channel)
 
         channel_list = []
         for server_id in servers_dict:
             if len(servers_dict[server_id]) > 1:
-                server_settings = await db.get_twitter_settings(session, server_id)
-                if server_settings[0].use_group_channel:
-                    channel_list.append(server_settings[0].default_channel)
+                server_settings = await db.get_twitter_settings(
+                    session, guild_id=server_id
+                )
+                if server_settings.use_group_channel:
+                    channel_list.append(server_settings.channel)
                 else:
                     channel_list.extend(servers_dict[server_id])
             else:
@@ -602,9 +574,8 @@ class Twitter(CustomCog, AinitMixin):
         return channel_list
 
     async def create_post(self, tweet, is_stream=True):
-        KR_UTC_OFFSET = timedelta(hours=9)
         tweet_date = datetime.strptime(tweet.created_at, "%a %b %d %H:%M:%S %z %Y")
-        tweet_date = (tweet_date + KR_UTC_OFFSET).strftime("%y%m%d")
+        tweet_date = (tweet_date + self.KR_UTC_OFFSET).strftime("%y%m%d")
 
         event_date = re.search(self.EVENT_DATE_REGEX, tweet.text)
         date = event_date.group(2)[-6:] if event_date else tweet_date
@@ -659,9 +630,9 @@ class Twitter(CustomCog, AinitMixin):
         await asyncio.gather(*post_list)
 
     async def post_tweet(self, post, files, channel):
-        await self.bot.get_channel(channel).send(post)
+        await channel.send(post)
         for file in files:
-            await self.bot.get_channel(channel).send(file=file)
+            await channel.send(file=file)
 
     @commands.Cog.listener("on_message")
     async def on_message(self, message):
@@ -678,16 +649,12 @@ class Twitter(CustomCog, AinitMixin):
                 async with ctx.typing():
                     for tweet_id in tweet_ids:
                         tweet = await self.get_tweet(ctx, tweet_id)
-                        if tweet:
-                            if "extended_entities" in tweet:
-                                # remove discord's default twitter embed
-                                try:
-                                    await ctx.message.edit(suppress=True)
-                                except discord.Forbidden:
-                                    pass
-                                tweet_txt, file_list = await self.create_post(
-                                    tweet, is_stream=False
-                                )
-                                await self.post_tweet(
-                                    tweet_txt, file_list, ctx.channel.id
-                                )
+                        if tweet and "extended_entities" in tweet:
+                            try:
+                                await ctx.message.edit(suppress=True)
+                            except discord.Forbidden:
+                                pass
+                            tweet_txt, file_list = await self.create_post(
+                                tweet, is_stream=False
+                            )
+                            await self.post_tweet(tweet_txt, file_list, ctx.channel)

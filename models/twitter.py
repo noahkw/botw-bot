@@ -23,6 +23,10 @@ class TwtSetting(TwitterMixin, Base):
     default_channel = Column(BigInteger, nullable=False)
     enabled = Column(Boolean, nullable=False)
 
+    @hybrid_property
+    def channel(self):
+        return self.bot.get_channel(self.default_channel)
+
 
 class TwtAccount(TwitterMixin, Base):
     __tablename__ = "TwtAccount"

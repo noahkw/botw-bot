@@ -95,22 +95,30 @@ async def get_botw_nomination(session, guild_id, member_id):
     return result[0] if result else None
 
 
-async def get_twitter_settings(session, guild_id):
-    statement = select(TwtSetting).where(TwtSetting._guild == guild_id)
-    result = (await session.execute(statement)).all()
+async def get_twitter_settings(
+    session, guild_id=None, guild_list=None, disabled_servers=False
+):
+    if guild_id:
+        statement = select(TwtSetting).where(TwtSetting._guild == guild_id)
+        result = (await session.execute(statement)).first()
+        return result[0] if result else None
+    elif guild_list and disabled_servers:
+        statement = select(TwtSetting).where(
+            TwtSetting._guild.in_(guild_list) & (not TwtSetting.enabled)
+        )
+        result = (await session.execute(statement)).all()
+        return [r for (r,) in result]
 
-    return [r for (r,) in result]
 
-
-async def get_twitter_accounts(session, account_id=None, _guild=None):
-    if _guild and account_id:
+async def get_twitter_accounts(session, account_id=None, guild_id=None):
+    if guild_id and account_id:
         statement = select(TwtAccount).where(
-            (TwtAccount.account_id == account_id) & (TwtAccount._guild == _guild)
+            (TwtAccount.account_id == account_id) & (TwtAccount._guild == guild_id)
         )
     elif account_id:
         statement = select(TwtAccount).where(TwtAccount.account_id == account_id)
-    elif _guild:
-        statement = select(TwtAccount).where(TwtAccount._guild == _guild)
+    elif guild_id:
+        statement = select(TwtAccount).where(TwtAccount._guild == guild_id)
     else:
         statement = select(TwtAccount)
     result = (await session.execute(statement)).all()
@@ -136,10 +144,16 @@ async def get_twitter_sorting(
     return [r for (r,) in result]
 
 
-async def get_twitter_filters(session, _filter=None, guild_id=None):
-    if guild_id and _filter:
+async def get_twitter_filters(
+    session, filter_=None, guild_id=None, guild_list=None, word_list=None
+):
+    if guild_id and filter_:
         statement = select(TwtFilter).where(
-            (TwtFilter._filter == _filter) & (TwtFilter._guild == guild_id)
+            (TwtFilter._filter == filter_) & (TwtFilter._guild == guild_id)
+        )
+    elif guild_list and word_list:
+        statement = select(TwtFilter).where(
+            TwtFilter._guild.in_(guild_list) & TwtFilter._filter.in_(word_list)
         )
     elif guild_id:
         statement = select(TwtFilter).where(TwtFilter._guild == guild_id)
