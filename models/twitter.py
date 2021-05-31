@@ -19,13 +19,12 @@ class TwitterMixin:
 class TwtSetting(TwitterMixin, Base):
     __tablename__ = "twt_settings"
 
-    use_group_channel = Column(Boolean, nullable=False)
-    default_channel = Column(BigInteger, nullable=False)
+    _default_channel = Column(BigInteger, nullable=False)
     enabled = Column(Boolean, nullable=False)
 
     @hybrid_property
-    def channel(self):
-        return self.bot.get_channel(self.default_channel)
+    def default_channel(self):
+        return self.bot.get_channel(self._default_channel)
 
 
 class TwtAccount(TwitterMixin, Base):

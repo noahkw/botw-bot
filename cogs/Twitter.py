@@ -197,8 +197,8 @@ class Twitter(CustomCog, AinitMixin):
                 server_settings = await db.get_twitter_settings(
                     session, guild_id=server_id
                 )
-                if server_settings.use_group_channel:
-                    channel_list.append(server_settings.channel)
+                if server_settings.default_channel:
+                    channel_list.append(server_settings.default_channel)
                 else:
                     channel_list.extend(servers_dict[server_id])
             else:
@@ -319,8 +319,7 @@ class Twitter(CustomCog, AinitMixin):
             else:
                 server_settings = TwtSetting(
                     _guild=ctx.guild.id,
-                    default_channel=0,
-                    use_group_channel=False,
+                    _default_channel=0,
                     enabled=True,
                 )
                 session.add(server_settings)
@@ -398,8 +397,7 @@ class Twitter(CustomCog, AinitMixin):
             server_settings = await db.get_twitter_settings(
                 session, guild_id=ctx.guild.id
             )
-            server_settings.default_channel = channel.id if channel else 0
-            server_settings.use_group_channel = bool(channel)
+            server_settings._default_channel = channel.id if channel else 0
 
             await session.commit()
 
@@ -595,7 +593,6 @@ class Twitter(CustomCog, AinitMixin):
             )
         accounts_followed = [guild.account_id for guild in accounts_followed]
         accounts_embed = discord.Embed()
-        user_name_list = []
         value_string = "_"
         if accounts_followed:
             user_name_list = await self.client.api.users.lookup.get(
