@@ -90,9 +90,7 @@ class Twitter(CustomCog, AinitMixin):
             self.stream_task.cancel()
 
     async def generate_accounts(self, session):
-        accounts_list = await db.get_twitter_accounts(session)
-        # remove duplicate accounts
-        accounts_list = list(set([server.account_id for server in accounts_list]))
+        accounts_list = await db.get_twitter_accounts_distinct(session)
         logger.debug(f"Generated new accounts list with {len(accounts_list)} accounts")
         return accounts_list
 
