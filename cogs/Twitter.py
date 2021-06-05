@@ -23,12 +23,6 @@ from util import auto_help, ack
 logger = logging.getLogger(__name__)
 
 
-class TwitterAccountError(Exception):
-    """Not able to use twitter account exception"""
-
-    pass
-
-
 @events.priority(-15)
 def on_tweet_with_media(data):
     """Event triggered when the data corresponds to a tweet with a media"""
@@ -148,15 +142,14 @@ class Twitter(CustomCog, AinitMixin):
     async def get_account(self, ctx, account):
         try:
             account_id = await self.client.api.users.show.get(screen_name=account)
-        except peony.exceptions.UserNotFound:
-            await ctx.send(f"User {account} not found")
-            raise TwitterAccountError
-        except (peony.exceptions.UserSuspended, peony.exceptions.AccountSuspended):
-            await ctx.send(f"User {account} is suspended")
-            raise TwitterAccountError
-        except peony.exceptions.AccountLocked:
-            await ctx.send(f"User {account} is locked")
-            raise TwitterAccountError
+        except peony.exceptions.NotFound:
+            raise commands.BadArgument(f"User `{account}` not found.")
+        except peony.exceptions.AccountSuspended:
+            raise commands.BadArgument(f"User `{account}` is suspended.")
+        except peony.exceptions.PeonyException:
+            logger.exception("Error finding account %s", account)
+            raise commands.BadArgument(f"Error finding account `{account}`.")
+
         return account_id
 
     async def get_tweet(self, ctx, tweet_id):
@@ -506,10 +499,7 @@ class Twitter(CustomCog, AinitMixin):
         """
         # in case they enter it with the @ character
         account_conditioned = account.split("@")[-1]
-        try:
-            account = await self.get_account(ctx, account=account_conditioned)
-        except TwitterAccountError:
-            return None
+        account = await self.get_account(ctx, account=account_conditioned)
 
         async with self.bot.Session() as session:
             accounts_list = await db.get_twitter_accounts(
@@ -566,10 +556,7 @@ class Twitter(CustomCog, AinitMixin):
         """
         # in case they enter it with the @ character
         account_conditioned = account.split("@")[-1]
-        try:
-            account = await self.get_account(ctx, account=account_conditioned)
-        except TwitterAccountError:
-            return None
+        account = await self.get_account(ctx, account=account_conditioned)
 
         async with self.bot.Session() as session:
             logger.info(f"{ctx.guild.name} removed account {account.id}")
