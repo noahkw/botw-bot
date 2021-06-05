@@ -431,14 +431,14 @@ class Twitter(CustomCog, AinitMixin):
     )
     @ack
     async def add_hashtag(
-        self, ctx, channel: discord.TextChannel, hashtag: commands.clean_content
+        self, ctx, hashtag: commands.clean_content, channel: discord.TextChannel
     ):
         """
         Associates a hashtag with a specific channel, more than one hashtag can be associated with any channel
 
         Example usage:
-        `{prefix}twitter add hashtag <channel> <hashtag>`
-        `{prefix}twitter add hashtag #Irene 아이린`
+        `{prefix}twitter add hashtag <hashtag> <channel> `
+        `{prefix}twitter add hashtag 아이린 #Irene`
         """
         # in case they enter it with the hashtag character
         tag_conditioned = hashtag.split("#")[-1]
