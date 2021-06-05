@@ -65,6 +65,8 @@ class Twitter(CustomCog, AinitMixin):
     EVENT_DATE_REGEX = r"(\s+|^)(\d{6}|\d{8})\s+"
     TEST_TWEET_ID = 1230927030163628032
     KR_UTC_OFFSET = timedelta(hours=9)
+    RESTART_STREAM_COOLDOWN = 300  # 5 minutes
+    AIOHTTP_RETRY_COUNT = 3
 
     def __init__(self, bot):
         super().__init__(bot)
@@ -73,6 +75,7 @@ class Twitter(CustomCog, AinitMixin):
         self.stream_thing = None
         self.client = None
         self.stream_task = None
+        self.restart_stream_task = None
         self.session = aiohttp.ClientSession()
         self.keys = self.bot.config["cogs"]["twitter"]
         TwtSorting.inject_bot(self.bot)
@@ -80,10 +83,11 @@ class Twitter(CustomCog, AinitMixin):
         super(AinitMixin).__init__()
 
     async def _ainit(self):
-        # await self.bot.wait_until_ready()
         self.client = PeonyClient(**self.keys, loop=self.bot.loop)
         async with self.bot.Session() as session:
-            await self.restart_stream(session)
+            self.restart_stream_task = asyncio.create_task(
+                self.restart_stream_sub(session, 0)
+            )
 
     def cog_unload(self):
         if self.stream_task:
@@ -108,6 +112,13 @@ class Twitter(CustomCog, AinitMixin):
                         await self.manage_twt(tweet, session)
 
     async def restart_stream(self, session):
+        if self.restart_stream_task.done():
+            self.restart_stream_task = asyncio.create_task(
+                self.restart_stream_sub(session, self.RESTART_STREAM_COOLDOWN)
+            )
+
+    async def restart_stream_sub(self, session, wait_time):
+        await asyncio.sleep(wait_time)
         self.gen_accounts = await self.generate_accounts(session)
         if self.stream_task:
             self.stream_task.cancel()
@@ -116,7 +127,6 @@ class Twitter(CustomCog, AinitMixin):
             self.stream_task = asyncio.create_task(self.streaming())
 
     async def manage_twt(self, tweet, session, guild_id=None):
-        # async with self.bot.Session() as session:
         tags_list = [tag.text for tag in tweet.entities.hashtags]
         if tags_list:
             if guild_id:
@@ -241,18 +251,31 @@ class Twitter(CustomCog, AinitMixin):
                 post += f"\n{video_url}"
 
         else:
+            file_name_list = []
+            download_tasks = []
             for image in tweet.extended_entities.media:
-                img_url_orig = f"{image.media_url}:orig"
-                img_filename = image["media_url"].split("/")[-1]
-
-                async with self.session.get(img_url_orig) as response:
-                    img_bytes = BytesIO(await response.read())
-
-                file_list.append(File(img_bytes, filename=img_filename))
+                img_url_orig = f"{image.media_url}?name=orig"
+                file_name_list.append(image["media_url"].split("/")[-1])
+                download_tasks.append(self.download_pic(img_url_orig))
 
                 post += f"\n<{img_url_orig}>"
 
+            pic_bits = await asyncio.gather(*download_tasks)
+
+            for img, name in zip(pic_bits, file_name_list):
+                if pic_bits:
+                    file_list.append(File(img, filename=name))
+
         return post, file_list
+
+    async def download_pic(self, url, count=0):
+        if count == self.AIOHTTP_RETRY_COUNT:
+            return None
+        try:
+            async with self.session.get(url) as response:
+                return BytesIO(await response.read())
+        except aiohttp.client_exceptions.ClientPayloadError:
+            return await self.download_pic(url, count=count + 1)
 
     async def manage_post_tweet(self, post, files, channels):
         post_list = []
