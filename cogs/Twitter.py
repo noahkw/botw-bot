@@ -142,10 +142,12 @@ class Twitter(CustomCog, AinitMixin):
     async def get_account(self, ctx, account):
         try:
             account_id = await self.client.api.users.show.get(screen_name=account)
-        except peony.exceptions.NotFound:
+        except peony.exceptions.UserNotFound:
             raise commands.BadArgument(f"User `{account}` not found.")
-        except peony.exceptions.AccountSuspended:
+        except (peony.exceptions.UserSuspended, peony.exceptions.AccountSuspended):
             raise commands.BadArgument(f"User `{account}` is suspended.")
+        except peony.exceptions.AccountLocked:
+            raise commands.BadArgument(f"User `{account}` is locked.")
         except peony.exceptions.PeonyException:
             logger.exception("Error finding account %s", account)
             raise commands.BadArgument(f"Error finding account `{account}`.")
