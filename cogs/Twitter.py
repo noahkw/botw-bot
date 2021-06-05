@@ -15,7 +15,7 @@ from peony import PeonyClient, events
 
 import db
 from cogs import CustomCog, AinitMixin
-from const import INSPECT_EMOJI
+from const import INSPECT_EMOJI, CHECK_EMOJI, CROSS_EMOJI
 from menu import SimpleConfirm
 from models import TwtSetting, TwtAccount, TwtSorting, TwtFilter
 from util import auto_help, ack
@@ -491,30 +491,58 @@ class Twitter(CustomCog, AinitMixin):
                 await session.commit()
 
     @add.command(name="account", brief="Add a twitter account for the server to follow")
-    @ack
-    async def add_account(self, ctx, account: commands.clean_content):
+    async def add_account(self, ctx, *accounts: commands.clean_content):
         """
-        Adds a twitter account for a server to follow, to be sorted by associated tags into channels
+        Adds one or multiple twitter accounts for a server to follow, to be sorted by associated tags into channels.
 
         Example usage:
         `{prefix}twitter add account thinkB329`
+        `{prefix}twitter add account less_than_333 justcuz810`
         """
         # in case they enter it with the @ character
-        account_conditioned = account.split("@")[-1]
-        account = await self.get_account(ctx, account=account_conditioned)
+        accounts_conditioned = [account.split("@")[-1].lower() for account in accounts]
+        accounts = await self.client.api.users.lookup.get(
+            screen_name=accounts_conditioned
+        )
+
+        accounts_found = [account.screen_name.lower() for account in accounts]
+        accounts_not_found = list(set(accounts_conditioned) - set(accounts_found))
 
         async with self.bot.Session() as session:
-            accounts_list = await db.get_twitter_accounts(
-                session, account_id=account.id_str, guild_id=ctx.guild.id
+            followed_account_ids = set(
+                account.account_id
+                for account in await db.get_twitter_accounts(
+                    session, guild_id=ctx.guild.id
+                )
+            )
+            session.add_all(
+                [
+                    TwtAccount(_guild=ctx.guild.id, account_id=account.id_str)
+                    for account in accounts
+                    if account.id_str not in followed_account_ids
+                ]
             )
 
-            if not accounts_list:  # check if not already followed
-                logger.info(f"{ctx.guild.name} added account {account.screen_name}")
-                new_account = TwtAccount(_guild=ctx.guild.id, account_id=account.id_str)
-                session.add(new_account)
-                await session.commit()
+            await session.commit()
 
-                await self.restart_stream(session)
+        logger.info(
+            "%s (%d) added account(s) %s", ctx.guild.name, ctx.guild.id, accounts_found
+        )
+
+        embed = discord.Embed(title="Followed Accounts")
+        if len(accounts_found) > 0:
+            embed.add_field(
+                name=f"Successfully followed {CHECK_EMOJI}",
+                value="\n".join(accounts_found),
+            )
+        if len(accounts_not_found) > 0:
+            embed.add_field(
+                name=f"Not found {CROSS_EMOJI}", value="\n".join(accounts_not_found)
+            )
+
+        await ctx.send(embed=embed)
+
+        await self.restart_stream(session)
 
     @twitter.group(
         name="remove",
