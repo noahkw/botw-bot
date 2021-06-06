@@ -621,7 +621,7 @@ class Twitter(CustomCog, AinitMixin):
         brief="Remove a word filter to skip posting tweets",
     )
     @ack
-    async def remove_filter(self, ctx, _filter: commands.clean_content):
+    async def remove_filter(self, ctx, filter_: commands.clean_content):
         """
         Remove a filter to your tweet stream, any tweets containing these filters will not be posted.
 
@@ -630,9 +630,11 @@ class Twitter(CustomCog, AinitMixin):
         """
         async with self.bot.Session() as session:
             await db.delete_twitter_filters(
-                session, _filter=_filter, guild_id=ctx.guild.id
+                session, _filter=filter_, guild_id=ctx.guild.id
             )
-            logger.info(f"{ctx.guild.name} removed filter - {_filter}")
+            logger.info(
+                "%s (%d) removed filter - %s", ctx.guild.name, ctx.guild.id, filter_
+            )
             await session.commit()
 
     @twitter.group(
@@ -651,6 +653,12 @@ class Twitter(CustomCog, AinitMixin):
             accounts_followed = await db.get_twitter_accounts(
                 session, guild_id=ctx.guild.id
             )
+
+        if len(accounts_followed) == 0:
+            raise commands.BadArgument(
+                f"Follow some accounts first: `{ctx.prefix}help twt add account`"
+            )
+
         accounts_followed = [guild.account_id for guild in accounts_followed]
         accounts_embed = discord.Embed()
         value_string = "_"
@@ -673,6 +681,12 @@ class Twitter(CustomCog, AinitMixin):
     async def show_hashtags(self, ctx):
         async with self.bot.Session() as session:
             channels_list = await db.get_twitter_sorting(session, guild_id=ctx.guild.id)
+
+        if len(channels_list) == 0:
+            raise commands.BadArgument(
+                f"Add some hashtags first: `{ctx.prefix}help twt add hashtag`"
+            )
+
         hashtag_embed = discord.Embed()
         value_strings = [
             f"#{server.hashtag} - {server.channel.mention}" for server in channels_list
@@ -680,17 +694,23 @@ class Twitter(CustomCog, AinitMixin):
         hashtag_embed.add_field(
             name="Hashtag to Channel Map", value=" \n".join(value_strings)
         )
-        await ctx.send(embed=hashtag_embed)
 
     @show.command(name="filters", brief="List all tweet filters for this server")
     async def show_filters(self, ctx):
         async with self.bot.Session() as session:
-            filter_list = await db.get_twitter_filters(session, guild_id=ctx.guild.id)
+            filters_list = await db.get_twitter_filters(session, guild_id=ctx.guild.id)
+
+        if len(filters_list) == 0:
+            raise commands.BadArgument(
+                f"Add some filters first: `{ctx.prefix}help twt add filter`"
+            )
+
         filter_embed = discord.Embed()
         value_string = "_"
-        if filter_list:
-            value_string = ", ".join([_filter._filter for _filter in filter_list])
+        if filters_list:
+            value_string = ", ".join([filter_._filter for filter_ in filters_list])
         filter_embed.add_field(name="Server Tweet Filters", value=value_string)
+
         await ctx.send(embed=filter_embed)
 
     @commands.Cog.listener("on_message")
