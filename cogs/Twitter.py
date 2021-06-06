@@ -93,7 +93,7 @@ class Twitter(CustomCog, AinitMixin):
         asyncio.create_task(self.session.close())
 
     async def generate_accounts(self, session):
-        accounts_list = await db.get_twitter_accounts_distinct(session)
+        accounts_list = set(await db.get_twitter_accounts_distinct(session))
         logger.debug("Generated new accounts list with %d accounts", len(accounts_list))
         return accounts_list
 
@@ -103,12 +103,18 @@ class Twitter(CustomCog, AinitMixin):
         async with self.feed as stream:
             self.stream_thing = stream
             async for tweet in self.stream_thing:
-                if on_tweet_with_media(tweet):
+                if (
+                    on_tweet_with_media(tweet)
+                    and tweet.user.id_str in self.gen_accounts
+                ):
                     logger.info(
                         "Processing @%s - %s", tweet.user.screen_name, tweet.id_str
                     )
                     async with self.bot.Session() as session:
-                        await self.manage_twt(tweet, session)
+                        try:
+                            await self.manage_twt(tweet, session)
+                        except Exception:
+                            logger.exception("Error processing tweet")
 
     async def restart_stream(self):
         if self.restart_stream_task.done():
