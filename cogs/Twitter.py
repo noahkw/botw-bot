@@ -62,7 +62,7 @@ class Twitter(CustomCog, AinitMixin):
     EVENT_DATE_REGEX = r"(\s+|^)(\d{6}|\d{8})\s+"
     TEST_TWEET_ID = 1230927030163628032
     KR_UTC_OFFSET = timedelta(hours=9)
-    RESTART_STREAM_COOLDOWN = 300  # 5 minutes
+    RESTART_STREAM_COOLDOWN = 2 * 60  # 2 minutes
     AIOHTTP_RETRY_COUNT = 3
 
     def __init__(self, bot):
@@ -87,6 +87,11 @@ class Twitter(CustomCog, AinitMixin):
         if self.stream_task:
             self.stream_task.cancel()
 
+        if self.restart_stream_task:
+            self.restart_stream_task.cancel()
+
+        asyncio.create_task(self.session.close())
+
     async def generate_accounts(self, session):
         accounts_list = await db.get_twitter_accounts_distinct(session)
         logger.debug("Generated new accounts list with %d accounts", len(accounts_list))
@@ -99,7 +104,7 @@ class Twitter(CustomCog, AinitMixin):
             self.stream_thing = stream
             async for tweet in self.stream_thing:
                 if on_tweet_with_media(tweet):
-                    logger.debug(
+                    logger.info(
                         "Processing @%s - %s", tweet.user.screen_name, tweet.id_str
                     )
                     async with self.bot.Session() as session:
@@ -514,9 +519,14 @@ class Twitter(CustomCog, AinitMixin):
         """
         # in case they enter it with the @ character
         accounts_conditioned = [account.split("@")[-1].lower() for account in accounts]
-        accounts = await self.client.api.users.lookup.get(
-            screen_name=accounts_conditioned
-        )
+        try:
+            accounts = await self.client.api.users.lookup.get(
+                screen_name=accounts_conditioned
+            )
+        except peony.exceptions.NoUserMatchesQuery:
+            raise commands.BadArgument(
+                "Could find no matches for the specified accounts."
+            )
 
         accounts_found = [account.screen_name.lower() for account in accounts]
         accounts_not_found = list(set(accounts_conditioned) - set(accounts_found))
