@@ -76,6 +76,20 @@ class CommandUsageListSource(menus.ListPageSource):
         return embed
 
 
+class TwitterListSource(menus.ListPageSource):
+    def __init__(self, data, name, per_page=10):
+        super().__init__(data, per_page=per_page)
+        self.name = name
+
+    async def format_page(self, menu, entries):
+        embed = Embed()
+        embed.add_field(
+            name=f"{self.name} - Page {menu.current_page + 1} / {self.get_max_pages()}",
+            value="\n".join(entries),
+        )
+        return embed
+
+
 class TagListSource(menus.ListPageSource):
     def __init__(self, data, per_page=10):
         super().__init__(data, per_page=per_page)

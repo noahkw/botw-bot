@@ -20,6 +20,9 @@ from menu import SimpleConfirm
 from models import TwtSetting, TwtAccount, TwtSorting, TwtFilter
 from util import auto_help, ack
 
+from discord.ext.menus import MenuPages
+from menu import TwitterListSource
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,10 +81,7 @@ class Twitter(CustomCog, AinitMixin):
 
     async def _ainit(self):
         self.client = PeonyClient(**self.keys, loop=self.bot.loop)
-        async with self.bot.Session() as session:
-            self.restart_stream_task = asyncio.create_task(
-                self.restart_stream_sub(session, 0)
-            )
+        self.restart_stream_task = asyncio.create_task(self.restart_stream_sub())
 
     def cog_unload(self):
         if self.stream_task:
@@ -105,20 +105,21 @@ class Twitter(CustomCog, AinitMixin):
                     async with self.bot.Session() as session:
                         await self.manage_twt(tweet, session)
 
-    async def restart_stream(self, session):
+    async def restart_stream(self):
         if self.restart_stream_task.done():
             self.restart_stream_task = asyncio.create_task(
-                self.restart_stream_sub(session, self.RESTART_STREAM_COOLDOWN)
+                self.restart_stream_sub(wait_time=self.RESTART_STREAM_COOLDOWN)
             )
 
-    async def restart_stream_sub(self, session, wait_time):
+    async def restart_stream_sub(self, wait_time=0):
         await asyncio.sleep(wait_time)
-        self.gen_accounts = await self.generate_accounts(session)
-        if self.stream_task:
-            self.stream_task.cancel()
-        if self.gen_accounts:
-            logger.info("Started stream with %d accounts", len(self.gen_accounts))
-            self.stream_task = asyncio.create_task(self.streaming())
+        async with self.bot.Session() as session:
+            self.gen_accounts = await self.generate_accounts(session)
+            if self.stream_task:
+                self.stream_task.cancel()
+            if self.gen_accounts:
+                logger.info("Started stream with %d accounts", len(self.gen_accounts))
+                self.stream_task = asyncio.create_task(self.streaming())
 
     async def manage_twt(self, tweet, session, guild_id=None):
         tags_list = [tag.text for tag in tweet.entities.hashtags]
@@ -496,7 +497,7 @@ class Twitter(CustomCog, AinitMixin):
                 await ctx.send(f'Filter "{filter_}" already exists')
             else:
                 twitter_filter = TwtFilter(_guild=ctx.guild.id, _filter=filter_)
-                logger.info(
+                logger.debug(
                     "%s (%d) added filter - %s", ctx.guild.name, ctx.guild.id, filter_
                 )
                 session.add(twitter_filter)
@@ -554,7 +555,7 @@ class Twitter(CustomCog, AinitMixin):
 
         await ctx.send(embed=embed)
 
-        await self.restart_stream(session)
+        await self.restart_stream()
 
     @twitter.group(
         name="remove",
@@ -610,11 +611,11 @@ class Twitter(CustomCog, AinitMixin):
                 "%s (%d) removed account %s",
                 ctx.guild.name,
                 ctx.guild.id,
-                account.account_id,
+                account.id_str,
             )
             await db.delete_accounts(session, account.id_str, ctx.guild.id)
             await session.commit()
-            await self.restart_stream(session)
+            await self.restart_stream()
 
     @remove.command(
         name="filter",
@@ -660,20 +661,18 @@ class Twitter(CustomCog, AinitMixin):
             )
 
         accounts_followed = [guild.account_id for guild in accounts_followed]
-        accounts_embed = discord.Embed()
-        value_string = "_"
-        if accounts_followed:
-            user_name_list = await self.client.api.users.lookup.get(
-                user_id=accounts_followed
-            )
-            value_string = " \n".join(
-                f"@{account.screen_name} - {account.name}" for account in user_name_list
-            )
-        accounts_embed.add_field(
-            name="Accounts Followed",
-            value=value_string,
+        user_name_list = await self.client.api.users.lookup.get(
+            user_id=accounts_followed
         )
-        await ctx.send(embed=accounts_embed)
+        value_strings = [
+            f"@{account.screen_name} - {account.name}" for account in user_name_list
+        ]
+        accounts_pages = MenuPages(
+            source=TwitterListSource(value_strings, "Accounts Followed"),
+            clear_reactions_after=True,
+        )
+
+        await accounts_pages.start(ctx)
 
     @show.command(
         name="hashtags", brief="List all hashtags and channels for this server"
@@ -687,13 +686,15 @@ class Twitter(CustomCog, AinitMixin):
                 f"Add some hashtags first: `{ctx.prefix}help twt add hashtag`"
             )
 
-        hashtag_embed = discord.Embed()
         value_strings = [
             f"#{server.hashtag} - {server.channel.mention}" for server in channels_list
         ]
-        hashtag_embed.add_field(
-            name="Hashtag to Channel Map", value=" \n".join(value_strings)
+        hash_pages = MenuPages(
+            source=TwitterListSource(value_strings, "Hashtag to Channel Map"),
+            clear_reactions_after=True,
         )
+
+        await hash_pages.start(ctx)
 
     @show.command(name="filters", brief="List all tweet filters for this server")
     async def show_filters(self, ctx):
@@ -705,13 +706,13 @@ class Twitter(CustomCog, AinitMixin):
                 f"Add some filters first: `{ctx.prefix}help twt add filter`"
             )
 
-        filter_embed = discord.Embed()
-        value_string = "_"
-        if filters_list:
-            value_string = ", ".join([filter_._filter for filter_ in filters_list])
-        filter_embed.add_field(name="Server Tweet Filters", value=value_string)
+        value_strings = [filter_._filter for filter_ in filters_list]
+        accounts_pages = MenuPages(
+            source=TwitterListSource(value_strings, "Server Tweet Filters"),
+            clear_reactions_after=True,
+        )
 
-        await ctx.send(embed=filter_embed)
+        await accounts_pages.start(ctx)
 
     @commands.Cog.listener("on_message")
     async def on_message(self, message):
