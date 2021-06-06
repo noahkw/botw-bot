@@ -393,7 +393,7 @@ class Twitter(CustomCog, AinitMixin):
             for tweet_id in tweet_ids:
                 tweet = await self.get_tweet(ctx, tweet_id)
                 if tweet:
-                    logger.debug(
+                    logger.info(
                         "Processing: @%s - %s in %s (%d)",
                         tweet.user.screen_name,
                         tweet.id_str,

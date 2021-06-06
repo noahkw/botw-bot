@@ -108,6 +108,8 @@ async def get_twitter_settings(
         )
         result = (await session.execute(statement)).all()
         return [r for (r,) in result]
+    else:
+        raise TypeError("Passed an invalid combination of kwargs")
 
 
 async def get_twitter_accounts(session, account_id=None, guild_id=None):
@@ -121,6 +123,7 @@ async def get_twitter_accounts(session, account_id=None, guild_id=None):
         statement = select(TwtAccount).where(TwtAccount._guild == guild_id)
     else:
         statement = select(TwtAccount)
+
     result = (await session.execute(statement)).all()
 
     return [r for (r,) in result]
@@ -146,6 +149,9 @@ async def get_twitter_sorting(
         statement = select(TwtSorting).where(
             TwtSorting._guild.in_(guild_list) & TwtSorting.hashtag.in_(tag_list)
         )
+    else:
+        raise TypeError("Passed an invalid combination of kwargs")
+
     result = (await session.execute(statement)).all()
 
     return [r for (r,) in result]
@@ -164,6 +170,9 @@ async def get_twitter_filters(
         )
     elif guild_id:
         statement = select(TwtFilter).where(TwtFilter._guild == guild_id)
+    else:
+        raise TypeError("Passed an invalid combination of kwargs")
+
     result = (await session.execute(statement)).all()
 
     return [r for (r,) in result]
@@ -190,6 +199,8 @@ async def delete_twitter_filters(session, _filter=None, guild_id=None):
         statement = delete(TwtFilter).where(
             (TwtFilter._filter == _filter) & (TwtFilter._guild == guild_id)
         )
+    else:
+        raise TypeError("Passed an invalid combination of kwargs")
 
     await session.execute(statement)
 
