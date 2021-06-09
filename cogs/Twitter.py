@@ -106,6 +106,8 @@ class Twitter(CustomCog, AinitMixin):
                 if (
                     on_tweet_with_media(tweet)
                     and tweet.user.id_str in self.gen_accounts
+                    and "quoted_status" not in tweet
+                    and "retweeted_status" not in tweet
                 ):
                     logger.info(
                         "Processing @%s - %s", tweet.user.screen_name, tweet.id_str
