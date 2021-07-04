@@ -64,6 +64,7 @@ class Twitter(CustomCog, AinitMixin):
     KR_UTC_OFFSET = timedelta(hours=9)
     RESTART_STREAM_COOLDOWN = 2 * 60  # 2 minutes
     AIOHTTP_RETRY_COUNT = 3
+    TWITTER_REQ_SIZE = 100
 
     def __init__(self, bot):
         super().__init__(bot)
@@ -679,9 +680,15 @@ class Twitter(CustomCog, AinitMixin):
             )
 
         accounts_followed = [guild.account_id for guild in accounts_followed]
-        user_name_list = await self.client.api.users.lookup.get(
-            user_id=accounts_followed
-        )
+        split_accounts_followed = [
+            accounts_followed[i : i + self.TWITTER_REQ_SIZE]
+            for i in range(0, len(accounts_followed), self.TWITTER_REQ_SIZE)
+        ]
+
+        user_name_list = []
+        for split in split_accounts_followed:
+            user_name_list += await self.client.api.users.lookup.get(user_id=split)
+
         value_strings = [
             f"@{account.screen_name} - {account.name}" for account in user_name_list
         ]
