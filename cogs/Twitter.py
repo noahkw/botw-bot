@@ -685,9 +685,11 @@ class Twitter(CustomCog, AinitMixin):
             for i in range(0, len(accounts_followed), self.TWITTER_REQ_SIZE)
         ]
 
-        user_name_list = []
+        twitter_tasks = []
         for split in split_accounts_followed:
-            user_name_list += await self.client.api.users.lookup.get(user_id=split)
+            twitter_tasks.append(self.client.api.users.lookup.get(user_id=split))
+        split_user_list = await asyncio.gather(*twitter_tasks)
+        user_name_list = [account for split in split_user_list for account in split]
 
         value_strings = [
             f"@{account.screen_name} - {account.name}" for account in user_name_list
