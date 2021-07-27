@@ -90,30 +90,33 @@ class Instagram(commands.Cog):
 
         params = {"__a": 1}
 
-        async with self.session.get(url, params=params, headers=headers) as response:
-            try:
-                data = await response.json()
-            except aiohttp.ContentTypeError:
-                raise InstagramLoginException
-            except (aiohttp.ClientError, OSError):
-                if tries > 0:
-                    retry_in = (self.MAX_RETRIES - tries + 1) * self.MAX_RETRIES
-                    logger.info(
-                        "General ClientError/OSError fetching %s, retrying in %d s",
-                        url,
-                        retry_in,
-                    )
-                    await asyncio.sleep(retry_in)
-                    return await self.get_media(url, tries=tries - 1)
-                else:
-                    raise InstagramException
+        try:
+            async with self.session.get(
+                url, params=params, headers=headers
+            ) as response:
+                try:
+                    data = await response.json()
+                except aiohttp.ContentTypeError:
+                    raise InstagramLoginException
+        except (aiohttp.ClientError, OSError):
+            if tries > 0:
+                retry_in = (self.MAX_RETRIES - tries + 1) * self.MAX_RETRIES
+                logger.info(
+                    "General ClientError/OSError fetching %s, retrying in %d s",
+                    url,
+                    retry_in,
+                )
+                await asyncio.sleep(retry_in)
+                return await self.get_media(url, tries=tries - 1)
+            else:
+                raise InstagramException
 
-            if "spam" in data:
-                raise InstagramSpamException
-            elif "graphql" not in data:
-                raise InstagramContentException
+        if "spam" in data:
+            raise InstagramSpamException
+        elif "graphql" not in data:
+            raise InstagramContentException
 
-            data = data["graphql"]["shortcode_media"]
+        data = data["graphql"]["shortcode_media"]
 
         media_type = data["__typename"]
 
