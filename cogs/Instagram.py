@@ -66,6 +66,7 @@ class Instagram(commands.Cog):
     URL_REGEX = r"https?://(www.)?instagram.com/(p|tv|reel)/(.*?)/"
     FILESIZE_MIN = 10 ** 3
     FILESIZE_MAX = 8 * 10 ** 6  # 8 MB
+    MAX_RETRIES = 3
 
     def __init__(self, bot):
         self.bot = bot
@@ -82,7 +83,7 @@ class Instagram(commands.Cog):
     def cog_unload(self):
         asyncio.create_task(self.session.close())
 
-    async def get_media(self, url):
+    async def get_media(self, url, tries=MAX_RETRIES):
         headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:67.0) Gecko/20100101 Firefox/67.0",
         }
@@ -94,6 +95,18 @@ class Instagram(commands.Cog):
                 data = await response.json()
             except aiohttp.ContentTypeError:
                 raise InstagramLoginException
+            except aiohttp.ClientError:
+                if tries > 0:
+                    retry_in = (self.MAX_RETRIES - tries + 1) * self.MAX_RETRIES
+                    logger.info(
+                        "General ClientError fetching %s, retrying in %d s",
+                        url,
+                        retry_in,
+                    )
+                    await asyncio.sleep(retry_in)
+                    return await self.get_media(url, tries=tries - 1)
+                else:
+                    raise InstagramException
 
             if "spam" in data:
                 raise InstagramSpamException
@@ -134,6 +147,10 @@ class Instagram(commands.Cog):
             await owner.send(f"Instagram broke! Msg: {ctx.message.jump_url}")
             raise commands.BadArgument(
                 "Instagram broke :poop: Bot owner has been notified."
+            )
+        except InstagramException:
+            raise commands.BadArgument(
+                "Failed fetching the Instagram post multiple times. Please try again later."
             )
 
         urls = []
