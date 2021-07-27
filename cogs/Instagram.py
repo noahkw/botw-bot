@@ -95,11 +95,11 @@ class Instagram(commands.Cog):
                 data = await response.json()
             except aiohttp.ContentTypeError:
                 raise InstagramLoginException
-            except aiohttp.ClientError:
+            except (aiohttp.ClientError, OSError):
                 if tries > 0:
                     retry_in = (self.MAX_RETRIES - tries + 1) * self.MAX_RETRIES
                     logger.info(
-                        "General ClientError fetching %s, retrying in %d s",
+                        "General ClientError/OSError fetching %s, retrying in %d s",
                         url,
                         retry_in,
                     )
