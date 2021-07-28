@@ -1,8 +1,8 @@
-FROM gorialis/discord.py:3.8.1-slim-buster-master-minimal
+FROM gorialis/discord.py:3.9-slim-buster-master-minimal
 
 WORKDIR /app
 
-COPY requirements.txt ./
-RUN poetry install
+COPY pyproject.toml poetry.lock ./
+RUN pip install poetry && poetry config virtualenvs.create false && poetry install
 
 CMD ["python", "launcher.py"]
