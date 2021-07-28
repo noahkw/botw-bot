@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "botw-bot"
+version = "0.1.0"
+description = ""
+authors = ["Noah <noah@dreckbu.de>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+"discord.py" = "^1.7.3"
+alembic = "^1.6.5"
+asyncpg = "^0.23.0"
+click = "^8.0.1"
+dateparser = "^1.0.0"
+jishaku = "^2.2.0"
+pendulum = "^2.1.2"
+Pillow = "^8.3.1"
+psycopg2-binary = "^2.9.1"
+PyYAML = "^5.4.1"
+seaborn = "^0.11.1"
+aioscheduler = {git = "https://github.com/noahkw/aioscheduler"}
+gfypy = "^1.2.4"
+peony-twitter = {git = "https://github.com/odrling/peony-twitter"}
+discord-ext-menus = {git = "https://github.com/Rapptz/discord-ext-menus"}
+SQLAlchemy = "^1.4.22"
+
+[tool.poetry.dev-dependencies]
+pre-commit = "^2.13.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
