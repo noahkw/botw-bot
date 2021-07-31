@@ -135,7 +135,7 @@ class Twitter(CustomCog, AinitMixin):
                 logger.info("Started stream with %d accounts", len(self.gen_accounts))
                 self.stream_task = asyncio.create_task(self.streaming())
 
-    async def manage_twt(self, tweet, session, guild_id=None):
+    async def manage_twt(self, tweet, session, guild_id=None, channel_id=None):
         tags_list = [tag.text for tag in tweet.entities.hashtags]
         if tags_list:
             if guild_id:
@@ -148,9 +148,12 @@ class Twitter(CustomCog, AinitMixin):
             tweet_text = tweet.full_text if "full_text" in tweet else tweet.text
             server_list = await self.get_servers(session, server_list_accs, tweet_text)
             if server_list:
-                channels_list = await self.get_channels(
-                    servers=server_list, tags=tags_list, session=session
-                )
+                if channel_id:
+                    channels_list = [channel_id]
+                else:
+                    channels_list = await self.get_channels(
+                        servers=server_list, tags=tags_list, session=session
+                    )
                 tweet_txt, file_list = await self.create_post(tweet)
                 await self.manage_post_tweet(tweet_txt, file_list, channels_list)
 
@@ -382,12 +385,20 @@ class Twitter(CustomCog, AinitMixin):
     @commands.has_permissions(manage_messages=True)
     @twitter_enabled()
     @ack
-    async def post(self, ctx, tweet_url: commands.clean_content):
+    async def post(
+        self,
+        ctx,
+        tweet_url: commands.clean_content,
+        channel: discord.TextChannel = None,
+    ):
         """
-        Will post individual tweet using sorting methods as implemented with hashtags by server
+        Will post individual tweet using sorting methods as implemented with hashtags by server,
+        or to a specific channel
 
         Example usage:
         {prefix}twitter post https://twitter.com/Mias_Other_Half/status/1379979650605137928
+        or
+        {prefix}twitter post https://twitter.com/Mias_Other_Half/status/1379979650605137928 #pics
         """
         tweet_urls = re.finditer(self.URL_REGEX, tweet_url)
         tweet_ids = [tweet_url_.group(4) for tweet_url_ in tweet_urls]
@@ -404,7 +415,9 @@ class Twitter(CustomCog, AinitMixin):
                         ctx.guild.id,
                     )
                     async with self.bot.Session() as session:
-                        await self.manage_twt(tweet, session, guild_id=ctx.guild.id)
+                        await self.manage_twt(
+                            tweet, session, guild_id=ctx.guild.id, channel_id=channel
+                        )
 
     @twitter.group(
         name="configure",
