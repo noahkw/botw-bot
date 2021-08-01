@@ -135,25 +135,19 @@ class Twitter(CustomCog, AinitMixin):
                 logger.info("Started stream with %d accounts", len(self.gen_accounts))
                 self.stream_task = asyncio.create_task(self.streaming())
 
-    async def manage_twt(self, tweet, session, guild_id=None, channel_id=None):
+    async def manage_twt(self, tweet, session):
         tags_list = [tag.text for tag in tweet.entities.hashtags]
         if tags_list:
-            if guild_id:
-                server_list_accs = [guild_id]
-            else:
-                server_list_accs = await db.get_twitter_accounts(
-                    session, account_id=tweet.user.id_str
-                )
-                server_list_accs = [server._guild for server in server_list_accs]
+            server_list_accs = await db.get_twitter_accounts(
+                session, account_id=tweet.user.id_str
+            )
+            server_list_accs = [server._guild for server in server_list_accs]
             tweet_text = tweet.full_text if "full_text" in tweet else tweet.text
             server_list = await self.get_servers(session, server_list_accs, tweet_text)
             if server_list:
-                if channel_id:
-                    channels_list = [channel_id]
-                else:
-                    channels_list = await self.get_channels(
-                        servers=server_list, tags=tags_list, session=session
-                    )
+                channels_list = await self.get_channels(
+                    servers=server_list, tags=tags_list, session=session
+                )
                 tweet_txt, file_list = await self.create_post(tweet)
                 await self.manage_post_tweet(tweet_txt, file_list, channels_list)
 
@@ -414,10 +408,16 @@ class Twitter(CustomCog, AinitMixin):
                         ctx.guild.name,
                         ctx.guild.id,
                     )
-                    async with self.bot.Session() as session:
-                        await self.manage_twt(
-                            tweet, session, guild_id=ctx.guild.id, channel_id=channel
-                        )
+                    tags_list = [tag.text for tag in tweet.entities.hashtags]
+                    if channel:
+                        channels_list = [channel]
+                    else:
+                        async with self.bot.Session() as session:
+                            channels_list = await self.get_channels(
+                                servers=[ctx.guild.id], tags=tags_list, session=session
+                            )
+                    tweet_txt, file_list = await self.create_post(tweet)
+                    await self.manage_post_tweet(tweet_txt, file_list, channels_list)
 
     @twitter.group(
         name="configure",
