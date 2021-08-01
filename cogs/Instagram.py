@@ -18,7 +18,7 @@ from yarl import URL
 from cogs.Logging import log_usage
 from const import INSPECT_EMOJI
 from menu import SimpleConfirm
-from util import chunker, auto_help
+from util import chunker, auto_help, RetryingContextManager, ExceededMaximumRetries
 
 logger = logging.getLogger(__name__)
 
@@ -83,33 +83,20 @@ class Instagram(commands.Cog):
     def cog_unload(self):
         asyncio.create_task(self.session.close())
 
-    async def get_media(self, url, tries=MAX_RETRIES):
+    async def get_post(self, url):
         headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:67.0) Gecko/20100101 Firefox/67.0",
         }
 
         params = {"__a": 1}
 
-        try:
-            async with self.session.get(
-                url, params=params, headers=headers
-            ) as response:
-                try:
-                    data = await response.json()
-                except aiohttp.ContentTypeError:
-                    raise InstagramLoginException
-        except (aiohttp.ClientError, OSError):
-            if tries > 0:
-                retry_in = (self.MAX_RETRIES - tries + 1) * self.MAX_RETRIES
-                logger.info(
-                    "General ClientError/OSError fetching %s, retrying in %d s",
-                    url,
-                    retry_in,
-                )
-                await asyncio.sleep(retry_in)
-                return await self.get_media(url, tries=tries - 1)
-            else:
-                raise InstagramException
+        async with RetryingContextManager(
+            self.MAX_RETRIES, self.session.get, url, params=params, headers=headers
+        ) as response:
+            try:
+                data = await response.json()
+            except aiohttp.ContentTypeError:
+                raise InstagramLoginException
 
         if "spam" in data:
             raise InstagramSpamException
@@ -136,7 +123,7 @@ class Instagram(commands.Cog):
     @log_usage(command_name="ig_show")
     async def show_media(self, ctx, url):
         try:
-            media = await self.get_media(url)
+            media = await self.get_post(url)
         except InstagramSpamException:
             raise commands.BadArgument(
                 "We are being rate limited by Instagram. Try again later."
@@ -151,24 +138,39 @@ class Instagram(commands.Cog):
             raise commands.BadArgument(
                 "Instagram broke :poop: Bot owner has been notified."
             )
-        except InstagramException:
+        except ExceededMaximumRetries as e:
             raise commands.BadArgument(
-                "Failed fetching the Instagram post multiple times. Please try again later."
+                f"Failed fetching the Instagram post at `{e.url}` multiple ({e.tries}) times. Please try again later."
             )
 
         urls = []
         files = []
+        exceptions = []
 
-        for url in media:
-            async with self.session.get(yarl.URL(url, encoded=True)) as response:
+        async def get_media(url):
+            async with RetryingContextManager(
+                self.MAX_RETRIES, self.session.get, yarl.URL(url, encoded=True)
+            ) as response:
                 filename = basename(urlparse(url).path)
                 bytes = BytesIO(await response.read())
-
                 filesize = bytes.getbuffer().nbytes
+
                 if self.FILESIZE_MIN < filesize < self.FILESIZE_MAX:
-                    files.append(File(bytes, filename=filename))
+                    return File(bytes, filename=filename)
                 else:
-                    urls.append(url)
+                    return url
+
+        results = await asyncio.gather(
+            *[get_media(url) for url in media], return_exceptions=True
+        )
+
+        for result in results:
+            if type(result) == str:
+                urls.append(result)
+            elif type(result) == File:
+                files.append(result)
+            elif type(result) == ExceededMaximumRetries:
+                exceptions.append(result)
 
         # remove discord's default instagram embed
         try:
@@ -180,9 +182,14 @@ class Instagram(commands.Cog):
         for chunk in url_chunks:
             await ctx.send("\n".join(chunk))
 
-        file_chunks = chunker(files, 10)
-        for chunk in file_chunks:
-            await ctx.send(files=chunk)
+        for file in files:
+            await ctx.send(files=[file])
+
+        if len(exceptions) > 0:
+            await ctx.send(
+                "Could not fetch the following files:\n"
+                + "\n".join([exc.url for exc in exceptions])
+            )
 
     @auto_help
     @commands.group(
@@ -219,7 +226,12 @@ class Instagram(commands.Cog):
     @commands.Cog.listener("on_message")
     async def on_message(self, message):
         ctx = await self.bot.get_context(message)
-        if ctx.valid or not ctx.guild or message.webhook_id:
+        if (
+            ctx.valid
+            or not ctx.guild
+            or message.webhook_id
+            or ctx.author == self.bot.user
+        ):
             return
 
         results = regex.finditer(self.URL_REGEX, message.content)

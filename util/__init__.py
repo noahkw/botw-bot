@@ -27,6 +27,7 @@ from .util import (
     format_emoji,
     detail_mention,
 )
+from .retrying_context_manager import RetryingContextManager, ExceededMaximumRetries
 
 __all__ = (
     "BoolConverter",
@@ -55,4 +56,6 @@ __all__ = (
     "format_emoji",
     "EmojiConverter",
     "detail_mention",
+    "RetryingContextManager",
+    "ExceededMaximumRetries",
 )
