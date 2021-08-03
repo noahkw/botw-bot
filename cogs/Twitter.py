@@ -3,6 +3,7 @@ import copy
 import logging
 import re
 import time
+import typing
 from datetime import datetime, timedelta
 from io import BytesIO
 
@@ -11,17 +12,16 @@ import discord
 import peony
 from discord import File
 from discord.ext import commands
+from discord.ext.menus import MenuPages
 from peony import PeonyClient, events
 
 import db
 from cogs import CustomCog, AinitMixin
 from const import INSPECT_EMOJI, CHECK_EMOJI, CROSS_EMOJI
 from menu import SimpleConfirm
-from models import TwtSetting, TwtAccount, TwtSorting, TwtFilter
-from util import auto_help, ack
-
-from discord.ext.menus import MenuPages
 from menu import TwitterListSource
+from models import TwtSetting, TwtAccount, TwtSorting, TwtFilter
+from util import auto_help, ack, RetryingContextManager, ExceededMaximumRetries
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class Twitter(CustomCog, AinitMixin):
     TEST_TWEET_ID = 1230927030163628032
     KR_UTC_OFFSET = timedelta(hours=9)
     RESTART_STREAM_COOLDOWN = 2 * 60  # 2 minutes
-    AIOHTTP_RETRY_COUNT = 3
+    MAX_RETRIES = 3
     TWITTER_REQ_SIZE = 100
 
     def __init__(self, bot):
@@ -229,7 +229,7 @@ class Twitter(CustomCog, AinitMixin):
         date = event_date.group(2)[-6:] if event_date else tweet_date
 
         username = tweet.user.screen_name
-        file_list = []
+        files = []
 
         post_format = "`{0} - cr: @{1}`\n<https://twitter.com/{1}/status/{2}>"
         if is_stream:
@@ -247,42 +247,53 @@ class Twitter(CustomCog, AinitMixin):
             video_url = max(bitrate_and_urls, key=lambda x: x[0])[1]
             video_filename = video_url.split("/")[-1].split("?")[0]
 
-            async with self.session.get(video_url) as response:
-                video_bytes = BytesIO(await response.read())
+            try:
+                async with RetryingContextManager(
+                    self.MAX_RETRIES, self.session.get, video_url
+                ) as response:
+                    video_bytes = BytesIO(await response.read())
 
-            video_size = video_bytes.getbuffer().nbytes
-            if video_size < self.FILESIZE_MAX:
-                post += f"\n<{video_url}>"
-                file_list.append(File(video_bytes, filename=video_filename))
-            else:
+                    if video_bytes.getbuffer().nbytes < self.FILESIZE_MAX:
+                        files.append(File(video_bytes, filename=video_filename))
+                        post += f"\n<{video_url}>"
+                    else:
+                        post += f"\n{video_url}"
+            except ExceededMaximumRetries as e:
+                logger.info(
+                    "Unable to download video '%s' after %d retries", e.url, e.tries
+                )
                 post += f"\n{video_url}"
 
         else:
-            file_name_list = []
-            download_tasks = []
-            for image in tweet.extended_entities.media:
-                img_url_orig = f"{image.media_url}?name=orig"
-                file_name_list.append(image["media_url"].split("/")[-1])
-                download_tasks.append(self.download_pic(img_url_orig))
+            download_results = await asyncio.gather(
+                *[
+                    self.download_pic(
+                        image.media_url.split("/")[-1], image.media_url + "?name=orig"
+                    )
+                    for image in tweet.extended_entities.media
+                ]
+            )
 
-                post += f"\n<{img_url_orig}>"
+            pic_files, pic_urls = zip(*download_results)
 
-            pic_bits = await asyncio.gather(*download_tasks)
+            post += "\n".join(pic_urls)
+            files.extend(file for file in pic_files if file is not None)
 
-            for img, name in zip(pic_bits, file_name_list):
-                if pic_bits:
-                    file_list.append(File(img, filename=name))
+        return post, files
 
-        return post, file_list
-
-    async def download_pic(self, url, count=0):
-        if count == self.AIOHTTP_RETRY_COUNT:
-            return None
+    async def download_pic(
+        self, filename: str, url: str
+    ) -> tuple[typing.Optional[discord.File], str]:
         try:
-            async with self.session.get(url) as response:
-                return BytesIO(await response.read())
-        except aiohttp.client_exceptions.ClientPayloadError:
-            return await self.download_pic(url, count=count + 1)
+            async with RetryingContextManager(
+                self.MAX_RETRIES, self.session.get, url
+            ) as response:
+                return File(BytesIO(await response.read()), filename), f"<{url}>"
+        except ExceededMaximumRetries as e:
+            logger.info(
+                "Unable to download picture '%s' after %d retries", e.url, e.tries
+            )
+            return None, url
 
     async def manage_post_tweet(self, post, files, channels):
         post_list = []
