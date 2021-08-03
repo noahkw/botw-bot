@@ -231,7 +231,7 @@ class Twitter(CustomCog, AinitMixin):
         username = tweet.user.screen_name
         files = []
 
-        post_format = "`{0} - cr: @{1}`\n<https://twitter.com/{1}/status/{2}>"
+        post_format = "`{0} - cr: @{1}`\n<https://twitter.com/{1}/status/{2}>\n"
         if is_stream:
             post = post_format.format(date, username, tweet.id)
         else:
