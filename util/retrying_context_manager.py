@@ -21,6 +21,7 @@ class _RetryException(Exception):
 
 class RetryingSession:
     DELAY_BASE = 2
+    TIMEOUT = 10
 
     def __init__(self, max_tries, method, url, *args, **kwargs):
         self.max_tries = max_tries
@@ -39,7 +40,9 @@ class RetryingSession:
         try:
             self.context_manager = self.method(self.url, *self.args, **self.kwargs)
 
-            resp = await self.context_manager.__aenter__()
+            resp = await asyncio.wait_for(
+                self.context_manager.__aenter__(), timeout=self.TIMEOUT
+            )
 
             if resp and (resp.status < 200 or resp.status >= 300):
                 raise _RetryException
