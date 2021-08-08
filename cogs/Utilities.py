@@ -20,7 +20,7 @@ class Utilities(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.bot.version = git_version_label()
+        self.bot.version = ".".join(git_version_label().split("-")[:-1])
         self.server_invite = "https://discord.gg/3ACGRke"
 
     @commands.command(brief="Displays the bot's ping")
