@@ -17,11 +17,11 @@ from peony import PeonyClient, events
 
 import db
 from cogs import CustomCog, AinitMixin
-from const import INSPECT_EMOJI, CHECK_EMOJI, CROSS_EMOJI
+from const import UNICODE_EMOJI
 from menu import SimpleConfirm
 from menu import TwitterListSource
 from models import TwtSetting, TwtAccount, TwtSorting, TwtFilter
-from util import auto_help, ack, RetryingContextManager, ExceededMaximumRetries
+from util import auto_help, ack, ReactingRetryingSession, ExceededMaximumRetries
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +221,7 @@ class Twitter(CustomCog, AinitMixin):
 
         return channel_list
 
-    async def create_post(self, tweet, is_stream=True):
+    async def create_post(self, tweet, is_stream=True, message=None):
         tweet_date = datetime.strptime(tweet.created_at, "%a %b %d %H:%M:%S %z %Y")
         tweet_date = (tweet_date + self.KR_UTC_OFFSET).strftime("%y%m%d")
 
@@ -248,8 +248,12 @@ class Twitter(CustomCog, AinitMixin):
             video_filename = video_url.split("/")[-1].split("?")[0]
 
             try:
-                async with RetryingContextManager(
-                    self.MAX_RETRIES, self.session.get, video_url
+                async with ReactingRetryingSession(
+                    self.MAX_RETRIES,
+                    self.session.get,
+                    video_url,
+                    message=message,
+                    emoji=self.bot.custom_emoji["RETRY"],
                 ) as response:
                     video_bytes = BytesIO(await response.read())
 
@@ -268,7 +272,9 @@ class Twitter(CustomCog, AinitMixin):
             download_results = await asyncio.gather(
                 *[
                     self.download_pic(
-                        image.media_url.split("/")[-1], image.media_url + "?name=orig"
+                        image.media_url.split("/")[-1],
+                        image.media_url + "?name=orig",
+                        message,
                     )
                     for image in tweet.extended_entities.media
                 ]
@@ -282,11 +288,15 @@ class Twitter(CustomCog, AinitMixin):
         return post, files
 
     async def download_pic(
-        self, filename: str, url: str
+        self, filename: str, url: str, message=None
     ) -> tuple[typing.Optional[discord.File], str]:
         try:
-            async with RetryingContextManager(
-                self.MAX_RETRIES, self.session.get, url
+            async with ReactingRetryingSession(
+                self.MAX_RETRIES,
+                self.session.get,
+                url,
+                message=message,
+                emoji=self.bot.custom_emoji["RETRY"],
             ) as response:
                 return File(BytesIO(await response.read()), filename), f"<{url}>"
         except ExceededMaximumRetries as e:
@@ -588,12 +598,13 @@ class Twitter(CustomCog, AinitMixin):
         embed = discord.Embed(title="Followed Accounts")
         if len(accounts_found) > 0:
             embed.add_field(
-                name=f"Successfully followed {CHECK_EMOJI}",
+                name=f"Successfully followed {UNICODE_EMOJI['CHECK']}",
                 value="\n".join(accounts_found),
             )
         if len(accounts_not_found) > 0:
             embed.add_field(
-                name=f"Not found {CROSS_EMOJI}", value="\n".join(accounts_not_found)
+                name=f"Not found {UNICODE_EMOJI['CROSS']}",
+                value="\n".join(accounts_not_found),
             )
 
         await ctx.send(embed=embed)
@@ -775,7 +786,9 @@ class Twitter(CustomCog, AinitMixin):
         tweet_ids = [result.group(4) for result in results]
 
         if tweet_ids:
-            confirm = await SimpleConfirm(message, emoji=INSPECT_EMOJI).prompt(ctx)
+            confirm = await SimpleConfirm(
+                message, emoji=UNICODE_EMOJI["INSPECT"]
+            ).prompt(ctx)
             if confirm:
                 async with ctx.typing():
                     for tweet_id in tweet_ids:
@@ -786,6 +799,6 @@ class Twitter(CustomCog, AinitMixin):
                             except discord.Forbidden:
                                 pass
                             tweet_txt, file_list = await self.create_post(
-                                tweet, is_stream=False
+                                tweet, is_stream=False, message=message
                             )
                             await self.post_tweet(tweet_txt, file_list, ctx.channel)

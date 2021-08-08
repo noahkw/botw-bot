@@ -5,6 +5,7 @@ import discord
 from discord.ext import commands
 
 import db
+from const import CUSTOM_EMOJI
 from help_command import EmbedHelpCommand
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ class BotwBot(commands.Bot):
 
         self.prefixes = {}  # guild.id -> prefix
         self.whitelist = set()  # guild.id
+        self.custom_emoji = {}  # name -> Emoji instance
 
     async def on_ready(self):
         await self.change_presence(activity=discord.Game("with Bini"))
@@ -55,6 +57,15 @@ class BotwBot(commands.Bot):
 
                     if guild_settings.whitelisted:
                         self.whitelist.add(guild_settings._guild)
+
+        for name, emoji_name in CUSTOM_EMOJI.items():
+            emoji = discord.utils.find(lambda e: e.name == emoji_name, self.emojis)
+            if emoji is None:
+                raise ValueError(
+                    f"Could not find emoji '{emoji_name}'. Maybe the bot cannot see it?"
+                )
+
+            self.custom_emoji[name] = emoji
 
         for ext in self.config["enabled_cogs"]:
             self.load_extension(ext)

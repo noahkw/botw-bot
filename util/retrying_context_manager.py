@@ -3,7 +3,6 @@ import logging
 
 import aiohttp
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -20,7 +19,7 @@ class _RetryException(Exception):
     pass
 
 
-class RetryingContextManager:
+class RetryingSession:
     DELAY_BASE = 2
 
     def __init__(self, max_tries, method, url, *args, **kwargs):
@@ -31,6 +30,10 @@ class RetryingContextManager:
         self.kwargs = kwargs
         self.context_manager = None
         self.last_exception = None
+
+    async def on_retry(self):
+        """Override to specify behavior on the first retry attempt."""
+        pass
 
     async def _do_request(self):
         try:
@@ -51,12 +54,14 @@ class RetryingContextManager:
             try:
                 return await self._do_request()
             except _RetryException:
+                if current_try == 0 and self.on_retry is not None:
+                    asyncio.create_task(self.on_retry())
+
                 if current_try < self.max_tries - 1:
                     delay = self.DELAY_BASE ** current_try
                     logger.info(
                         "Waiting %d seconds before retrying '%s'", delay, self.url
                     )
-                    # print(f"Waiting {delay} seconds before retrying")
                     await asyncio.sleep(delay)
         else:
             if self.last_exception:
@@ -70,13 +75,27 @@ class RetryingContextManager:
         return await self.context_manager.__aexit__(exc_type, exc_val, exc_tb)
 
 
+class ReactingRetryingSession(RetryingSession):
+    def __init__(
+        self, max_tries, method, url, *args, message=None, emoji=None, **kwargs
+    ):
+        super().__init__(max_tries, method, url, *args, **kwargs)
+
+        self.message = message
+        self.emoji = emoji
+
+    async def on_retry(self):
+        if self.message is not None:
+            await self.message.add_reaction(self.emoji)
+
+
 async def _test():
     session = aiohttp.ClientSession()
     params = headers = {}
     url = "https://httpstat.us/300"
 
     try:
-        async with RetryingContextManager(
+        async with RetryingSession(
             3, session.get, url, params=params, headers=headers
         ) as response:
             data = await response.read()

@@ -7,7 +7,7 @@ import discord
 from discord.ext import commands
 
 from cogs.Logging import log_usage
-from const import CHECK_EMOJI
+from const import UNICODE_EMOJI
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ class CardGameUtils(commands.Cog):
             f"**IV** <= `{max_iv}`, **Stars** <= `{max_stars}`.\n"
             "Go through the pages and click the reaction when you are done."
         )
-        await prompt.add_reaction(CHECK_EMOJI)
+        await prompt.add_reaction(UNICODE_EMOJI["CHECK"])
 
         prev_page = ()
         cards = []

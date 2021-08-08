@@ -1,11 +1,13 @@
 # unicode emoji
-CHECK_EMOJI = "\N{White Heavy Check Mark}"
-CROSS_EMOJI = "\N{Cross Mark}"
-INSPECT_EMOJI = "\N{RIGHT-POINTING MAGNIFYING GLASS}"
-SNOOZE_EMOJI = "\N{ALARM CLOCK}"
+UNICODE_EMOJI = {
+    "CHECK": "\N{White Heavy Check Mark}",
+    "CROSS": "\N{Cross Mark}",
+    "INSPECT": "\N{RIGHT-POINTING MAGNIFYING GLASS}",
+    "SNOOZE": "\N{ALARM CLOCK}",
+}
 
 # custom emoji
-SHOUT_EMOJI = "yeeunshout"
+CUSTOM_EMOJI = {"SHOUT": "yeeunshout", "RETRY": "yeeunthonkies"}
 
 # weather emoji
 WEATHER_EMOJI = {

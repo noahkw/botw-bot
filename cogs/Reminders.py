@@ -7,12 +7,11 @@ from aioscheduler import TimedScheduler
 from dateparser import parse
 from discord.ext import commands
 from discord.ext.menus import MenuPages
-from discord.utils import find
 
 import db
 from cogs import CustomCog, AinitMixin
 from cogs.Logging import log_usage
-from const import SHOUT_EMOJI, SNOOZE_EMOJI
+from const import UNICODE_EMOJI
 from menu import ReminderListSource, SimpleConfirm
 from models import Reminder
 from util import has_passed, auto_help, safe_send
@@ -67,7 +66,6 @@ class Reminders(CustomCog, AinitMixin):
         super().__init__(bot)
         self.scheduler = TimedScheduler(prefer_utc=True)
         self.scheduler.start()
-        self.shout_emoji = find(lambda e: e.name == SHOUT_EMOJI, self.bot.emojis)
 
         Reminder.inject_bot(bot)
 
@@ -161,13 +159,13 @@ class Reminders(CustomCog, AinitMixin):
             if user and late:
                 await safe_send(
                     user,
-                    f"{self.shout_emoji} You told me to remind you some time ago. "
+                    f"{self.bot.custom_emoji['SHOUT']} You told me to remind you some time ago. "
                     f"Sorry for being late:\n{reminder.content}",
                 )
             elif user:
                 message = await safe_send(
                     user,
-                    f"{self.shout_emoji} You told me to remind you {diff} ago:\n{reminder.content}",
+                    f"{self.bot.custom_emoji['SHOUT']} You told me to remind you {diff} ago:\n{reminder.content}",
                 )
 
                 if message:
@@ -175,7 +173,7 @@ class Reminders(CustomCog, AinitMixin):
                     ctx.author = user
 
                     confirm = await SimpleConfirm(
-                        message, timeout=120.0, emoji=SNOOZE_EMOJI
+                        message, timeout=120.0, emoji=UNICODE_EMOJI["SNOOZE"]
                     ).prompt(ctx)
                     if confirm:
                         try:

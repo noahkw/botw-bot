@@ -2,10 +2,10 @@ import asyncio
 import logging
 import re
 import subprocess
+import typing
 from random import getrandbits
 
 import discord
-import typing
 from PIL import Image, ImageDraw
 
 logger = logging.getLogger(__name__)

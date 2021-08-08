@@ -8,6 +8,11 @@ from .converters import (
 from .decorators import auto_help, ack
 from .dnf_parser import DNFParser
 from .fuzzy import ratio
+from .retrying_context_manager import (
+    RetryingSession,
+    ExceededMaximumRetries,
+    ReactingRetryingSession,
+)
 from .util import (
     chunker,
     ordered_sublists,
@@ -27,7 +32,6 @@ from .util import (
     format_emoji,
     detail_mention,
 )
-from .retrying_context_manager import RetryingContextManager, ExceededMaximumRetries
 
 __all__ = (
     "BoolConverter",
@@ -56,6 +60,7 @@ __all__ = (
     "format_emoji",
     "EmojiConverter",
     "detail_mention",
-    "RetryingContextManager",
+    "RetryingSession",
     "ExceededMaximumRetries",
+    "ReactingRetryingSession",
 )

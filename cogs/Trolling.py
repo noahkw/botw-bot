@@ -2,7 +2,7 @@ import logging
 
 from discord.ext import commands
 
-from const import CROSS_EMOJI
+from const import UNICODE_EMOJI
 from util import mock_case, remove_broken_emoji
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ class Trolling(commands.Cog):
             if valid_msg_content and len(valid_msg_content) > 0:
                 await ctx.send(mock_case(valid_msg_content))
             else:
-                await ctx.message.add_reaction(CROSS_EMOJI)
+                await ctx.message.add_reaction(UNICODE_EMOJI["CROSS"])
 
     @mock.error
     async def mock_error(self, ctx, error):

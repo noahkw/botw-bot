@@ -5,9 +5,7 @@ import typing
 import discord
 from discord import Embed
 from discord.ext import commands
-from discord.utils import find
 
-from const import SHOUT_EMOJI
 from util import ack, git_version_label, git_short_history
 
 logger = logging.getLogger(__name__)
@@ -23,7 +21,6 @@ class Utilities(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.bot.version = git_version_label()
-        self.shout_emoji = find(lambda e: e.name == SHOUT_EMOJI, self.bot.emojis)
         self.server_invite = "https://discord.gg/3ACGRke"
 
     @commands.command(brief="Displays the bot's ping")
@@ -50,7 +47,7 @@ class Utilities(commands.Cog):
 
     @commands.command(brief="Repeats something in uppercase")
     async def shout(self, ctx, *, msg: commands.clean_content):
-        await ctx.send(f"{self.shout_emoji} {msg.upper()}!")
+        await ctx.send(f"{self.bot.custom_emoji['SHOUT']} {msg.upper()}!")
 
     @commands.command(brief="Shows some info about the bot")
     async def info(self, ctx):

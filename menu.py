@@ -3,7 +3,7 @@ import gfypy
 from discord import Embed
 from discord.ext import menus
 
-from const import CROSS_EMOJI, CHECK_EMOJI, NUMBER_TO_EMOJI
+from const import NUMBER_TO_EMOJI, UNICODE_EMOJI
 
 
 class Confirm(menus.Menu):
@@ -15,12 +15,12 @@ class Confirm(menus.Menu):
     async def send_initial_message(self, ctx, channel):
         return await channel.send(self.msg)
 
-    @menus.button(CHECK_EMOJI)
+    @menus.button(UNICODE_EMOJI["CHECK"])
     async def do_confirm(self, payload):
         self.result = True
         self.stop()
 
-    @menus.button(CROSS_EMOJI)
+    @menus.button(UNICODE_EMOJI["CROSS"])
     async def do_deny(self, payload):
         self.result = False
         self.stop()
@@ -31,7 +31,7 @@ class Confirm(menus.Menu):
 
 
 class SimpleConfirm(menus.Menu):
-    def __init__(self, msg, timeout=60.0, emoji=CHECK_EMOJI):
+    def __init__(self, msg, timeout=60.0, emoji=UNICODE_EMOJI["CHECK"]):
         super().__init__(timeout=timeout, clear_reactions_after=True)
         self.msg = msg
         self.result = None

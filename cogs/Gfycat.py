@@ -1,13 +1,12 @@
 import asyncio
 import logging
+import typing
 from io import BytesIO
 
 import discord
+import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
-
-import typing
 from discord.ext import commands
 from discord.ext.menus import MenuPages
 from gfypy import AsyncGfypy

@@ -2,14 +2,13 @@ import asyncio
 import logging
 import random
 from io import BytesIO
-
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 from typing import List
 
 import discord
+import matplotlib.pyplot as plt
+import pandas as pd
 import pendulum
+import seaborn as sns
 from dateparser import parse
 from discord.ext import commands, tasks
 from discord.ext.menus import MenuPages

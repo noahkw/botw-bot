@@ -16,9 +16,9 @@ from regex import regex
 from yarl import URL
 
 from cogs.Logging import log_usage
-from const import INSPECT_EMOJI
+from const import UNICODE_EMOJI
 from menu import SimpleConfirm
-from util import chunker, auto_help, RetryingContextManager, ExceededMaximumRetries
+from util import chunker, auto_help, ReactingRetryingSession, ExceededMaximumRetries
 
 logger = logging.getLogger(__name__)
 
@@ -83,15 +83,21 @@ class Instagram(commands.Cog):
     def cog_unload(self):
         asyncio.create_task(self.session.close())
 
-    async def get_post(self, url):
+    async def get_post(self, message, url):
         headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:67.0) Gecko/20100101 Firefox/67.0",
         }
 
         params = {"__a": 1}
 
-        async with RetryingContextManager(
-            self.MAX_RETRIES, self.session.get, url, params=params, headers=headers
+        async with ReactingRetryingSession(
+            self.MAX_RETRIES,
+            self.session.get,
+            url,
+            message=message,
+            emoji=self.bot.custom_emoji["RETRY"],
+            params=params,
+            headers=headers,
         ) as response:
             try:
                 data = await response.json()
@@ -123,7 +129,7 @@ class Instagram(commands.Cog):
     @log_usage(command_name="ig_show")
     async def show_media(self, ctx, url):
         try:
-            media = await self.get_post(url)
+            media = await self.get_post(ctx.message, url)
         except InstagramSpamException:
             raise commands.BadArgument(
                 "We are being rate limited by Instagram. Try again later."
@@ -148,8 +154,12 @@ class Instagram(commands.Cog):
         exceptions = []
 
         async def get_media(url):
-            async with RetryingContextManager(
-                self.MAX_RETRIES, self.session.get, yarl.URL(url, encoded=True)
+            async with ReactingRetryingSession(
+                self.MAX_RETRIES,
+                self.session.get,
+                yarl.URL(url, encoded=True),
+                message=ctx.message,
+                emoji=self.bot.custom_emoji["RETRY"],
             ) as response:
                 filename = basename(urlparse(url).path)
                 bytes = BytesIO(await response.read())
@@ -238,7 +248,9 @@ class Instagram(commands.Cog):
         urls = [result.group(0) for result in results]
 
         if len(urls) > 0:
-            confirm = await SimpleConfirm(message, emoji=INSPECT_EMOJI).prompt(ctx)
+            confirm = await SimpleConfirm(
+                message, emoji=UNICODE_EMOJI["INSPECT"]
+            ).prompt(ctx)
             if confirm:
                 async with ctx.typing():
                     for url in urls:
