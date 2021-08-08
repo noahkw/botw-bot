@@ -198,7 +198,7 @@ class Instagram(commands.Cog):
         if len(exceptions) > 0:
             await ctx.send(
                 "Could not fetch the following files:\n"
-                + "\n".join([exc.url for exc in exceptions])
+                + "\n".join([str(exc.url) for exc in exceptions])
             )
 
     @auto_help
