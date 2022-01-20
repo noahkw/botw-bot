@@ -1,3 +1,4 @@
+import abc
 import asyncio
 import json
 import logging
@@ -62,6 +63,62 @@ class OneTimeCookieJar(aiohttp.CookieJar):
         super().update_cookies(cookies, response_url)
 
 
+class InstagramExtractor:
+    @abc.abstractmethod
+    def extract_media(self, data: dict) -> list[str]:
+        pass
+
+
+class InstagramExtractorV1(InstagramExtractor):
+    def extract_media(self, data: dict) -> list[str]:
+        if "spam" in data:
+            raise InstagramSpamException
+        elif "graphql" not in data:
+            raise InstagramContentException
+
+        data = data["graphql"]["shortcode_media"]
+
+        media_type = data["__typename"]
+
+        if media_type == "GraphImage":
+            return [data["display_url"]]
+        elif media_type == "GraphVideo":
+            return [data["video_url"]]
+        else:
+            media = data["edge_sidecar_to_children"]["edges"]
+            return [
+                media["node"]["display_url"]
+                if media["node"]["__typename"] == "GraphImage"
+                else media["node"]["video_url"]
+                for media in media
+            ]
+
+
+class InstagramExtractorV2(InstagramExtractor):
+    """
+    Needed since Instagram made changes to their GraphQL API on 2021-01-19.
+    """
+
+    def extract_media(self, data: dict) -> list[str]:
+        if "spam" in data:
+            raise InstagramSpamException
+        elif not (media_items := data.get("items")) or len(media_items) < 1:
+            raise InstagramContentException
+
+        media_items = media_items[0]
+        media_items = media_items.get("carousel_media") or [media_items]
+
+        urls = []
+
+        for item in media_items:
+            versions = (
+                item.get("video_versions") or item["image_versions2"]["candidates"]
+            )
+            urls.append(versions[0]["url"])
+
+        return urls
+
+
 class Instagram(commands.Cog):
     URL_REGEX = r"https?://(www.)?instagram.com/(.*)?(p|tv|reel)/(.*?)/"
     FILESIZE_MIN = 10 ** 3
@@ -77,6 +134,8 @@ class Instagram(commands.Cog):
             cookies = json.load(f)
 
         self.session.cookie_jar.update_cookies(cookies=cookies)
+
+        self.post_extractor = InstagramExtractorV2()
 
         logger.info(f"Loaded {len(self.session.cookie_jar)} cookies")
 
@@ -104,27 +163,7 @@ class Instagram(commands.Cog):
             except aiohttp.ContentTypeError:
                 raise InstagramLoginException
 
-        if "spam" in data:
-            raise InstagramSpamException
-        elif "graphql" not in data:
-            raise InstagramContentException
-
-        data = data["graphql"]["shortcode_media"]
-
-        media_type = data["__typename"]
-
-        if media_type == "GraphImage":
-            return [data["display_url"]]
-        elif media_type == "GraphVideo":
-            return [data["video_url"]]
-        else:
-            media = data["edge_sidecar_to_children"]["edges"]
-            return [
-                media["node"]["display_url"]
-                if media["node"]["__typename"] == "GraphImage"
-                else media["node"]["video_url"]
-                for media in media
-            ]
+        return self.post_extractor.extract_media(data)
 
     @log_usage(command_name="ig_show")
     async def show_media(self, ctx, url):
