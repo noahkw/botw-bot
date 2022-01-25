@@ -59,7 +59,7 @@ def twitter_enabled():
 class Twitter(CustomCog, AinitMixin):
     FILESIZE_MAX = 8 * 10 ** 6  # 8 MB
     URL_REGEX = r"(https?://)?(www.)?twitter.com/(\S+)/status/(\d+)(\?s=\d+)?"
-    EVENT_DATE_REGEX = r"(\s+|^)(\d{6}|\d{8})\s+"
+    EVENT_DATE_REGEX = r"(\s+|^)(\d{6}|\d{8})\s*"
     TEST_TWEET_ID = 1230927030163628032
     KR_UTC_OFFSET = timedelta(hours=9)
     RESTART_STREAM_COOLDOWN = 2 * 60  # 2 minutes
