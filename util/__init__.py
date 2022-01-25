@@ -5,7 +5,7 @@ from .converters import (
     GreeterTypeConverter,
     EmojiConverter,
 )
-from .decorators import auto_help, ack
+from .decorators import auto_help, ack, Cached, LeastRecentlyUsed
 from .dnf_parser import DNFParser
 from .fuzzy import ratio
 from .retrying_context_manager import (
@@ -63,4 +63,6 @@ __all__ = (
     "RetryingSession",
     "ExceededMaximumRetries",
     "ReactingRetryingSession",
+    "Cached",
+    "LeastRecentlyUsed",
 )

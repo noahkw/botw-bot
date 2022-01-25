@@ -1,7 +1,10 @@
 import abc
 import asyncio
+import collections
+import dataclasses
 import json
 import logging
+import typing
 from io import BytesIO
 from os.path import basename
 from typing import Optional
@@ -19,7 +22,13 @@ from yarl import URL
 from cogs.Logging import log_usage
 from const import UNICODE_EMOJI
 from menu import SimpleConfirm
-from util import chunker, auto_help, ReactingRetryingSession, ExceededMaximumRetries
+from util import (
+    chunker,
+    auto_help,
+    ReactingRetryingSession,
+    ExceededMaximumRetries,
+    LeastRecentlyUsed,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -119,11 +128,22 @@ class InstagramExtractorV2(InstagramExtractor):
         return urls
 
 
+FileStub = collections.namedtuple("FileStub", "filename bytes")
+
+
+@dataclasses.dataclass
+class IGPostResult:
+    urls: list[str] = dataclasses.field(default_factory=list)
+    files: list[FileStub] = dataclasses.field(default_factory=list)
+    exceptions: list[ExceededMaximumRetries] = dataclasses.field(default_factory=list)
+
+
 class Instagram(commands.Cog):
     URL_REGEX = r"https?://(www.)?instagram.com/(.*)?(p|tv|reel)/(.*?)/"
     FILESIZE_MIN = 10 ** 3
     FILESIZE_MAX = 8 * 10 ** 6  # 8 MB
     MAX_RETRIES = 3
+    POST_CACHE_ENTRIES = 64
 
     def __init__(self, bot):
         self.bot = bot
@@ -134,15 +154,15 @@ class Instagram(commands.Cog):
             cookies = json.load(f)
 
         self.session.cookie_jar.update_cookies(cookies=cookies)
-
         self.post_extractor = InstagramExtractorV2()
+        self.post_cache = LeastRecentlyUsed(self.POST_CACHE_ENTRIES)
 
         logger.info(f"Loaded {len(self.session.cookie_jar)} cookies")
 
     def cog_unload(self):
         asyncio.create_task(self.session.close())
 
-    async def get_post(self, message, url):
+    async def get_post(self, message: discord.Message, url: str):
         headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:67.0) Gecko/20100101 Firefox/67.0",
         }
@@ -165,10 +185,14 @@ class Instagram(commands.Cog):
 
         return self.post_extractor.extract_media(data)
 
-    @log_usage(command_name="ig_show")
-    async def show_media(self, ctx, url):
+    async def get_post_and_media(
+        self, message: discord.Message, url: str
+    ) -> IGPostResult:
+        if cached := self.post_cache.get(url):
+            return cached
+
         try:
-            media = await self.get_post(ctx.message, url)
+            media = await self.get_post(message, url)
         except InstagramSpamException:
             raise commands.BadArgument(
                 "We are being rate limited by Instagram. Try again later."
@@ -179,7 +203,7 @@ class Instagram(commands.Cog):
             )
         except InstagramLoginException:
             owner = self.bot.get_user(self.bot.CREATOR_ID)
-            await owner.send(f"Instagram broke! Msg: {ctx.message.jump_url}")
+            await owner.send(f"Instagram broke! Msg: {message.jump_url}")
             raise commands.BadArgument(
                 "Instagram broke :poop: Bot owner has been notified."
             )
@@ -188,24 +212,22 @@ class Instagram(commands.Cog):
                 f"Failed fetching the Instagram post at `{e.url}` multiple ({e.tries}) times. Please try again later."
             )
 
-        urls = []
-        files = []
-        exceptions = []
+        ig_post_result = IGPostResult()
 
-        async def get_media(url):
+        async def get_media(url: str) -> typing.Union[FileStub, str]:
             async with ReactingRetryingSession(
                 self.MAX_RETRIES,
                 self.session.get,
                 yarl.URL(url, encoded=True),
-                message=ctx.message,
+                message=message,
                 emoji=self.bot.custom_emoji["RETRY"],
             ) as response:
                 filename = basename(urlparse(url).path)
-                bytes = BytesIO(await response.read())
-                filesize = bytes.getbuffer().nbytes
+                bytes = await response.read()
+                filesize = BytesIO(bytes).getbuffer().nbytes
 
                 if self.FILESIZE_MIN < filesize < self.FILESIZE_MAX:
-                    return File(bytes, filename=filename)
+                    return FileStub(filename, bytes)
                 else:
                     return url
 
@@ -213,13 +235,26 @@ class Instagram(commands.Cog):
             *[get_media(url) for url in media], return_exceptions=True
         )
 
+        dont_cache = False
+
         for result in results:
             if type(result) == str:
-                urls.append(result)
-            elif type(result) == File:
-                files.append(result)
+                ig_post_result.urls.append(result)
+                dont_cache = True
+            elif type(result) == FileStub:
+                ig_post_result.files.append(result)
             elif type(result) == ExceededMaximumRetries:
-                exceptions.append(result)
+                ig_post_result.exceptions.append(result)
+                dont_cache = True
+
+        if not dont_cache:
+            self.post_cache[url] = ig_post_result
+
+        return ig_post_result
+
+    @log_usage(command_name="ig_show")
+    async def show_media(self, ctx, url):
+        ig_post_result = await self.get_post_and_media(ctx.message, url)
 
         # remove discord's default instagram embed
         try:
@@ -227,17 +262,18 @@ class Instagram(commands.Cog):
         except discord.Forbidden:
             pass
 
-        url_chunks = chunker(urls, 5)
+        url_chunks = chunker(ig_post_result.urls, 5)
         for chunk in url_chunks:
             await ctx.send("\n".join(chunk))
 
-        for file in files:
-            await ctx.send(files=[file])
+        for file_stub in ig_post_result.files:
+            filename, bytes_ = file_stub
+            await ctx.send(files=[File(BytesIO(bytes_), filename=filename)])
 
-        if len(exceptions) > 0:
+        if len(ig_post_result.exceptions) > 0:
             await ctx.send(
                 "Could not fetch the following files:\n"
-                + "\n".join([str(exc.url) for exc in exceptions])
+                + "\n".join([str(exc.url) for exc in ig_post_result.exceptions])
             )
 
     @auto_help
