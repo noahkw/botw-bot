@@ -7,6 +7,7 @@ from discord.ext import commands
 import db
 from const import CUSTOM_EMOJI
 from help_command import EmbedHelpCommand
+from log import MessageableHandler
 
 logger = logging.getLogger(__name__)
 
@@ -70,15 +71,30 @@ class BotwBot(commands.Bot):
         for ext in self.config["enabled_cogs"]:
             self.load_extension(ext)
 
-        logger.info(f"Logged in as {self.user}. Whitelisted servers: {self.whitelist}")
+        logging_channel = self.get_channel(self.config["logging"]["channel_id"])
+        if logging_channel:
+            handler = MessageableHandler(logging_channel)
+            handler.setFormatter(
+                logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s")
+            )
+            logging.getLogger().addHandler(handler)
+        else:
+            logger.info(
+                "Logging to discord channel disabled because messageable ID (%s) invalid",
+                self.config["logging"]["channel_id"],
+            )
+
+        logger.info(
+            "Logged in as %s. Whitelisted servers: %s", self.user, self.whitelist
+        )
 
     async def on_disconnect(self):
         logger.info("disconnected")
 
     async def on_command_error(self, ctx, error):
-        if isinstance(error, commands.CommandNotFound) or hasattr(
-            ctx.command, "on_error"
-        ):
+        if isinstance(
+            error, (commands.CommandNotFound, discord.ext.menus.MenuError)
+        ) or hasattr(ctx.command, "on_error"):
             return
 
         error = getattr(error, "original", error)

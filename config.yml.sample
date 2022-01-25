@@ -2,6 +2,8 @@ discord:
   token: 'XXXXXXXXXXXXXXXXXXXXXXXX.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX'
   command_prefix: '.'
   oauth_url: 'https://discord.com/api/oauth2/authorize?client_id=XXXXXXXXXXXXXXXXXX&permissions=XXXXXXXXXX&scope=bot'
+logging:
+  channel_id: 935617688296898641
 postgres:
   connection_string: 'postgresql+asyncpg://user:pw@localhost:5432/db'
   sqlalchemy.url: 'postgresql://user:pw@localhost:5432/db' # for alembic
@@ -51,4 +53,3 @@ cogs:
     consumer_secret: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
     access_token: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
     access_token_secret: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
-
