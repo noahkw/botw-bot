@@ -6,7 +6,7 @@ from discord.ext import commands
 
 from menu import Confirm
 from models import GuildSettings
-from util import safe_send, safe_mention, detail_mention
+from util import safe_send, safe_mention, detail_mention, ack
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +43,14 @@ class Main(commands.Cog):
 
     @commands.command(brief="Request the bot for your guild")
     async def invite(self, ctx, guild_id: typing.Optional[int] = 0):
-        #await self.bot.get_user(self.bot.CREATOR_ID).send(
+        # await self.bot.get_user(self.bot.CREATOR_ID).send(
         #    f"Request to whitelist guild `{guild_id}` from {detail_mention(ctx.author)}."
-        #)
+        # )
 
-        #await ctx.send(
+        # await ctx.send(
         #    f"{ctx.author.mention}, I've relayed your request to get me added to the guild with "
         #    f"ID `{guild_id}`.\n"
-        #)
+        # )
         await ctx.send("Invites are currently disabled.")
 
     @commands.command(brief="Adds a guild to the whitelist")
@@ -111,6 +111,22 @@ class Main(commands.Cog):
             await guild.leave()
         except (discord.Forbidden, AttributeError):
             logger.info("Could not leave guild %d after un-whitelisting", guild_id)
+
+    @commands.command(brief="Sets the bot's activity")
+    @commands.is_owner()
+    @ack
+    async def activity(self, ctx, type_, *, message):
+        try:
+            activity_type = discord.ActivityType[type_.lower()]
+        except KeyError:
+            raise commands.BadArgument(
+                f"Activity type `{type_}` not supported. Try one of the following: `"
+                f"{', '.join([e.name for e in discord.ActivityType])}`."
+            )
+
+        await self.bot.change_presence(
+            activity=discord.Activity(type=activity_type, name=message)
+        )
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
