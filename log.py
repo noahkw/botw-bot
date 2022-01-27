@@ -3,7 +3,7 @@ import logging
 
 import discord
 
-from util import Cooldown
+from util import Cooldown, chunker
 
 
 class MessageableHandler(logging.Handler):
@@ -21,7 +21,10 @@ class MessageableHandler(logging.Handler):
             return
         else:
             async with self._cooldown:
-                await self._destination.send("```\n" + "\n".join(self._queue) + "```")
+                text = "\n".join(self._queue)
+                text_chunks = chunker(text, 1900)
+                for text_chunk in text_chunks:
+                    await self._destination.send(f"```\n{text_chunk}```")
                 self._queue = []
 
     def emit(self, record: logging.LogRecord) -> None:

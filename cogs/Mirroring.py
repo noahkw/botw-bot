@@ -142,6 +142,6 @@ class Mirroring(CustomCog, AinitMixin):
             await webhook.send(
                 message.clean_content,
                 username=author.name,
-                avatar_url=author.avatar_url,
+                avatar_url=author.avatar.url,
                 files=files,
             )

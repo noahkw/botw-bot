@@ -150,13 +150,35 @@ class BiasOfTheWeek(commands.Cog):
         # i.e. when the bot was started).
         now = pendulum.now("UTC")
         assign_date = now.next(botw_settings.winner_day)
-
-        await botw_settings.nominations_channel.send(
+        announcement_text = (
             f"Bias of the Week ({now.week_of_year + 1}-{now.year}): "
             f"{member if silent else member.mention}'s pick **{pick}**. "
             f"You will be assigned the role *{self.winner_role_name}* on "
             f"{assign_date.to_formatted_date_string()}."
         )
+
+        try:
+            await botw_settings.nominations_channel.send(announcement_text)
+        except discord.Forbidden:
+            try:
+                logger.warning(
+                    "No permissions to send BotW announcement in %s (%s)",
+                    botw_settings.nominations_channel,
+                    botw_settings.nominations_channel.id,
+                )
+                await member.send(
+                    "**Announcing the winner here because I have no permissions to send messages in "
+                    f"{botw_settings.nominations_channel.mention}. Maybe let an admin know.**\n"
+                    + announcement_text
+                )
+            except discord.Forbidden:
+                logger.error(
+                    "Could neither announce winner in %s (%s) nor message %s (%s). Giving up.",
+                    botw_settings.nominations_channel,
+                    botw_settings.nominations_channel.id,
+                    member,
+                    member.id,
+                )
 
         await self._add_winner(session, guild, now, pick, member)
 
@@ -742,7 +764,7 @@ class BiasOfTheWeek(commands.Cog):
                     title=f"BotW settings of {ctx.guild}",
                     description=f"Use `{ctx.prefix}botw setup` to change these.",
                 )
-                .set_thumbnail(url=ctx.guild.icon_url)
+                .set_thumbnail(url=ctx.guild.icon.url)
                 .add_field(name="Enabled", value=botw_settings.enabled)
                 .add_field(
                     name="BotW channel",

@@ -54,11 +54,11 @@ class Utilities(commands.Cog):
         embed = Embed(description=f"**Testing server**\n{self.server_invite}\n")
         # f'**Latest changes**\n{git_short_history()}') \
         embed.set_author(
-            name=f"{self.bot.user.name} Info", icon_url=self.bot.user.avatar_url
+            name=f"{self.bot.user.name} Info", icon_url=self.bot.user.avatar.url
         ).set_footer(
             text=f"Made by {self.bot.get_user(self.bot.CREATOR_ID)}. Running {self.bot.version}."
         ).set_thumbnail(
-            url=self.bot.user.avatar_url_as(static_format="png")
+            url=self.bot.user.avatar.with_format("png")
         )
 
         servers = len(ctx.bot.guilds)
@@ -88,7 +88,7 @@ class Utilities(commands.Cog):
     @commands.is_owner()
     async def changelog(self, ctx, n=5):
         embed = Embed(description=git_short_history(n)).set_author(
-            name=f"{self.bot.user.name} Changelog", icon_url=self.bot.user.avatar_url
+            name=f"{self.bot.user.name} Changelog", icon_url=self.bot.user.avatar.url
         )
 
         await ctx.send(embed=embed)

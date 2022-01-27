@@ -20,7 +20,7 @@ class Profile(Base):
     def to_embed(self):
         embed = Embed(title=f"Profile of {self.user}")
 
-        embed.set_image(url=self.user.avatar_url)
+        embed.set_image(url=self.user.avatar.url)
         embed.add_field(
             name="Joined Discord",
             value=pendulum.instance(self.user.created_at).to_cookie_string(),

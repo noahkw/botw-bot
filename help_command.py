@@ -22,7 +22,7 @@ class EmbedHelpCommand(commands.DefaultHelpCommand):
         return (
             discord.Embed(description=self.get_ending_note())
             .set_author(
-                name=f"{bot.user.name} Help{heading}", icon_url=bot.user.avatar_url
+                name=f"{bot.user.name} Help{heading}", icon_url=bot.user.avatar.url
             )
             .set_footer(
                 text=f"Made by {bot.get_user(bot.CREATOR_ID)}. Running {bot.version}."
@@ -30,7 +30,7 @@ class EmbedHelpCommand(commands.DefaultHelpCommand):
         )
 
     def format_help(self, text):
-        return text.format(prefix=self.clean_prefix)
+        return text.format(prefix=self.context.clean_prefix)
 
     async def send_cog_help(self, cog):
         name = type(cog).__name__
