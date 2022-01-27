@@ -28,6 +28,10 @@ def setup():
     )
     logger.addHandler(handler)
 
+    # disable some spammy logs
+    logging.getLogger("discord.gateway").setLevel(logging.WARN)
+    logging.getLogger("discord.client").setLevel(logging.WARN)
+
     config = load_config("config.yml")
     postgres = config["postgres"]
 

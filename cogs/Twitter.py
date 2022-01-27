@@ -110,7 +110,7 @@ class Twitter(CustomCog, AinitMixin):
                     and "quoted_status" not in tweet
                     and "retweeted_status" not in tweet
                 ):
-                    logger.info(
+                    logger.debug(
                         "Processing @%s - %s", tweet.user.screen_name, tweet.id_str
                     )
                     async with self.bot.Session() as session:
@@ -422,7 +422,7 @@ class Twitter(CustomCog, AinitMixin):
             for tweet_id in tweet_ids:
                 tweet = await self.get_tweet(ctx, tweet_id)
                 if tweet:
-                    logger.info(
+                    logger.debug(
                         "Processing: @%s - %s in %s (%d)",
                         tweet.user.screen_name,
                         tweet.id_str,
