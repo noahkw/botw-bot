@@ -89,7 +89,7 @@ class BotwBot(commands.Bot):
         )
 
     async def on_disconnect(self):
-        logger.info("disconnected")
+        logger.debug("disconnected")
 
     async def on_command_error(self, ctx, error):
         if isinstance(

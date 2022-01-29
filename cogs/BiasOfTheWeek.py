@@ -797,7 +797,7 @@ class BiasOfTheWeek(commands.Cog):
 
     @tasks.loop(hours=1.0)
     async def _loop(self):
-        logger.info("Hourly loop running")
+        logger.debug("Hourly loop running")
         now = pendulum.now("UTC")
 
         async with self.bot.Session() as session:
