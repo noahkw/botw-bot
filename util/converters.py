@@ -1,4 +1,6 @@
+import inspect
 import typing
+from abc import ABC
 from inspect import Parameter
 
 from discord.ext import commands
@@ -27,7 +29,7 @@ class GreeterTypeConverter(commands.Converter):
             raise commands.BadArgument(f"Greeter type '{argument}' does not exist")
 
 
-class AttachmentConverter(commands.Converter):
+class AttachmentConverter(commands.Converter, ABC):
     pass
 
 
@@ -81,9 +83,9 @@ class DayOfWeekConverter(commands.Converter):
 _old_transform = commands.Command.transform
 
 
-def _transform(self, ctx, param):
+def _transform(self, ctx: commands.Context, param: inspect.Parameter):
     if (
-        type(param.annotation) is type
+        type(param.annotation) is typing._ProtocolMeta
         and issubclass(param.annotation, AttachmentConverter)
         and param.default is param.empty
     ):
