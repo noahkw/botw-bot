@@ -296,7 +296,8 @@ class Instagram(commands.Cog):
         else:
             raise commands.BadArgument("Invalid Instagram URL.")
 
-        await self.show_media(ctx, url)
+        async with (await self.bot.channel_locker.get(ctx)):
+            await self.show_media(ctx, url)
 
     @instagram.command()
     @commands.is_owner()
@@ -327,12 +328,13 @@ class Instagram(commands.Cog):
                 message, emoji=UNICODE_EMOJI["INSPECT"]
             ).prompt(ctx)
             if confirm:
-                async with ctx.typing():
-                    for url in urls:
-                        try:
-                            await self.show_media(ctx, url)
-                        except commands.BadArgument as error:
-                            await ctx.send(error)
+                async with (await self.bot.channel_locker.get(message.channel)):
+                    async with ctx.typing():
+                        for url in urls:
+                            try:
+                                await self.show_media(ctx, url)
+                            except commands.BadArgument as error:
+                                await ctx.send(error)
 
     async def cog_before_invoke(self, ctx):
         await ctx.trigger_typing()

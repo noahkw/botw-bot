@@ -10,7 +10,7 @@ import db
 from const import CUSTOM_EMOJI
 from help_command import EmbedHelpCommand
 from log import MessageableHandler
-from util import safe_send
+from util import safe_send, ChannelLocker
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,8 @@ class BotwBot(commands.Bot):
         self.prefixes = {}  # guild.id -> prefix
         self.whitelist = set()  # guild.id
         self.custom_emoji = {}  # name -> Emoji instance
+
+        self.channel_locker = ChannelLocker()
 
     async def on_ready(self):
         await self.change_presence(activity=discord.Game("with Bini"))

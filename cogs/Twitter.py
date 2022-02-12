@@ -312,9 +312,10 @@ class Twitter(CustomCog, AinitMixin):
         await asyncio.gather(*post_list)
 
     async def post_tweet(self, post, files, channel):
-        await channel.send(post)
-        for file in files:
-            await channel.send(file=file)
+        async with (await self.bot.channel_locker.get(channel)):
+            await channel.send(post)
+            for file in files:
+                await channel.send(file=file)
 
     @auto_help
     @commands.group(

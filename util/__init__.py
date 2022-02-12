@@ -32,6 +32,7 @@ from .util import (
     format_emoji,
     detail_mention,
 )
+from .channel_locker import ChannelLocker
 
 __all__ = (
     "BoolConverter",
@@ -65,4 +66,5 @@ __all__ = (
     "ReactingRetryingSession",
     "Cached",
     "LeastRecentlyUsed",
+    "ChannelLocker",
 )
