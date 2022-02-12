@@ -542,14 +542,14 @@ class Twitter(CustomCog, AinitMixin):
                 session, filter_=filter_, guild_id=ctx.guild.id
             )
             if twitter_filter:
-                await ctx.send(f'Filter "{filter_}" already exists')
-            else:
-                twitter_filter = TwtFilter(_guild=ctx.guild.id, _filter=filter_)
-                logger.debug(
-                    "%s (%d) added filter - %s", ctx.guild.name, ctx.guild.id, filter_
-                )
-                session.add(twitter_filter)
-                await session.commit()
+                raise commands.BadArgument(f'Filter "{filter_}" already exists.')
+
+            twitter_filter = TwtFilter(_guild=ctx.guild.id, _filter=filter_)
+            logger.debug(
+                "%s (%d) added filter - %s", ctx.guild.name, ctx.guild.id, filter_
+            )
+            session.add(twitter_filter)
+            await session.commit()
 
     @add.command(name="account", brief="Add a twitter account for the server to follow")
     async def add_account(self, ctx, *accounts: commands.clean_content):
@@ -636,13 +636,18 @@ class Twitter(CustomCog, AinitMixin):
         # in case they enter it with the hashtag character
         tag_conditioned = hashtag.split("#")[-1]
         async with self.bot.Session() as session:
+            found_match = await db.delete_twitter_sorting(
+                session, tag_conditioned, ctx.guild.id
+            )
+            if not found_match:
+                raise commands.BadArgument(f"Could not find hashtag `{hashtag}`.")
+
             logger.info(
                 "%s (%d) deleted hashtag %s",
                 ctx.guild.name,
                 ctx.guild.id,
                 tag_conditioned,
             )
-            await db.delete_twitter_sorting(session, tag_conditioned, ctx.guild.id)
             await session.commit()
 
     @remove.command(
@@ -661,13 +666,20 @@ class Twitter(CustomCog, AinitMixin):
         account = await self.get_account(ctx, account=account_conditioned)
 
         async with self.bot.Session() as session:
+            found_match = await db.delete_accounts(
+                session, account.id_str, ctx.guild.id
+            )
+            if not found_match:
+                raise commands.BadArgument(
+                    f"Could not find account `{account_conditioned}`."
+                )
+
             logger.info(
                 "%s (%d) removed account %s",
                 ctx.guild.name,
                 ctx.guild.id,
                 account.id_str,
             )
-            await db.delete_accounts(session, account.id_str, ctx.guild.id)
             await session.commit()
             await self.restart_stream()
 
@@ -684,9 +696,12 @@ class Twitter(CustomCog, AinitMixin):
         `{prefix}twitter remove filter 프리뷰`
         """
         async with self.bot.Session() as session:
-            await db.delete_twitter_filters(
+            found_match = await db.delete_twitter_filters(
                 session, _filter=filter_, guild_id=ctx.guild.id
             )
+            if not found_match:
+                raise commands.BadArgument(f"Could not find filter `{filter_}`.")
+
             logger.info(
                 "%s (%d) removed filter - %s", ctx.guild.name, ctx.guild.id, filter_
             )

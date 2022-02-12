@@ -178,23 +178,34 @@ async def get_twitter_filters(
     return [r for (r,) in result]
 
 
-async def delete_twitter_sorting(session, hashtag, guild_id):
+async def delete_twitter_sorting(session, hashtag, guild_id) -> bool:
+    """
+    Tries to delete a TwtSorting and returns whether one was actually found and deleted.
+    """
     statement = delete(TwtSorting).where(
         (TwtSorting.hashtag == hashtag) & (TwtSorting._guild == guild_id)
     )
 
-    await session.execute(statement)
+    result = await session.execute(statement)
+    return result.rowcount > 0
 
 
-async def delete_accounts(session, account_id, guild_id):
+async def delete_accounts(session, account_id, guild_id) -> bool:
+    """
+    Tries to delete a TwtAccount and returns whether one was actually found and deleted.
+    """
     statement = delete(TwtAccount).where(
         (TwtAccount.account_id == account_id) & (TwtAccount._guild == guild_id)
     )
 
-    await session.execute(statement)
+    result = await session.execute(statement)
+    return result.rowcount > 0
 
 
-async def delete_twitter_filters(session, _filter=None, guild_id=None):
+async def delete_twitter_filters(session, _filter=None, guild_id=None) -> bool:
+    """
+    Tries to delete a TwtFilter and returns whether one was actually found and deleted.
+    """
     if _filter and guild_id:
         statement = delete(TwtFilter).where(
             (TwtFilter._filter == _filter) & (TwtFilter._guild == guild_id)
@@ -202,7 +213,8 @@ async def delete_twitter_filters(session, _filter=None, guild_id=None):
     else:
         raise TypeError("Passed an invalid combination of kwargs")
 
-    await session.execute(statement)
+    result = await session.execute(statement)
+    return result.rowcount > 0
 
 
 async def delete_nominations(session, guild_id, member_id=None):
