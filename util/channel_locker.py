@@ -1,14 +1,13 @@
-import asyncio
+import typing
+from asyncio import Lock
 
-import discord
+from discord.abc import Messageable
 
 
 class ChannelLocker:
     def __init__(self):
-        self._locks = {}
+        self._locks: typing.Dict[int, Lock] = {}
 
-    async def get(self, messageable: discord.abc.Messageable):
-        lock = self._locks.setdefault(
-            (await messageable._get_channel()).id, asyncio.Lock()
-        )
+    async def get(self, messageable: Messageable) -> Lock:
+        lock = self._locks.setdefault((await messageable._get_channel()).id, Lock())
         return lock
