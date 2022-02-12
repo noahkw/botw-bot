@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import typing
 from collections import Counter
 
 import discord
@@ -8,6 +10,7 @@ import db
 from const import CUSTOM_EMOJI
 from help_command import EmbedHelpCommand
 from log import MessageableHandler
+from util import safe_send
 
 logger = logging.getLogger(__name__)
 
@@ -112,24 +115,39 @@ class BotwBot(commands.Bot):
                 commands.CheckFailure,
             ),
         ):
-            await ctx.send(error)
-            return
+            message = await safe_send(ctx, str(error))
+
+            if message:
+                return
 
         logger.exception(error)
+
+    async def whitelisted_or_leave(self, guild: typing.Optional[discord.Guild]):
+        whitelisted = (
+            guild is None
+            or self.Session is None
+            or guild.owner == self.user
+            or guild.id in self.whitelist
+        )
+
+        if not whitelisted:
+            await safe_send(
+                guild.system_channel,
+                f"This server is not whitelisted. Contact"
+                f" {self.get_user(self.CREATOR_ID).mention} if you believe that it should be."
+                f" {self.custom_emoji['NOT_WHITELISTED']}",
+            )
+            asyncio.create_task(guild.leave())
+            logger.info(
+                f"Left non-whitelisted guild {guild.name} ({guild.id}),"
+                f" Owner: {guild.owner.name} ({guild.owner.id})"
+            )
 
     def add_checks(self):
         async def globally_block_dms(ctx):
             return ctx.guild is not None or await self.is_owner(ctx.author)
 
-        async def whitelisted_server(ctx):
-            return (
-                ctx.guild is None
-                or self.Session is None
-                or ctx.guild.id in self.whitelist
-            )
-
         self.add_check(globally_block_dms)
-        self.add_check(whitelisted_server)
 
     def run(self):
         super().run(self.config["discord"]["token"])
@@ -141,6 +159,12 @@ class BotwBot(commands.Bot):
         prefix = self.prefixes.setdefault(message.guild.id, self.command_prefix)
 
         return commands.when_mentioned_or(prefix)(self, message)
+
+    async def on_message(self, message: discord.Message):
+        if message.author != self.user:
+            await self.whitelisted_or_leave(message.guild)
+
+        await self.process_commands(message)
 
     async def process_commands(self, message):
         ctx = await self.get_context(message)

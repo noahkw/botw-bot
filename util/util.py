@@ -144,13 +144,20 @@ def safe_mention(obj: typing.Union[discord.Member, discord.User, discord.TextCha
         return "*Unknown*"
 
 
-async def safe_send(user: discord.User, content: str):
+async def safe_send(
+    dest: typing.Optional[discord.abc.Messageable], content: str
+) -> typing.Optional[discord.Message]:
     # So far, this function just attempts to send the message to given user and logs a message if
     # a 403 Forbidden was caught.
+    if dest is None:
+        return
+
     try:
-        return await user.send(content)
+        return await dest.send(content)
     except discord.Forbidden:
-        logger.info("Could not message user %d", user.id)
+        logger.info(
+            "Could not message entity with ID %d", (await dest._get_channel()).id
+        )
 
 
 def format_emoji(emoji: discord.Emoji):

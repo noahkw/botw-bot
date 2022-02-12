@@ -130,13 +130,8 @@ class Main(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
-        whitelisted = guild.id in self.bot.whitelist or guild.owner == self.bot.user
-
         await self.bot.get_user(self.bot.CREATOR_ID).send(
-            f"I was added to a {'whitelisted' if whitelisted else 'non-whitelisted'} "
-            f"guild: {detail_mention(guild)}\n"
-            f"Owner: {detail_mention(guild.owner)}"
+            f"I was added to a guild: {detail_mention(guild)}\nOwner: {detail_mention(guild.owner)}"
         )
 
-        if not whitelisted:
-            await guild.leave()
+        await self.bot.whitelisted_or_leave(guild)

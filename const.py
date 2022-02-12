@@ -7,7 +7,11 @@ UNICODE_EMOJI = {
 }
 
 # custom emoji
-CUSTOM_EMOJI = {"SHOUT": "yeeunshout", "RETRY": "yeeunthonkies"}
+CUSTOM_EMOJI = {
+    "SHOUT": "yeeunshout",
+    "RETRY": "yeeunthonkies",
+    "NOT_WHITELISTED": "yeeunthonkies",
+}
 
 # weather emoji
 WEATHER_EMOJI = {
