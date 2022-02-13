@@ -252,12 +252,13 @@ class Roles(CustomCog, AinitMixin):
             if not role_settings or not role_settings.auto_role:
                 raise commands.BadArgument("Auto role is not set.")
 
+            await ctx.reply(
+                f"Trying to assign {role_settings.auto_role.mention} to {ctx.guild.member_count}"
+                f" members. This may take a while...",
+                mention_author=False,
+            )
+
             async with ctx.typing():
-                await ctx.reply(
-                    f"Trying to assign {role_settings.auto_role.mention} to {ctx.guild.member_count}"
-                    f" members. This may take a while...",
-                    mention_author=False,
-                )
                 results = await asyncio.gather(
                     *[
                         member.add_roles(
@@ -275,7 +276,9 @@ class Roles(CustomCog, AinitMixin):
                         logger.exception(result)
 
                 if caught_exception:
-                    commands.BadArgument("Could not assign the role to all members.")
+                    raise commands.BadArgument(
+                        "Could not assign the role to all members."
+                    )
 
                 await ctx.reply("Success!", mention_author=False)
 
