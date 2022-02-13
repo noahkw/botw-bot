@@ -57,9 +57,10 @@ class Roles(CustomCog, AinitMixin):
         async with self.bot.Session() as session:
             role_clears = await db.get_role_clears(session)
 
+            clear_with_session = []
             for role_clear in role_clears:
                 if not role_clear.guild:
-                    asyncio.create_task(db.delete_role_clear(
+                    clear_with_session.append(db.delete_role_clear(
                         session, role_clear._member, role_clear._role
                     ))
                 elif role_clear.is_due():
@@ -73,6 +74,9 @@ class Roles(CustomCog, AinitMixin):
                         ),
                         role_clear.when,
                     )
+
+            await asyncio.gather(*clear_with_session)
+            await session.commit()
 
     async def _clear_role(
         self, guild: discord.Guild, member: discord.Member, role: discord.Role
