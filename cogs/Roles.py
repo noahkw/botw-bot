@@ -237,10 +237,47 @@ class Roles(CustomCog, AinitMixin):
 
             if role:
                 await ctx.reply(
-                    f"The role {role.mention} is going to be assigned to new members."
+                    f"The role {role.mention} is going to be assigned to new members.",
+                    mention_author=False,
                 )
             else:
                 await ctx.reply("Reset the auto role.")
+
+    @roles.command(aliases=["sync"], brief="Assigns the auto role to all members")
+    @commands.has_permissions(administrator=True)
+    async def syncauto(self, ctx: commands.Context):
+        async with self.bot.Session() as session:
+            role_settings = await db.get_role_settings(session, ctx.guild.id)
+
+            if not role_settings or not role_settings.auto_role:
+                raise commands.BadArgument("Auto role is not set.")
+
+            async with ctx.typing():
+                await ctx.reply(
+                    f"Trying to assign {role_settings.auto_role.mention} to {ctx.guild.member_count}"
+                    f" members. This may take a while...",
+                    mention_author=False,
+                )
+                results = await asyncio.gather(
+                    *[
+                        member.add_roles(
+                            role_settings.auto_role, reason="Auto role manual sync"
+                        )
+                        for member in ctx.guild.members
+                    ],
+                    return_exceptions=True,
+                )
+
+                caught_exception = False
+                for result in results:
+                    if isinstance(result, Exception):
+                        caught_exception = True
+                        logger.exception(result)
+
+                if caught_exception:
+                    commands.BadArgument("Could not assign the role to all members.")
+
+                await ctx.reply("Success!", mention_author=False)
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
