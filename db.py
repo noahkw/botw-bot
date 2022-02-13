@@ -24,6 +24,7 @@ from models import (
     TwtAccount,
     TwtSorting,
     TwtFilter,
+    RoleSettings,
 )
 
 
@@ -332,6 +333,15 @@ async def get_role(
     session: AsyncSession, role_id: int
 ) -> typing.Optional[AssignableRole]:
     statement = select(AssignableRole).where(AssignableRole._role == role_id)
+    result = (await session.execute(statement)).first()
+
+    return result[0] if result else None
+
+
+async def get_role_settings(
+    session: AsyncSession, guild_id: int
+) -> typing.Optional[RoleSettings]:
+    statement = select(RoleSettings).where(RoleSettings._guild == guild_id)
     result = (await session.execute(statement)).first()
 
     return result[0] if result else None

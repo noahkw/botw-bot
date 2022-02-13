@@ -5,7 +5,7 @@ from .guild_settings import GuildSettings, EmojiSettings
 from .log import CommandLog
 from .profile import Profile
 from .reminder import Reminder
-from .role import RoleAlias, RoleClear, AssignableRole
+from .role import RoleAlias, RoleClear, AssignableRole, RoleSettings
 from .tag import Tag
 from .twitter import TwtSetting, TwtAccount, TwtSorting, TwtFilter
 
@@ -23,6 +23,7 @@ __all__ = (
     "RoleAlias",
     "RoleClear",
     "AssignableRole",
+    "RoleSettings",
     "Greeter",
     "GreeterType",
     "BotwSettings",

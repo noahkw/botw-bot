@@ -4,6 +4,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
 from models.base import Base, PendulumDateTime
+from models.guild_settings import GuildSettingsMixin
 
 
 class RoleMixin:
@@ -62,3 +63,13 @@ class RoleClear(RoleMixin, Base):
     @classmethod
     def inject_bot(cls, bot):
         cls.bot = bot
+
+
+class RoleSettings(GuildSettingsMixin, Base):
+    __tablename__ = "role_settings"
+
+    _auto_role = Column(BigInteger, nullable=True)
+
+    @hybrid_property
+    def auto_role(self):
+        return self.guild.get_role(self._auto_role)

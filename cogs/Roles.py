@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import db
 from cogs import CustomCog, AinitMixin
-from models import RoleClear, RoleAlias, AssignableRole
+from models import RoleClear, RoleAlias, AssignableRole, RoleSettings
 from util import ack
 
 logger = logging.getLogger(__name__)
@@ -49,6 +49,7 @@ class Roles(CustomCog, AinitMixin):
         AssignableRole.inject_bot(bot)
         RoleAlias.inject_bot(bot)
         RoleClear.inject_bot(bot)
+        RoleSettings.inject_bot(bot)
 
     async def _ainit(self):
         await self.bot.wait_until_ready()
@@ -220,3 +221,38 @@ class Roles(CustomCog, AinitMixin):
             f'Role: {role.role.mention}, clears after: {role.clear_after or "∞"} hours.'
             f'\nAliases: {", ".join(aliases)}'
         )
+
+    @roles.command(brief="Sets the role that is automatically assigned to members")
+    @commands.has_permissions(administrator=True)
+    async def autorole(
+        self, ctx: commands.Context, *, role: typing.Optional[discord.Role]
+    ):
+        async with self.bot.Session() as session:
+            role_settings = RoleSettings(
+                _guild=ctx.guild.id, _auto_role=role.id if role else None
+            )
+
+            await session.merge(role_settings)
+            await session.commit()
+
+            if role:
+                await ctx.reply(
+                    f"The role {role.mention} is going to be assigned to new members."
+                )
+            else:
+                await ctx.reply("Reset the auto role.")
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member):
+        async with self.bot.Session() as session:
+            role_settings = await db.get_role_settings(session, member.guild.id)
+
+            if role_settings and role_settings.auto_role:
+                try:
+                    await member.add_roles(
+                        role_settings.auto_role, reason="Auto role on join"
+                    )
+                except discord.Forbidden:
+                    logger.info(
+                        "Not allowed to assign auto role in %s", member.guild.id
+                    )
