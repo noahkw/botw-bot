@@ -83,11 +83,12 @@ class Roles(CustomCog, AinitMixin):
     ) -> None:
         # Needs its own session as we schedule it for execution at a later time
         async with self.bot.Session() as session:
-            try:
-                await member.remove_roles(role, reason="Automatic unassign")
-                logger.info(f"Automatically unassigned {role} from {member} in {guild}")
-            except discord.DiscordException:
-                pass
+            if guild and member and role:
+                try:
+                    await member.remove_roles(role, reason="Automatic unassign")
+                    logger.info(f"Automatically unassigned {role} from {member} in {guild}")
+                except discord.DiscordException:
+                    pass
 
             await db.delete_role_clear(session, member.id, role.id)
             await session.commit()
