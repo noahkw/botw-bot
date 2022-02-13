@@ -1,5 +1,8 @@
+import typing
+
 import pendulum
 from sqlalchemy import select, delete, func, desc
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import (
     Nomination,
@@ -285,21 +288,25 @@ async def delete_idols(session):
     await session.execute(statement)
 
 
-async def get_role_clears(session):
+async def get_role_clears(session: AsyncSession) -> list[RoleClear]:
     statement = select(RoleClear)
     result = (await session.execute(statement)).all()
 
     return [r for (r,) in result]
 
 
-async def delete_role_clear(session, member_id, role_id):
+async def delete_role_clear(
+    session: AsyncSession, member_id: int, role_id: int
+) -> None:
     statement = delete(RoleClear).where(
         (RoleClear._member == member_id) & (RoleClear._role == role_id)
     )
     await session.execute(statement)
 
 
-async def get_role_by_alias(session, guild_id, alias):
+async def get_role_by_alias(
+    session: AsyncSession, guild_id: int, alias: str
+) -> typing.Optional[AssignableRole]:
     statement = (
         select(AssignableRole)
         .join(RoleAlias)
@@ -314,21 +321,23 @@ async def get_role_by_alias(session, guild_id, alias):
     return result[0] if result else None
 
 
-async def get_roles(session, guild_id):
+async def get_roles(session: AsyncSession, guild_id: int) -> list[AssignableRole]:
     statement = select(AssignableRole).where(AssignableRole._guild == guild_id)
     result = (await session.execute(statement)).all()
 
     return [r for (r,) in result]
 
 
-async def get_role(session, role_id):
+async def get_role(
+    session: AsyncSession, role_id: int
+) -> typing.Optional[AssignableRole]:
     statement = select(AssignableRole).where(AssignableRole._role == role_id)
     result = (await session.execute(statement)).first()
 
     return result[0] if result else None
 
 
-async def delete_role(session, role_id):
+async def delete_role(session: AsyncSession, role_id: int) -> None:
     statement = delete(AssignableRole).where((AssignableRole._role == role_id))
     await session.execute(statement)
 

@@ -1,11 +1,12 @@
+import asyncio
 import logging
 import typing
 
-import asyncpg
 import discord
 import pendulum
 from aioscheduler import TimedScheduler
 from discord.ext import commands
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import db
 from cogs import CustomCog, AinitMixin
@@ -17,6 +18,26 @@ logger = logging.getLogger(__name__)
 
 def setup(bot):
     bot.add_cog(Roles(bot))
+
+
+class RoleOrAlias(commands.Converter):
+    def __init__(self):
+        self.role_converter = commands.RoleConverter()
+
+    async def convert(self, ctx, argument):
+        async with ctx.bot.Session() as session:
+            try:
+                role = await self.role_converter.convert(ctx, argument)
+                assignable_role = await db.get_role(session, role.id)
+            except commands.BadArgument:
+                assignable_role = await db.get_role_by_alias(
+                    session, ctx.guild.id, argument
+                )
+
+            if not assignable_role:
+                raise commands.BadArgument("This role does not exist.")
+
+            return assignable_role
 
 
 class Roles(CustomCog, AinitMixin):
@@ -35,119 +56,130 @@ class Roles(CustomCog, AinitMixin):
         async with self.bot.Session() as session:
             role_clears = await db.get_role_clears(session)
 
-            for role_clear in role_clears:
-                if not role_clear.guild:
-                    await db.delete_role_clear(
-                        session, role_clear._member, role_clear._role
-                    )
-                elif role_clear.is_due():
-                    await self._clear_role(
+        async def scheduled_clear(role_clear: RoleClear):
+            if not role_clear.guild:
+                await db.delete_role_clear(
+                    session, role_clear._member, role_clear._role
+                )
+            elif role_clear.is_due():
+                await self._clear_role(
+                    role_clear.guild, role_clear.member, role_clear.role
+                )
+            else:
+                self.scheduler.schedule(
+                    self._clear_role(
                         role_clear.guild, role_clear.member, role_clear.role
-                    )
-                else:
-                    self.scheduler.schedule(
-                        self._clear_role(
-                            role_clear.guild, role_clear.member, role_clear.role
-                        ),
-                        role_clear.when,
-                    )
+                    ),
+                    role_clear.when,
+                )
+
+        await asyncio.gather(
+            *[scheduled_clear(role_clear) for role_clear in role_clears]
+        )
 
     async def _clear_role(
         self, guild: discord.Guild, member: discord.Member, role: discord.Role
-    ):
+    ) -> None:
+        # Needs its own session as we schedule it for execution at a later time
         async with self.bot.Session() as session:
-            if guild:
-                if member and role:
-                    await member.remove_roles(role, reason="Automatic unassign")
-                    logger.info(
-                        f"Automatically unassigned {role} from {member} in {guild}."
-                    )
+            try:
+                await member.remove_roles(role, reason="Automatic unassign")
+                logger.info(f"Automatically unassigned {role} from {member} in {guild}")
+            except discord.DiscordException:
+                pass
 
             await db.delete_role_clear(session, member.id, role.id)
-
             await session.commit()
 
-    async def _toggle_role(self, ctx, alias, member: discord.Member):
-        async with self.bot.Session() as session:
-            assignable_role = await db.get_role_by_alias(session, ctx.guild.id, alias)
-            if not assignable_role:
-                raise commands.BadArgument("This role does not exist.")
+    async def _toggle_role(
+        self,
+        session: AsyncSession,
+        ctx: commands.Context,
+        assignable_role: AssignableRole,
+        member: discord.Member,
+    ) -> None:
+        role = assignable_role.role
 
-            role = assignable_role.role
-
-            try:
-                if role not in member.roles:
-                    await member.add_roles(role, reason="Self-assigned by member")
-                    await ctx.send(
-                        f"{member.mention}, you now have the role {role.mention}."
-                    )
-
-                    if assignable_role.clear_after:
-                        when = pendulum.now("UTC").add(
-                            hours=assignable_role.clear_after
-                        )
-
-                        self.scheduler.schedule(
-                            self._clear_role(member.guild, member, role), when
-                        )
-
-                        role_clear = RoleClear(
-                            _role=role.id,
-                            _member=member.id,
-                            _guild=ctx.guild.id,
-                            when=when,
-                        )
-                        await session.merge(role_clear)
-
-                        await session.commit()
-                else:
-                    await member.remove_roles(role, reason="Self-unassigned by member")
-                    await ctx.send(
-                        f"{member.mention}, you no longer have the role {role.mention}."
-                    )
-            except discord.Forbidden:
-                raise commands.BadArgument("I am not allowed to manage roles.")
-
-    @commands.group(aliases=["r", "role"], invoke_without_command=True)
-    async def roles(self, ctx, *, role_alias=None):
-        if role_alias:
-            await self._toggle_role(ctx, role_alias, ctx.author)
-        else:
-            await ctx.send(f"Assign a role using `{ctx.prefix}role name`.")
-            await ctx.invoke(self.list)
-
-    @roles.command()
-    async def list(self, ctx):
-        async with self.bot.Session() as session:
-            assignable_roles = await db.get_roles(session, ctx.guild.id)
-            roles_to_show = []
-
-            for a_role in assignable_roles:
-                if not a_role.role:
-                    session.delete(a_role)
-                    await ctx.send(
-                        f"Removing assignable role that no longer exists: `{a_role.aliases[0].alias}`"
-                    )
-                else:
-                    roles_to_show.append(a_role)
-
-            roles_to_show.sort(key=lambda a_role: a_role.role.position, reverse=True)
-            roles = [a_role.role.mention for a_role in roles_to_show]
-
-            if len(roles) > 0:
-                await ctx.send(f'Available roles: {", ".join(roles)}')
-            else:
-                await ctx.send(
-                    f"Try to make some roles self-assignable using `{ctx.prefix}role create`."
+        try:
+            if role not in member.roles:
+                await member.add_roles(role, reason="Self-assigned by member")
+                await ctx.reply(
+                    f"You now have the role {role.mention}.", mention_author=False
                 )
 
+                if assignable_role.clear_after:
+                    when = pendulum.now("UTC").add(hours=assignable_role.clear_after)
+
+                    self.scheduler.schedule(
+                        self._clear_role(member.guild, member, role), when
+                    )
+
+                    role_clear = RoleClear(
+                        _role=role.id,
+                        _member=member.id,
+                        _guild=ctx.guild.id,
+                        when=when,
+                    )
+                    await session.merge(role_clear)
+            else:
+                await member.remove_roles(role, reason="Self-unassigned by member")
+                await ctx.reply(
+                    f"You no longer have the role {role.mention}.", mention_author=False
+                )
+        except discord.Forbidden:
+            raise commands.BadArgument("I am not allowed to manage roles.")
+
+    async def _list_roles(self, session: AsyncSession, ctx: commands.Context):
+        assignable_roles = await db.get_roles(session, ctx.guild.id)
+        roles_to_show = []
+
+        for a_role in assignable_roles:
+            if not a_role.role:
+                await session.delete(a_role)
+                await ctx.send(
+                    f"Removing assignable role that no longer exists: `{a_role.aliases[0].alias}`"
+                )
+            else:
+                roles_to_show.append(a_role)
+
+        roles_to_show.sort(key=lambda a_role: a_role.role.position, reverse=True)
+        roles = [a_role.role.mention for a_role in roles_to_show]
+
+        if len(roles) > 0:
+            await ctx.send(f'Available roles: {", ".join(roles)}')
+        else:
+            await ctx.send(
+                f"Try to make some roles self-assignable using `{ctx.prefix}role create`."
+            )
+
+    @commands.group(aliases=["r", "role"], invoke_without_command=True)
+    async def roles(
+        self, ctx: commands.Context, *, role: typing.Optional[RoleOrAlias]
+    ) -> None:
+        async with self.bot.Session() as session:
+            if role:
+                await self._toggle_role(session, ctx, role, ctx.author)
+            else:
+                await ctx.send(f"Assign a role using `{ctx.prefix}role name`.")
+                await self._list_roles(session, ctx)
+
             await session.commit()
 
-    @roles.command()
+    @roles.command(name="list", brief="Lists all assignable roles in the server")
+    async def list_roles(self, ctx: commands.Context) -> None:
+        async with self.bot.Session() as session:
+            await self._list_roles(session, ctx)
+            await session.commit()
+
+    @roles.command(brief="Creates a new assignable role")
     @commands.has_permissions(administrator=True)
     async def create(
-        self, ctx, role: discord.Role, clear_after: typing.Optional[int], *aliases
-    ):
+        self,
+        ctx: commands.Context,
+        role: discord.Role,
+        clear_after: typing.Optional[int],
+        *aliases: str,
+    ) -> None:
         async with self.bot.Session() as session:
             if await db.get_role(session, role.id):
                 raise commands.BadArgument(
@@ -161,43 +193,30 @@ class Roles(CustomCog, AinitMixin):
 
             aliases = set(aliases + (role.name,))
 
-            role_aliases = [
-                RoleAlias(_role=role.id, _guild=ctx.guild.id, alias=alias)
-                for alias in aliases
-            ]
-
-            for role_alias in role_aliases:
-                try:
-                    session.add(role_alias)
-                except asyncpg.exceptions.UniqueViolationError:
+            for alias in aliases:
+                if await db.get_role_by_alias(session, ctx.guild.id, alias):
                     raise commands.BadArgument(
-                        f"The alias `{role_alias.alias}` is already in use."
+                        f"The alias `{alias}` is already in use."
                     )
+
+                session.add(RoleAlias(_role=role.id, _guild=ctx.guild.id, alias=alias))
 
             await session.commit()
 
             await ctx.send(f"{role.mention} is now self-assignable.")
 
-    @roles.command(aliases=["remove"])
+    @roles.command(aliases=["remove"], brief="Removes an assignable role")
     @commands.has_permissions(administrator=True)
     @ack
-    async def delete(self, ctx, role: discord.Role):
+    async def delete(self, ctx: commands.Context, *, role: RoleOrAlias) -> None:
         async with self.bot.Session() as session:
-            await db.delete_role(session, role.id)
-
+            await db.delete_role(session, role.role.id)
             await session.commit()
 
-    @roles.command()
-    async def info(self, ctx, *, alias):
-        async with self.bot.Session() as session:
-            assignable_role = await db.get_role_by_alias(session, ctx.guild.id, alias)
-            if not assignable_role:
-                raise commands.BadArgument("This role does not exist.")
-
-            aliases = [
-                f"`{role_alias.alias}`" for role_alias in assignable_role.aliases
-            ]
-            await ctx.send(
-                f'Role: {assignable_role.role.mention}, clears after: {assignable_role.clear_after or "∞"} hours.'
-                f'\nAliases: {", ".join(aliases)}'
-            )
+    @roles.command(brief="Diplays info on an assignable role")
+    async def info(self, ctx: commands.Context, *, role: RoleOrAlias):
+        aliases = [f"`{role_alias.alias}`" for role_alias in role.aliases]
+        await ctx.send(
+            f'Role: {role.role.mention}, clears after: {role.clear_after or "∞"} hours.'
+            f'\nAliases: {", ".join(aliases)}'
+        )
