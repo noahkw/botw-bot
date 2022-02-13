@@ -57,26 +57,26 @@ class Roles(CustomCog, AinitMixin):
         async with self.bot.Session() as session:
             role_clears = await db.get_role_clears(session)
 
-        async def scheduled_clear(role_clear: RoleClear):
-            if not role_clear.guild:
-                await db.delete_role_clear(
-                    session, role_clear._member, role_clear._role
-                )
-            elif role_clear.is_due():
-                await self._clear_role(
-                    role_clear.guild, role_clear.member, role_clear.role
-                )
-            else:
-                self.scheduler.schedule(
-                    self._clear_role(
+            async def scheduled_clear(role_clear: RoleClear):
+                if not role_clear.guild:
+                    await db.delete_role_clear(
+                        session, role_clear._member, role_clear._role
+                    )
+                elif role_clear.is_due():
+                    await self._clear_role(
                         role_clear.guild, role_clear.member, role_clear.role
-                    ),
-                    role_clear.when,
-                )
+                    )
+                else:
+                    self.scheduler.schedule(
+                        self._clear_role(
+                            role_clear.guild, role_clear.member, role_clear.role
+                        ),
+                        role_clear.when,
+                    )
 
-        await asyncio.gather(
-            *[scheduled_clear(role_clear) for role_clear in role_clears]
-        )
+            await asyncio.gather(
+                *[scheduled_clear(role_clear) for role_clear in role_clears]
+            )
 
     async def _clear_role(
         self, guild: discord.Guild, member: discord.Member, role: discord.Role
