@@ -139,7 +139,7 @@ class IGPostResult:
 
 
 class Instagram(commands.Cog):
-    URL_REGEX = r"https?://(www.)?instagram.com/(.*)?(p|tv|reel)/(.*?)/"
+    URL_REGEX = r"https?://(www\.)?instagram\.com/(p|tv|reel)/([a-zA-Z0-9]*)"
     FILESIZE_MIN = 10 ** 3
     FILESIZE_MAX = 8 * 10 ** 6  # 8 MB
     MAX_RETRIES = 3
