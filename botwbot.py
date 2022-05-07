@@ -125,6 +125,9 @@ class BotwBot(commands.Bot):
         logger.exception(error)
 
     async def whitelisted_or_leave(self, guild: typing.Optional[discord.Guild]):
+        """
+        Returns False and logs a message if the passed guild is not whitelisted.
+        """
         whitelisted = (
             guild is None
             or self.Session is None
@@ -133,19 +136,13 @@ class BotwBot(commands.Bot):
         )
 
         if not whitelisted:
-            creator = self.get_user(self.CREATOR_ID)
-            await safe_send(
-                guild.system_channel,
-                f"This server is not whitelisted. Contact"
-                f" {creator.mention if creator else 'Evandar'} if you believe that it should be."
-                f" {self.custom_emoji.get('NOT_WHITELISTED', '')}",
-            )
-            asyncio.create_task(guild.leave())
             owner = guild.owner
             logger.info(
-                f"Left non-whitelisted guild {guild.name} ({guild.id}),"
+                f"Consider leaving non-whitelisted guild {guild.name} ({guild.id}),"
                 f" Owner: {guild.owner.name} ({guild.owner.id})" if owner else "(owner not in cache)"
             )
+
+        return whitelisted
 
     def add_checks(self):
         async def globally_block_dms(ctx):
@@ -166,8 +163,10 @@ class BotwBot(commands.Bot):
 
     async def on_message(self, message: discord.Message):
         if message.author != self.user:
-            await self.whitelisted_or_leave(message.guild)
-
+            if not (await self.whitelisted_or_leave(message.guild)):
+                # Ignore commands in non-whitelisted guilds
+                return
+        
         await self.process_commands(message)
 
     async def process_commands(self, message):
