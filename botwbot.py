@@ -139,7 +139,7 @@ class BotwBot(commands.Bot):
             owner = guild.owner
             logger.info(
                 f"Consider leaving non-whitelisted guild {guild.name} ({guild.id})"
-                + f" Owner: {guild.owner.name} ({guild.owner.id})" if owner else "(owner not in cache)"
+                + (f" Owner: {guild.owner.name} ({guild.owner.id})" if owner else "(owner not in cache)")
             )
 
         return whitelisted
@@ -162,10 +162,9 @@ class BotwBot(commands.Bot):
         return commands.when_mentioned_or(prefix)(self, message)
 
     async def on_message(self, message: discord.Message):
-        if message.author != self.user:
-            if not (await self.whitelisted_or_leave(message.guild)):
-                # Ignore commands in non-whitelisted guilds
-                return
+        if not self.is_ready() or not (await self.whitelisted_or_leave(message.guild)):
+            # Ignore commands in non-whitelisted guilds
+            return
         
         await self.process_commands(message)
 
