@@ -133,11 +133,12 @@ class BotwBot(commands.Bot):
         )
 
         if not whitelisted:
+            creator = self.get_user(self.CREATOR_ID)
             await safe_send(
                 guild.system_channel,
                 f"This server is not whitelisted. Contact"
-                f" {self.get_user(self.CREATOR_ID).mention} if you believe that it should be."
-                f" {self.custom_emoji['NOT_WHITELISTED']}",
+                f" {creator.mention if creator else "Evandar"} if you believe that it should be."
+                f" {self.custom_emoji.get('NOT_WHITELISTED', '')}",
             )
             asyncio.create_task(guild.leave())
             logger.info(
