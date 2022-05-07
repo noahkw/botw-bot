@@ -141,9 +141,10 @@ class BotwBot(commands.Bot):
                 f" {self.custom_emoji.get('NOT_WHITELISTED', '')}",
             )
             asyncio.create_task(guild.leave())
+            owner = guild.owner
             logger.info(
                 f"Left non-whitelisted guild {guild.name} ({guild.id}),"
-                f" Owner: {guild.owner.name} ({guild.owner.id})"
+                f" Owner: {guild.owner.name} ({guild.owner.id})" if owner else "(owner not in cache)"
             )
 
     def add_checks(self):
