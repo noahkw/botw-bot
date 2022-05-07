@@ -138,8 +138,8 @@ class BotwBot(commands.Bot):
         if not whitelisted:
             owner = guild.owner
             logger.info(
-                f"Consider leaving non-whitelisted guild {guild.name} ({guild.id}),"
-                f" Owner: {guild.owner.name} ({guild.owner.id})" if owner else "(owner not in cache)"
+                f"Consider leaving non-whitelisted guild {guild.name} ({guild.id})"
+                + f" Owner: {guild.owner.name} ({guild.owner.id})" if owner else "(owner not in cache)"
             )
 
         return whitelisted
