@@ -138,10 +138,26 @@ class IGPostResult:
     exceptions: list[ExceededMaximumRetries] = dataclasses.field(default_factory=list)
 
 
+def shortcode_to_media_id(
+    shortcode,
+    alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
+):
+    base = len(alphabet)
+
+    result = 0
+
+    for index, char in enumerate(shortcode):
+        power = len(shortcode) - (index + 1)
+        result += alphabet.index(char) * (base**power)
+
+    return result
+
+
 class Instagram(commands.Cog):
     URL_REGEX = r"https?://(www\.)?instagram\.com/(p|tv|reel)/([a-zA-Z0-9\-_]*)"
-    FILESIZE_MIN = 10 ** 3
-    FILESIZE_MAX = 8 * 10 ** 6  # 8 MB
+    INSTAGRAM_API_URL = "https://i.instagram.com/api/v1/media/{media_id}/info/"
+    FILESIZE_MIN = 10**3
+    FILESIZE_MAX = 8 * 10**6  # 8 MB
     MAX_RETRIES = 3
     POST_CACHE_ENTRIES = 64
 
@@ -149,13 +165,18 @@ class Instagram(commands.Cog):
         self.bot = bot
         self.session = aiohttp.ClientSession(cookie_jar=OneTimeCookieJar())
 
-        self.cookies_file = self.bot.config["cogs"]["instagram"]["cookies_file"]
+        config = self.bot.config["cogs"]["instagram"]
+
+        self.cookies_file = config["cookies_file"]
         with open(self.cookies_file, "r") as f:
             cookies = json.load(f)
 
         self.session.cookie_jar.update_cookies(cookies=cookies)
         self.post_extractor = InstagramExtractorV2()
         self.post_cache = LeastRecentlyUsed(self.POST_CACHE_ENTRIES)
+
+        self.user_agent = config["user_agent"]
+        self.app_id = config["app_id"]
 
         logger.info(f"Loaded {len(self.session.cookie_jar)} cookies")
 
@@ -164,10 +185,13 @@ class Instagram(commands.Cog):
 
     async def get_post(self, message: discord.Message, url: str):
         headers = {
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:67.0) Gecko/20100101 Firefox/67.0",
+            "User-Agent": self.user_agent,
+            "X-IG-App-ID": self.app_id,
         }
 
-        params = {"__a": 1}
+        shortcode = url.strip("/").split("/")[-1]
+
+        url = self.INSTAGRAM_API_URL.format(media_id=shortcode_to_media_id(shortcode))
 
         async with ReactingRetryingSession(
             self.MAX_RETRIES,
@@ -175,7 +199,6 @@ class Instagram(commands.Cog):
             url,
             message=message,
             emoji=self.bot.custom_emoji["RETRY"],
-            params=params,
             headers=headers,
         ) as response:
             try:
