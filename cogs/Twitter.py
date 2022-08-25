@@ -1,9 +1,11 @@
+import abc
 import asyncio
 import copy
 import logging
 import re
 import time
 import typing
+from abc import ABC
 from datetime import datetime, timedelta
 from io import BytesIO
 
@@ -56,8 +58,88 @@ def twitter_enabled():
     return commands.check(predicate)
 
 
+class TwitterException(Exception):
+    pass
+
+
+class TweetNotFound(TwitterException):
+    pass
+
+
+class TwitterUserException(TwitterException):
+    pass
+
+
+class UserUnavailableException(TwitterUserException):
+    def __init__(self, screen_name):
+        super().__init__(f"User `{screen_name}` unavailable")
+
+
+class UserNotFoundException(TwitterUserException):
+    def __init__(self, screen_name):
+        super().__init__(f"User `{screen_name}` not found")
+
+
+class TwitterProvider(ABC):
+    @abc.abstractmethod
+    async def get_account_by_name(self, screen_name: str) -> int:
+        pass
+
+    @abc.abstractmethod
+    async def get_account_by_id(self, user_id: int | list[int]):
+        pass
+
+    @abc.abstractmethod
+    async def get_tweet(self, tweet_id: int):
+        pass
+
+    @abc.abstractmethod
+    def get_feed(self, accounts: typing.Iterable[int]):
+        pass
+
+
+class PeonyTwitterProvider(TwitterProvider):
+    def __init__(self, keys, loop):
+        self.client = PeonyClient(**keys, loop=loop)
+
+    async def get_account_by_name(self, screen_name: str | list[str]):
+        try:
+            accounts = await self.client.api.users.lookup.get(screen_name=screen_name)
+        except (
+            peony.exceptions.UserSuspended,
+            peony.exceptions.AccountSuspended,
+            peony.exceptions.AccountLocked,
+        ):
+            raise UserUnavailableException(screen_name)
+        except peony.exceptions.UserNotFound:
+            raise UserNotFoundException(screen_name)
+        except peony.exceptions.PeonyException:
+            logger.exception("Error finding account %s", screen_name)
+            raise UserUnavailableException(screen_name)
+
+        return accounts
+
+    async def get_account_by_id(self, user_id: int | list[int]):
+        return await self.client.api.users.lookup.get(user_id=user_id)
+
+    async def get_tweet(self, tweet_id: int):
+        try:
+            tweet = await self.client.api.statuses.show.get(
+                id=tweet_id,
+                include_entities=True,
+                tweet_mode="extended",
+            )
+        except (peony.exceptions.StatusNotFound, peony.exceptions.HTTPNotFound):
+            raise TweetNotFound
+
+        return tweet
+
+    def get_feed(self, accounts: typing.Iterable[int]):
+        return self.client.stream.statuses.filter.post(follow=accounts)
+
+
 class Twitter(CustomCog, AinitMixin):
-    FILESIZE_MAX = 8 * 10 ** 6  # 8 MB
+    FILESIZE_MAX = 8 * 10**6  # 8 MB
     URL_REGEX = r"(https?://)?(www.)?twitter.com/(\S+)/status/(\d+)(\?s=\d+)?"
     EVENT_DATE_REGEX = r"(\s+|^)(\d{8}|\d{6})\s*"
     TEST_TWEET_ID = 1230927030163628032
@@ -71,17 +153,17 @@ class Twitter(CustomCog, AinitMixin):
         self.bot = bot
         self.feed = None
         self.stream_thing = None
-        self.client = None
         self.stream_task = None
         self.restart_stream_task = None
         self.session = aiohttp.ClientSession()
-        self.keys = self.bot.config["cogs"]["twitter"]
+        self.twitter_provider = PeonyTwitterProvider(
+            self.bot.config["cogs"]["twitter"], self.bot.loop
+        )
         TwtSorting.inject_bot(self.bot)
         TwtSetting.inject_bot(self.bot)
         super(AinitMixin).__init__()
 
     async def _ainit(self):
-        self.client = PeonyClient(**self.keys, loop=self.bot.loop)
         self.restart_stream_task = asyncio.create_task(self.restart_stream_sub())
 
     def cog_unload(self):
@@ -99,7 +181,7 @@ class Twitter(CustomCog, AinitMixin):
         return accounts_list
 
     async def streaming(self):
-        self.feed = self.client.stream.statuses.filter.post(follow=self.gen_accounts)
+        self.feed = self.twitter_provider.get_feed(self.gen_accounts)
 
         async with self.feed as stream:
             self.stream_thing = stream
@@ -150,34 +232,6 @@ class Twitter(CustomCog, AinitMixin):
                 )
                 tweet_txt, file_list = await self.create_post(tweet)
                 await self.manage_post_tweet(tweet_txt, file_list, channels_list)
-
-    async def get_account(self, ctx, account):
-        try:
-            account_id = await self.client.api.users.show.get(screen_name=account)
-        except peony.exceptions.UserNotFound:
-            raise commands.BadArgument(f"User `{account}` not found.")
-        except (peony.exceptions.UserSuspended, peony.exceptions.AccountSuspended):
-            raise commands.BadArgument(f"User `{account}` is suspended.")
-        except peony.exceptions.AccountLocked:
-            raise commands.BadArgument(f"User `{account}` is locked.")
-        except peony.exceptions.PeonyException:
-            logger.exception("Error finding account %s", account)
-            raise commands.BadArgument(f"Error finding account `{account}`.")
-
-        return account_id
-
-    async def get_tweet(self, ctx, tweet_id):
-        try:
-            tweet = await self.client.api.statuses.show.get(
-                id=tweet_id,
-                include_entities=True,
-                tweet_mode="extended",
-            )
-        except (peony.exceptions.StatusNotFound, peony.exceptions.HTTPNotFound):
-            await ctx.send("Tweet not found")
-            return None
-
-        return tweet
 
     async def get_servers(self, session, server_list, tweet_txt):
         server_set = set(server_list)
@@ -332,7 +386,7 @@ class Twitter(CustomCog, AinitMixin):
     async def stats(self, ctx):
         accts_followed = len(self.gen_accounts)
         time_start = time.time()
-        await self.client.api.statuses.show.get(id=self.TEST_TWEET_ID)
+        await self.twitter_provider.get_tweet(self.TEST_TWEET_ID)
         time_end = time.time()
         stats_embed = discord.Embed()
         stats_embed.set_author(name="Twitter Cog Global Stats")
@@ -421,25 +475,28 @@ class Twitter(CustomCog, AinitMixin):
 
         if tweet_ids:
             for tweet_id in tweet_ids:
-                tweet = await self.get_tweet(ctx, tweet_id)
-                if tweet:
-                    logger.debug(
-                        "Processing: @%s - %s in %s (%d)",
-                        tweet.user.screen_name,
-                        tweet.id_str,
-                        ctx.guild.name,
-                        ctx.guild.id,
-                    )
-                    tags_list = [tag.text for tag in tweet.entities.hashtags]
-                    if channel:
-                        channels_list = [channel]
-                    else:
-                        async with self.bot.Session() as session:
-                            channels_list = await self.get_channels(
-                                servers=[ctx.guild.id], tags=tags_list, session=session
-                            )
-                    tweet_txt, file_list = await self.create_post(tweet)
-                    await self.manage_post_tweet(tweet_txt, file_list, channels_list)
+                try:
+                    tweet = await self.twitter_provider.get_tweet(tweet_id)
+                except TweetNotFound:
+                    raise commands.BadArgument("Tweet not found")
+
+                logger.debug(
+                    "Processing: @%s - %s in %s (%d)",
+                    tweet.user.screen_name,
+                    tweet.id_str,
+                    ctx.guild.name,
+                    ctx.guild.id,
+                )
+                tags_list = [tag.text for tag in tweet.entities.hashtags]
+                if channel:
+                    channels_list = [channel]
+                else:
+                    async with self.bot.Session() as session:
+                        channels_list = await self.get_channels(
+                            servers=[ctx.guild.id], tags=tags_list, session=session
+                        )
+                tweet_txt, file_list = await self.create_post(tweet)
+                await self.manage_post_tweet(tweet_txt, file_list, channels_list)
 
     @twitter.group(
         name="configure",
@@ -564,10 +621,10 @@ class Twitter(CustomCog, AinitMixin):
         # in case they enter it with the @ character
         accounts_conditioned = [account.split("@")[-1].lower() for account in accounts]
         try:
-            accounts = await self.client.api.users.lookup.get(
-                screen_name=accounts_conditioned
+            accounts = await self.twitter_provider.get_account_by_name(
+                accounts_conditioned
             )
-        except peony.exceptions.NoUserMatchesQuery:
+        except TwitterUserException:
             raise commands.BadArgument(
                 "Could find no matches for the specified accounts."
             )
@@ -664,7 +721,14 @@ class Twitter(CustomCog, AinitMixin):
         """
         # in case they enter it with the @ character
         account_conditioned = account.split("@")[-1]
-        account = await self.get_account(ctx, account=account_conditioned)
+        try:
+            accounts = await self.twitter_provider.get_account_by_name(
+                account_conditioned
+            )
+        except TwitterUserException as e:
+            raise commands.BadArgument(e.args[0])
+
+        account = accounts[0]
 
         async with self.bot.Session() as session:
             found_match = await db.delete_accounts(
@@ -738,7 +802,7 @@ class Twitter(CustomCog, AinitMixin):
 
         twitter_tasks = []
         for split in split_accounts_followed:
-            twitter_tasks.append(self.client.api.users.lookup.get(user_id=split))
+            twitter_tasks.append(self.twitter_provider.get_account_by_id(split))
         split_user_list = await asyncio.gather(*twitter_tasks)
         user_name_list = [account for split in split_user_list for account in split]
 
@@ -808,7 +872,11 @@ class Twitter(CustomCog, AinitMixin):
             if confirm:
                 async with ctx.typing():
                     for tweet_id in tweet_ids:
-                        tweet = await self.get_tweet(ctx, tweet_id)
+                        try:
+                            tweet = await self.twitter_provider.get_tweet(tweet_id)
+                        except TweetNotFound:
+                            await ctx.send("Tweet not found")
+
                         if tweet and "extended_entities" in tweet:
                             try:
                                 await ctx.message.edit(suppress=True)
