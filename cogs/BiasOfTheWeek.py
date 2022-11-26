@@ -804,10 +804,8 @@ class BiasOfTheWeek(commands.Cog):
             settings_enabled = await db.get_botw_settings(session)
             for guild_settings in settings_enabled:
                 # uncomment the following two lines to debug the winner announcement
-                pendulum.set_test_now(
-                    pendulum.now("UTC").next(guild_settings.winner_day)
-                )
-                now = pendulum.now("UTC")
+                # pendulum.set_test_now(pendulum.now("UTC").next(guild_settings.winner_day))
+                # now = pendulum.now("UTC")
 
                 if not guild_settings.guild:
                     # the bot is not in the guild anymore, disable botw
