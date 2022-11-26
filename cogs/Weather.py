@@ -12,8 +12,8 @@ from util import celsius_to_fahrenheit, meters_to_miles, auto_help
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Weather(bot))
+async def setup(bot):
+    await bot.add_cog(Weather(bot))
 
 
 def temp_string(temp):

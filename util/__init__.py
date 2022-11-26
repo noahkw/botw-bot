@@ -1,9 +1,7 @@
 from .converters import (
     BoolConverter,
-    ReactionConverter,
     DayOfWeekConverter,
     GreeterTypeConverter,
-    EmojiConverter,
 )
 from .decorators import auto_help, ack, Cached, LeastRecentlyUsed
 from .dnf_parser import DNFParser
@@ -36,7 +34,6 @@ from .channel_locker import ChannelLocker
 
 __all__ = (
     "BoolConverter",
-    "ReactionConverter",
     "DayOfWeekConverter",
     "auto_help",
     "ack",
@@ -59,7 +56,6 @@ __all__ = (
     "safe_send",
     "GreeterTypeConverter",
     "format_emoji",
-    "EmojiConverter",
     "detail_mention",
     "RetryingSession",
     "ExceededMaximumRetries",

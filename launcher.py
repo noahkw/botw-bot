@@ -59,18 +59,21 @@ async def init_db(engine):
 def run_bot():
     logger, config, creds = setup()
 
-    loop = asyncio.get_event_loop()
-
     engine, session = create_engine(logger, creds["connection_string"])
-
-    loop.run_until_complete(init_db(engine))
     botw_bot = BotwBot(config)
 
-    botw_bot.engine = engine
-    botw_bot.Session = session
-    botw_bot.run()
+    async def main():
+        await init_db(engine)
 
-    logger.info("Cleaning up")
+        botw_bot.engine = engine
+        botw_bot.Session = session
+
+        async with botw_bot:
+            await botw_bot.start(config["discord"]["token"])
+
+        logger.info("Cleaning up")
+
+    asyncio.run(main())
 
 
 @click.group(invoke_without_command=True, options_metavar="[options]")

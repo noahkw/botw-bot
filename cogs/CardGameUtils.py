@@ -12,8 +12,8 @@ from const import UNICODE_EMOJI
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(CardGameUtils(bot))
+async def setup(bot):
+    await bot.add_cog(CardGameUtils(bot))
 
 
 class CardGameUtilsNotEnabled(commands.CheckFailure):

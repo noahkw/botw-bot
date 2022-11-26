@@ -11,8 +11,8 @@ from util import ack, git_version_label, git_short_history
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Utilities(bot))
+async def setup(bot):
+    await bot.add_cog(Utilities(bot))
 
 
 class Utilities(commands.Cog):

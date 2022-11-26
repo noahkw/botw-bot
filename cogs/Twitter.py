@@ -32,8 +32,8 @@ def on_tweet_with_media(data):
     return "media" in data.get("entities", {})
 
 
-def setup(bot):
-    bot.add_cog(Twitter(bot))
+async def setup(bot):
+    await bot.add_cog(Twitter(bot))
 
 
 class TwitterNotEnabled(commands.CheckFailure):
@@ -57,7 +57,7 @@ def twitter_enabled():
 
 
 class Twitter(CustomCog, AinitMixin):
-    FILESIZE_MAX = 8 * 10 ** 6  # 8 MB
+    FILESIZE_MAX = 8 * 10**6  # 8 MB
     URL_REGEX = r"(https?://)?(www.)?twitter.com/(\S+)/status/(\d+)(\?s=\d+)?"
     EVENT_DATE_REGEX = r"(\s+|^)(\d{8}|\d{6})\s*"
     TEST_TWEET_ID = 1230927030163628032

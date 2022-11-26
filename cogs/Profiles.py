@@ -11,8 +11,8 @@ from util import auto_help
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Profiles(bot))
+async def setup(bot):
+    await bot.add_cog(Profiles(bot))
 
 
 class Profiles(commands.Cog):

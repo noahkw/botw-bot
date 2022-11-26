@@ -16,8 +16,8 @@ from util import ack
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Roles(bot))
+async def setup(bot):
+    await bot.add_cog(Roles(bot))
 
 
 class RoleOrAlias(commands.Converter):
@@ -60,13 +60,17 @@ class Roles(CustomCog, AinitMixin):
             clear_with_session = []
             for role_clear in role_clears:
                 if not role_clear.guild:
-                    clear_with_session.append(db.delete_role_clear(
-                        session, role_clear._member, role_clear._role
-                    ))
+                    clear_with_session.append(
+                        db.delete_role_clear(
+                            session, role_clear._member, role_clear._role
+                        )
+                    )
                 elif role_clear.is_due():
-                    asyncio.create_task(self._clear_role(
-                        role_clear.guild, role_clear.member, role_clear.role
-                    ))
+                    asyncio.create_task(
+                        self._clear_role(
+                            role_clear.guild, role_clear.member, role_clear.role
+                        )
+                    )
                 else:
                     self.scheduler.schedule(
                         self._clear_role(
@@ -86,7 +90,9 @@ class Roles(CustomCog, AinitMixin):
             if guild and member and role:
                 try:
                     await member.remove_roles(role, reason="Automatic unassign")
-                    logger.info(f"Automatically unassigned {role} from {member} in {guild}")
+                    logger.info(
+                        f"Automatically unassigned {role} from {member} in {guild}"
+                    )
                 except discord.DiscordException:
                     pass
 

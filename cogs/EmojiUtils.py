@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import typing
 from pathlib import Path
 
 import aiohttp
@@ -11,13 +12,13 @@ from sqlalchemy.exc import NoResultFound
 import db
 from menu import Confirm
 from models import EmojiSettings
-from util import chunker, Cooldown, auto_help, format_emoji, EmojiConverter
+from util import chunker, Cooldown, auto_help, format_emoji
 
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(EmojiUtils(bot))
+async def setup(bot):
+    await bot.add_cog(EmojiUtils(bot))
 
 
 class EmojiUtils(commands.Cog):
@@ -100,7 +101,19 @@ class EmojiUtils(commands.Cog):
     @emoji.command(name="add", brief="Adds a custom emoji")
     @commands.cooldown(1, per=5, type=commands.BucketType.user)
     @commands.bot_has_permissions(manage_emojis=True)
-    async def emoji_add(self, ctx, name: str = None, *, emoji: EmojiConverter):
+    async def emoji_add(
+        self,
+        ctx,
+        name: str = None,
+        reaction_attachment: typing.Optional[discord.Attachment] = None,
+        *,
+        reaction_text: typing.Optional[commands.clean_content] = "",
+    ):
+        emoji = reaction_attachment or reaction_text
+
+        if emoji is None or len(emoji) == 0:
+            raise commands.BadArgument("Attach an image file or a URL.")
+
         if type(emoji) is discord.Attachment:
             emoji_bytes = await emoji.read()
             name = name or Path(emoji.filename).stem

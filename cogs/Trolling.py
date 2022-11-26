@@ -8,8 +8,8 @@ from util import mock_case, remove_broken_emoji
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Trolling(bot))
+async def setup(bot):
+    await bot.add_cog(Trolling(bot))
 
 
 class MessageOrStringConverter(commands.IDConverter):

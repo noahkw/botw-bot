@@ -10,13 +10,13 @@ import db
 from cogs import CustomCog, AinitMixin
 from menu import Confirm, TagListSource, SelectionMenu, DetailTagListSource
 from models import Tag
-from util import ordered_sublists, ratio, auto_help, ReactionConverter, BoolConverter
+from util import ordered_sublists, ratio, auto_help, BoolConverter
 
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Tags(bot))
+async def setup(bot):
+    await bot.add_cog(Tags(bot))
 
 
 def guild_has_tags():
@@ -153,8 +153,9 @@ class Tags(CustomCog, AinitMixin):
         ctx,
         in_msg: typing.Optional[bool] = False,
         trigger: commands.clean_content = "",
+        reaction_attachment: typing.Optional[discord.Attachment] = None,
         *,
-        reaction: ReactionConverter,
+        reaction_text: typing.Optional[commands.clean_content] = "",
     ):
         """
         Adds a new tag.
@@ -168,6 +169,13 @@ class Tags(CustomCog, AinitMixin):
         To scan the entire message for the trigger **haha**:
         `{prefix}tag add true haha stop laughing`
         """
+        reaction = reaction_attachment.url if reaction_attachment else reaction_text
+
+        if len(trigger) == 0 or len(reaction) == 0:
+            raise commands.BadArgument(
+                "A tag needs both a trigger phrase and a reaction (as an attachment or text)."
+            )
+
         matches = await self._get_duplicates(trigger, reaction, ctx.guild)
 
         if len(matches) > 0:

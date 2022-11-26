@@ -39,8 +39,8 @@ def log_usage(command_name=None, log_args=True):
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Logging(bot))
+async def setup(bot):
+    await bot.add_cog(Logging(bot))
 
 
 class Logging(commands.Cog):

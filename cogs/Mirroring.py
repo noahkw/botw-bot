@@ -10,8 +10,8 @@ from util import flatten, ack, auto_help
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Mirroring(bot))
+async def setup(bot):
+    await bot.add_cog(Mirroring(bot))
 
 
 class GlobalTextChannelConverter(commands.Converter):

@@ -11,8 +11,8 @@ from util import safe_send, safe_mention, detail_mention, ack
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Main(bot))
+async def setup(bot):
+    await bot.add_cog(Main(bot))
 
 
 class Main(commands.Cog):

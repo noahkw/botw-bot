@@ -33,8 +33,8 @@ from util import (
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Instagram(bot))
+async def setup(bot):
+    await bot.add_cog(Instagram(bot))
 
 
 class InstagramException(Exception):

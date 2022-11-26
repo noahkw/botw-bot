@@ -28,8 +28,8 @@ from util import (
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(BiasOfTheWeek(bot))
+async def setup(bot):
+    await bot.add_cog(BiasOfTheWeek(bot))
 
 
 class BotwNotEnabled(commands.CheckFailure):

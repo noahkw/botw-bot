@@ -19,8 +19,8 @@ from util import has_passed, auto_help, safe_send
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Reminders(bot))
+async def setup(bot):
+    await bot.add_cog(Reminders(bot))
 
 
 class ReminderConverter(commands.Converter):

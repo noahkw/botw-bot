@@ -10,8 +10,8 @@ from util import auto_help, GreeterTypeConverter
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Greeters(bot))
+async def setup(bot):
+    await bot.add_cog(Greeters(bot))
 
 
 def format_template(template, member: discord.Member):

@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import typing
 from collections import Counter
@@ -25,6 +24,7 @@ class BotwBot(commands.Bot):
 
         intents = discord.Intents.default()
         intents.members = True
+        intents.message_content = True
 
         super().__init__(
             **kwargs,
@@ -74,7 +74,7 @@ class BotwBot(commands.Bot):
             self.custom_emoji[name] = emoji
 
         for ext in self.config["enabled_cogs"]:
-            self.load_extension(ext)
+            await self.load_extension(ext)
 
         logging_channel = self.get_channel(self.config["logging"]["channel_id"])
         if logging_channel:
@@ -139,7 +139,11 @@ class BotwBot(commands.Bot):
             owner = guild.owner
             logger.info(
                 f"Consider leaving non-whitelisted guild {guild.name} ({guild.id})"
-                + (f" Owner: {guild.owner.name} ({guild.owner.id})" if owner else "(owner not in cache)")
+                + (
+                    f" Owner: {guild.owner.name} ({guild.owner.id})"
+                    if owner
+                    else "(owner not in cache)"
+                )
             )
 
         return whitelisted
@@ -149,9 +153,6 @@ class BotwBot(commands.Bot):
             return ctx.guild is not None or await self.is_owner(ctx.author)
 
         self.add_check(globally_block_dms)
-
-    def run(self):
-        super().run(self.config["discord"]["token"])
 
     async def get_prefix(self, message):
         if not message.guild:
@@ -165,7 +166,7 @@ class BotwBot(commands.Bot):
         if not self.is_ready() or not (await self.whitelisted_or_leave(message.guild)):
             # Ignore commands in non-whitelisted guilds
             return
-        
+
         await self.process_commands(message)
 
     async def process_commands(self, message):

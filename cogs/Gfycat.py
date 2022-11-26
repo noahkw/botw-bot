@@ -19,8 +19,8 @@ from util import auto_help, DNFParser
 logger = logging.getLogger(__name__)
 
 
-def setup(bot):
-    bot.add_cog(Gfycat(bot))
+async def setup(bot):
+    await bot.add_cog(Gfycat(bot))
 
 
 class AsyncGenFilter:

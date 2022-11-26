@@ -1,8 +1,3 @@
-import inspect
-import typing
-from abc import ABC
-from inspect import Parameter
-
 from discord.ext import commands
 
 from const import WEEKDAY_TO_INT
@@ -29,38 +24,6 @@ class GreeterTypeConverter(commands.Converter):
             raise commands.BadArgument(f"Greeter type '{argument}' does not exist")
 
 
-class AttachmentConverter(commands.Converter, ABC):
-    pass
-
-
-class ReactionConverter(AttachmentConverter):
-    def __init__(self):
-        super().__init__()
-        self.clean_content = commands.clean_content()
-
-    async def convert(self, ctx, argument):
-        # default value of using the first attachment is handled in the 'hijacked' transform method below
-        if len(argument) > 0:
-            # string supplied, just escape and return it
-            return await self.clean_content.convert(ctx, argument)
-        else:
-            raise commands.BadArgument(
-                "Found neither a reaction string, nor exactly one attachment."
-            )
-
-
-class EmojiConverter(AttachmentConverter):
-    async def convert(self, ctx, argument):
-        # default value of using the first attachment is handled in the 'hijacked' transform method below
-        if len(argument) > 0:
-            # URL supplied, return it
-            return argument
-        else:
-            raise commands.BadArgument(
-                "Found neither a URL, nor exactly one attachment."
-            )
-
-
 class DayOfWeekConverter(commands.Converter):
     def __init__(self):
         super().__init__()
@@ -78,29 +41,3 @@ class DayOfWeekConverter(commands.Converter):
     @staticmethod
     def possible_values():
         return tuple(WEEKDAY_TO_INT.keys())
-
-
-_old_transform = commands.Command.transform
-
-
-def _transform(self, ctx: commands.Context, param: inspect.Parameter):
-    if (
-        type(param.annotation) is typing._ProtocolMeta
-        and issubclass(param.annotation, AttachmentConverter)
-        and param.default is param.empty
-    ):
-        if ctx.message.attachments:
-            default = ctx.message.attachments[0]
-            param = Parameter(
-                param.name,
-                param.kind,
-                default=default,
-                annotation=typing.Optional[param.annotation],
-            )
-        else:
-            param = Parameter(param.name, param.kind, annotation=param.annotation)
-
-    return _old_transform(self, ctx, param)
-
-
-commands.Command.transform = _transform
