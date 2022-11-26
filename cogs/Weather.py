@@ -173,4 +173,4 @@ class Weather(commands.Cog):
             await self._send_current_weather(session, ctx, location)
 
     async def cog_before_invoke(self, ctx):
-        await ctx.trigger_typing()
+        await ctx.typing()

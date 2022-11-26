@@ -59,7 +59,7 @@ class Fun(commands.Cog):
                 f"Text too long. Must be less than {self.SWANTF_MAX_CHARS} characters."
             )
 
-        with ctx.typing():
+        async with ctx.typing():
             image_buffer = await self.bot.loop.run_in_executor(
                 None, self.make_swantf_image, text
             )

@@ -96,7 +96,7 @@ class Gfycat(CustomCog, AinitMixin):
     async def list(
         self, ctx, user_id, sort_by: typing.Optional[SortByConverter] = None
     ):
-        with ctx.typing():
+        async with ctx.typing():
             if sort_by:
                 gfys = await self.gfypy.get_user_feed(
                     user_id=user_id, limit=-1, sort_by=sort_by
@@ -116,7 +116,7 @@ class Gfycat(CustomCog, AinitMixin):
     ):
         parser = DNFParser(query)
 
-        with ctx.typing():
+        async with ctx.typing():
             if sort_by:
                 gfys = await self.gfypy.get_user_feed(
                     user_id=user_id, limit=-1, sort_by=sort_by
@@ -134,7 +134,7 @@ class Gfycat(CustomCog, AinitMixin):
     async def format(self, ctx, *, query):
         parser = DNFParser(query)
 
-        with ctx.typing():
+        async with ctx.typing():
             gfys = await self.gfypy.get_own_feed()
             gfys = list(filter(lambda gfy: parser.evaluate(gfy.tags), gfys))
 
@@ -159,7 +159,7 @@ class Gfycat(CustomCog, AinitMixin):
         start: int = None,
         end: int = None,
     ):
-        with ctx.typing():
+        async with ctx.typing():
             gfys = await self.gfypy.get_user_feed(user_id=user_id, limit=-1)
 
             data = [
@@ -198,4 +198,4 @@ class Gfycat(CustomCog, AinitMixin):
             )
 
     async def cog_before_invoke(self, ctx):
-        await ctx.trigger_typing()
+        await ctx.typing()

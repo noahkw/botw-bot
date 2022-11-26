@@ -59,9 +59,13 @@ class EmbedHelpCommandListSource(menus.ListPageSource):
     def __init__(self, embed, data, per_page):
         super().__init__(data, per_page=per_page)
         self.embed: Embed = embed
+        self.fields = len(embed.fields) + 1
+        self.field_to_remove = len(embed.fields)
 
     async def format_page(self, menu, entries):
-        self.embed.remove_field(2)
+        if len(self.embed.fields) == self.fields:
+            self.embed.remove_field(self.field_to_remove)
+
         self.embed.add_field(
             name=f"Subcommands - Page {menu.current_page + 1} / {self.get_max_pages()}",
             value=" ".join(map(cmd_to_str(), entries)),
