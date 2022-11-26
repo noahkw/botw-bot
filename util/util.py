@@ -177,3 +177,13 @@ def detail_mention(obj: discord.Object, id: typing.Optional[int] = None):
         id_ = f"(`{id}`)" or ""
 
     return f"{mention} {str(obj)} {id_}"
+
+
+def cmd_to_str(group=False):
+    newline = "\n" if group else " "
+
+    def actual(cmd):
+        help_ = cmd.brief or cmd.help
+        return f'**{cmd.name}**{newline}{help_ or "No description"}\n'
+
+    return actual

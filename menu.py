@@ -4,6 +4,7 @@ from discord import Embed
 from discord.ext import menus
 
 from const import NUMBER_TO_EMOJI, UNICODE_EMOJI
+from util import cmd_to_str
 
 
 class Confirm(menus.Menu):
@@ -52,6 +53,22 @@ class SimpleConfirm(menus.Menu):
     async def prompt(self, ctx):
         await self.start(ctx, wait=True)
         return self.result
+
+
+class EmbedHelpCommandListSource(menus.ListPageSource):
+    def __init__(self, embed, data, per_page):
+        super().__init__(data, per_page=per_page)
+        self.embed: Embed = embed
+
+    async def format_page(self, menu, entries):
+        self.embed.remove_field(2)
+        self.embed.add_field(
+            name=f"Subcommands - Page {menu.current_page + 1} / {self.get_max_pages()}",
+            value=" ".join(map(cmd_to_str(), entries)),
+            inline=False,
+        )
+
+        return self.embed
 
 
 class CommandUsageListSource(menus.ListPageSource):

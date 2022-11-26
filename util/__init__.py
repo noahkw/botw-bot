@@ -29,6 +29,7 @@ from .util import (
     safe_send,
     format_emoji,
     detail_mention,
+    cmd_to_str,
 )
 from .channel_locker import ChannelLocker
 
@@ -63,4 +64,5 @@ __all__ = (
     "Cached",
     "LeastRecentlyUsed",
     "ChannelLocker",
+    "cmd_to_str",
 )

@@ -1,15 +1,9 @@
 import discord
 from discord.ext import commands
+from discord.ext.menus import MenuPages
 
-
-def cmd_to_str(group=False):
-    newline = "\n" if group else " "
-
-    def actual(cmd):
-        help_ = cmd.brief or cmd.help
-        return f'**{cmd.name}**{newline}{help_ or "No description"}\n'
-
-    return actual
+from menu import EmbedHelpCommandListSource
+from util import cmd_to_str
 
 
 class EmbedHelpCommand(commands.DefaultHelpCommand):
@@ -68,11 +62,11 @@ class EmbedHelpCommand(commands.DefaultHelpCommand):
                 inline=False,
             )
 
-        embed.add_field(
-            name="Subcommands", value=" ".join(map(cmd_to_str(), cmds)), inline=False
+        pages = MenuPages(
+            source=EmbedHelpCommandListSource(embed, cmds, 5),
+            clear_reactions_after=True,
         )
-
-        await self.get_destination().send(embed=embed)
+        await pages.start(self.context)
 
     async def send_bot_help(self, mapping):
         ctx = self.context
