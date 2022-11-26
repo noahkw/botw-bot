@@ -2,6 +2,7 @@ import abc
 import asyncio
 import collections
 import dataclasses
+import itertools
 import json
 import logging
 import typing
@@ -153,6 +154,37 @@ def shortcode_to_media_id(
     return result
 
 
+class InstagramCookieJarProvider:
+    def __init__(self, cookie_jar):
+        self._cookie_db: list[tuple[str, dict[str, str]]] = []
+        self._cookie_jar = cookie_jar
+        self._generator = self.generator()
+
+    def load_cookies(self, cookie_file):
+        with open(cookie_file, "r") as f:
+            contents: dict[str, list[list[str]]] = json.load(f)
+            cookies = contents.get("cookies", [])
+            logger.info("Loaded %d Instagram cookies", len(cookies))
+
+            for account_name, session_id in contents["cookies"]:
+                self._cookie_db.append(
+                    (
+                        account_name,
+                        {
+                            "sessionid": session_id,
+                        },
+                    )
+                )
+
+    def repopulate(self) -> str:
+        account_name, next_cookie = next(self._generator)
+        self._cookie_jar.update_cookies(cookies=next_cookie)
+        return account_name
+
+    def generator(self):
+        yield from itertools.cycle(self._cookie_db)
+
+
 class Instagram(commands.Cog):
     URL_REGEX = r"https?://(www\.)?instagram\.com/(p|tv|reel)/([a-zA-Z0-9\-_]*)"
     INSTAGRAM_API_URL = "https://i.instagram.com/api/v1/media/{media_id}/info/"
@@ -167,18 +199,14 @@ class Instagram(commands.Cog):
 
         config = self.bot.config["cogs"]["instagram"]
 
-        self.cookies_file = config["cookies_file"]
-        with open(self.cookies_file, "r") as f:
-            cookies = json.load(f)
+        self.cookie_provider = InstagramCookieJarProvider(self.session.cookie_jar)
+        self.cookie_provider.load_cookies(config["cookies_file"])
 
-        self.session.cookie_jar.update_cookies(cookies=cookies)
         self.post_extractor = InstagramExtractorV2()
         self.post_cache = LeastRecentlyUsed(self.POST_CACHE_ENTRIES)
 
         self.user_agent = config["user_agent"]
         self.app_id = config["app_id"]
-
-        logger.info(f"Loaded {len(self.session.cookie_jar)} cookies")
 
     def cog_unload(self):
         asyncio.create_task(self.session.close())
@@ -193,6 +221,7 @@ class Instagram(commands.Cog):
 
         url = self.INSTAGRAM_API_URL.format(media_id=shortcode_to_media_id(shortcode))
 
+        new_cookie = self.cookie_provider.repopulate()
         async with ReactingRetryingSession(
             self.MAX_RETRIES,
             self.session.get,
@@ -204,6 +233,7 @@ class Instagram(commands.Cog):
             try:
                 data = await response.json()
             except aiohttp.ContentTypeError:
+                logger.info("Request failed with cookie %s", new_cookie)
                 raise InstagramLoginException
 
         return self.post_extractor.extract_media(data)
