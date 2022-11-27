@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import random
 import typing
@@ -31,8 +32,9 @@ class Utilities(commands.Cog):
     @commands.is_owner()
     @ack
     async def reload(self, ctx):
-        for ext in self.bot.config["enabled_cogs"]:
-            self.bot.reload_extension(ext)
+        await asyncio.gather(
+            *[self.bot.reload_extension(ext) for ext in self.bot.config["enabled_cogs"]]
+        )
 
     @commands.command(aliases=["pick"], brief="Makes the bot choose between 2+ things")
     async def choose(self, ctx, *args: commands.clean_content):
