@@ -21,7 +21,7 @@ def react_on_forbidden(coro):
             try:
                 await ctx.message.add_reaction(UNICODE_EMOJI["CROSS"])
             except discord.Forbidden:
-                logger.info("Could neither respond nor react in '%s'", ctx.channel.id)
+                pass
 
     return wrapped
 
