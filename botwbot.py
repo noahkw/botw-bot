@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class BotwBot(commands.Bot):
     CREATOR_ID = 207955387909931009
-    PRIVILEGED_COGS = {"Instagram"}
+    PRIVILEGED_COGS = {"Instagram", "Live"}
 
     def __init__(self, config, **kwargs):
         # the Session is attached by the launcher script

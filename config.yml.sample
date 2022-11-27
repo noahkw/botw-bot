@@ -28,6 +28,7 @@ enabled_cogs:
   - 'cogs.CardGameUtils'
   - 'cogs.Logging'
   - 'cogs.Main'
+  - 'cogs.Live'
 cogs:
   biasoftheweek:
     winner_role_name: 'BotW-Winner'
@@ -55,3 +56,7 @@ cogs:
     consumer_secret: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
     access_token: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
     access_token_secret: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+  live:
+    sync_stream_ws: 'XXXXXXXXXXXXXXXXXXXXXX'
+    sync_stream_token: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+    sync_stream_updates_channel: XXXXXXXXXXXXXXXXX
