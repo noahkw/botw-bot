@@ -4,12 +4,14 @@ from collections import Counter
 
 import discord
 from discord.ext import commands
+from discord.ext.commands import Cog
 
 import const
 import db
 from const import CUSTOM_EMOJI
 from help_command import EmbedHelpCommand
 from log import MessageableHandler
+from models import GuildCog
 from util import safe_send, ChannelLocker
 
 logger = logging.getLogger(__name__)
@@ -17,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class BotwBot(commands.Bot):
     CREATOR_ID = 207955387909931009
+    PRIVILEGED_COGS = {"Instagram"}
 
     def __init__(self, config, **kwargs):
         # the Session is attached by the launcher script
@@ -50,6 +53,10 @@ class BotwBot(commands.Bot):
         self.custom_emoji = {}  # name -> Emoji instance
 
         self.channel_locker = ChannelLocker()
+
+        GuildCog.inject_bot(self)
+
+        self.privileged_cogs_cache: dict[str, set[int]] = {}
 
     async def on_ready(self):
         await self.change_presence(activity=discord.Game("with Bini"))
@@ -177,6 +184,32 @@ class BotwBot(commands.Bot):
             return
 
         await self.process_commands(message)
+
+    def invalidate_privileged_cog_cache(self, cog_name: str):
+        self.privileged_cogs_cache.pop(cog_name)
+
+    async def get_guilds_for_cog(self, cog: Cog) -> typing.Optional[set[discord.Guild]]:
+        cog_name = cog.__cog_name__
+
+        if cog_name not in self.PRIVILEGED_COGS:
+            return None
+
+        guilds = self.privileged_cogs_cache.get(cog_name)
+        if guilds is not None:
+            return {self.get_guild(guild) for guild in guilds}
+
+        async with self.Session() as session:
+            guilds = await db.get_cog_guilds(session, cog_name)
+            self.privileged_cogs_cache[cog_name] = {guild._guild for guild in guilds}
+
+            guild_objs = {guild.guild for guild in guilds}
+            logger.info(
+                "Added guilds for privileged cog %s: %s",
+                cog_name,
+                ", ".join([str(guild_obj) for guild_obj in guild_objs]),
+            )
+
+            return guild_objs
 
     async def process_commands(self, message):
         ctx = await self.get_context(message)

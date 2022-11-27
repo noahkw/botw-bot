@@ -25,6 +25,7 @@ from models import (
     TwtSorting,
     TwtFilter,
     RoleSettings,
+    GuildCog,
 )
 
 
@@ -384,3 +385,10 @@ async def get_command_usage_by(session, by, command_name, weeks):
     result = (await session.execute(statement)).all()
 
     return result
+
+
+async def get_cog_guilds(session, cog_name: str):
+    statement = select(GuildCog).where(GuildCog.cog == cog_name)
+    result = (await session.execute(statement)).all()
+
+    return [r for (r,) in result]

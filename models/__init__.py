@@ -1,7 +1,7 @@
 from .botw import BotwState, BotwWinner, Nomination, Idol, BotwSettings
 from .channel_mirror import ChannelMirror
 from .greeter import Greeter, GreeterType
-from .guild_settings import GuildSettings, EmojiSettings
+from .guild_settings import GuildSettings, EmojiSettings, GuildCog
 from .log import CommandLog
 from .profile import Profile
 from .reminder import Reminder
@@ -14,6 +14,7 @@ __all__ = (
     "BotwWinner",
     "ChannelMirror",
     "GuildSettings",
+    "GuildCog",
     "EmojiSettings",
     "Idol",
     "Nomination",

@@ -29,3 +29,8 @@ class EmojiSettings(GuildSettingsMixin, Base):
     @hybrid_property
     def channel(self):
         return self.bot.get_channel(self._channel)
+
+
+class GuildCog(GuildSettingsMixin, Base):
+    __tablename__ = "guild_cogs"
+    cog = Column(String, primary_key=True)

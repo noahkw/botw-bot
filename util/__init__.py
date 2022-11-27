@@ -32,6 +32,7 @@ from .util import (
     cmd_to_str,
 )
 from .channel_locker import ChannelLocker
+from .cogs import PrivilegedCogNoPermissions, PrivilegedCog
 
 __all__ = (
     "BoolConverter",
@@ -65,4 +66,6 @@ __all__ = (
     "LeastRecentlyUsed",
     "ChannelLocker",
     "cmd_to_str",
+    "PrivilegedCogNoPermissions",
+    "PrivilegedCog",
 )

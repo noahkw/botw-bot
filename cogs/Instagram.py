@@ -20,6 +20,7 @@ from discord.ext import commands
 from regex import regex
 from yarl import URL
 
+from botwbot import BotwBot
 from cogs.Logging import log_usage
 from const import UNICODE_EMOJI
 from menu import SimpleConfirm
@@ -29,13 +30,15 @@ from util import (
     ReactingRetryingSession,
     ExceededMaximumRetries,
     LeastRecentlyUsed,
+    PrivilegedCog,
+    PrivilegedCogNoPermissions,
 )
 
 logger = logging.getLogger(__name__)
 
 
-async def setup(bot):
-    await bot.add_cog(Instagram(bot))
+async def setup(bot: BotwBot):
+    await bot.add_cog(Instagram(bot), guilds=await bot.get_guilds_for_cog(Instagram))
 
 
 class InstagramException(Exception):
@@ -157,7 +160,7 @@ def shortcode_to_media_id(
 class InstagramCookieJarProvider:
     def __init__(self, cookie_jar):
         self._cookie_db: list[tuple[str, dict[str, str]]] = []
-        self._cookie_jar = cookie_jar
+        self._cookie_jar: OneTimeCookieJar = cookie_jar
         self._generator = self.generator()
 
     def load_cookies(self, cookie_file):
@@ -178,14 +181,14 @@ class InstagramCookieJarProvider:
 
     def repopulate(self) -> str:
         account_name, next_cookie = next(self._generator)
-        self._cookie_jar.update_cookies(cookies=next_cookie)
+        self._cookie_jar.force_update_cookies(cookies=next_cookie)
         return account_name
 
     def generator(self):
         yield from itertools.cycle(self._cookie_db)
 
 
-class Instagram(commands.Cog):
+class Instagram(PrivilegedCog):
     URL_REGEX = r"https?://(www\.)?instagram\.com/(p|tv|reel)/([a-zA-Z0-9\-_]*)"
     INSTAGRAM_API_URL = "https://i.instagram.com/api/v1/media/{media_id}/info/"
     FILESIZE_MIN = 10**3
@@ -373,6 +376,11 @@ class Instagram(commands.Cog):
         ):
             return
 
+        try:
+            await self.check_privileged(ctx)
+        except PrivilegedCogNoPermissions:
+            return
+
         results = regex.finditer(self.URL_REGEX, message.content)
         urls = [result.group(0) for result in results]
 
@@ -390,4 +398,5 @@ class Instagram(commands.Cog):
                                 await ctx.send(error)
 
     async def cog_before_invoke(self, ctx):
+        await super().cog_before_invoke(ctx)
         await ctx.typing()
