@@ -1,5 +1,4 @@
 import logging
-import typing
 
 import discord
 from discord.ext import commands
@@ -41,17 +40,15 @@ class Main(commands.Cog):
                 "The prefix has to be between 1 and 10 characters long."
             )
 
-    @commands.command(brief="Request the bot for your guild")
-    async def invite(self, ctx, guild_id: typing.Optional[int] = 0):
-        # await self.bot.get_user(self.bot.CREATOR_ID).send(
-        #    f"Request to whitelist guild `{guild_id}` from {detail_mention(ctx.author)}."
-        # )
+    @commands.hybrid_command(brief="Request the bot for your guild")
+    async def invite(self, ctx, guild_id: int):
+        await self.bot.get_user(self.bot.CREATOR_ID).send(
+            f"Request to whitelist guild `{guild_id}` from {detail_mention(ctx.author)}."
+        )
 
-        # await ctx.send(
-        #    f"{ctx.author.mention}, I've relayed your request to get me added to the guild with "
-        #    f"ID `{guild_id}`.\n"
-        # )
-        await ctx.send("Invites are currently disabled.")
+        await ctx.reply(
+            f"I've relayed your request to get me added to the guild with ID `{guild_id}`.\n"
+        )
 
     @commands.command(brief="Adds a guild to the whitelist")
     @commands.is_owner()
