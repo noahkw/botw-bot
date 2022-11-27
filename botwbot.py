@@ -5,6 +5,7 @@ from collections import Counter
 import discord
 from discord.ext import commands
 
+import const
 import db
 from const import CUSTOM_EMOJI
 from help_command import EmbedHelpCommand
@@ -96,13 +97,21 @@ class BotwBot(commands.Bot):
     async def on_disconnect(self):
         logger.debug("disconnected")
 
-    async def on_command_error(self, ctx, error):
+    async def on_command_error(self, ctx: commands.Context, error):
         if isinstance(
             error, (commands.CommandNotFound, discord.ext.menus.MenuError)
         ) or hasattr(ctx.command, "on_error"):
             return
 
         error = getattr(error, "original", error)
+
+        if isinstance(error, discord.Forbidden):
+            try:
+                await ctx.message.add_reaction(const.UNICODE_EMOJI["CROSS"])
+                return
+            except discord.Forbidden:
+                # We tried...
+                return
 
         if isinstance(
             error,

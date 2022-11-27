@@ -1,10 +1,29 @@
+import logging
+from functools import wraps
+
 import discord
 import gfypy
 from discord import Embed
-from discord.ext import menus
+from discord.ext import menus, commands
 
 from const import NUMBER_TO_EMOJI, UNICODE_EMOJI
 from util import cmd_to_str
+
+logger = logging.getLogger(__name__)
+
+
+def react_on_forbidden(coro):
+    @wraps(coro)
+    async def wrapped(self, ctx: commands.Context, *args, **kwargs):
+        try:
+            await coro(self, ctx, *args, **kwargs)
+        except menus.CannotSendMessages:
+            try:
+                await ctx.message.add_reaction(UNICODE_EMOJI["CROSS"])
+            except discord.Forbidden:
+                logger.info("Could neither respond nor react in '%s'", ctx.channel.id)
+
+    return wrapped
 
 
 class Confirm(menus.Menu):
@@ -26,6 +45,7 @@ class Confirm(menus.Menu):
         self.result = False
         self.stop()
 
+    @react_on_forbidden
     async def prompt(self, ctx):
         await self.start(ctx, wait=True)
         return self.result
@@ -50,6 +70,7 @@ class SimpleConfirm(menus.Menu):
     async def send_initial_message(self, ctx, channel):
         return self.msg
 
+    @react_on_forbidden
     async def prompt(self, ctx):
         await self.start(ctx, wait=True)
         return self.result
