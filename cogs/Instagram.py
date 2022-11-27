@@ -225,19 +225,23 @@ class Instagram(PrivilegedCog):
         url = self.INSTAGRAM_API_URL.format(media_id=shortcode_to_media_id(shortcode))
 
         new_cookie = self.cookie_provider.repopulate()
-        async with ReactingRetryingSession(
-            self.MAX_RETRIES,
-            self.session.get,
-            url,
-            message=message,
-            emoji=self.bot.custom_emoji["RETRY"],
-            headers=headers,
-        ) as response:
-            try:
-                data = await response.json()
-            except aiohttp.ContentTypeError:
-                logger.info("Request failed with cookie %s", new_cookie)
-                raise InstagramLoginException
+        try:
+            async with ReactingRetryingSession(
+                self.MAX_RETRIES,
+                self.session.get,
+                url,
+                message=message,
+                emoji=self.bot.custom_emoji["RETRY"],
+                headers=headers,
+            ) as response:
+                try:
+                    data = await response.json()
+                except aiohttp.ContentTypeError:
+                    logger.info("Request failed with cookie %s", new_cookie)
+                    raise InstagramLoginException
+        except ExceededMaximumRetries:
+            logger.info("Request failed with cookie %s", new_cookie)
+            raise
 
         return self.post_extractor.extract_media(data)
 

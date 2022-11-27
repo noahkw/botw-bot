@@ -45,6 +45,11 @@ class RetryingSession:
             )
 
             if resp and (resp.status < 200 or resp.status >= 300):
+                logger.info(
+                    "Requesting URL '%s' failed with status code %d",
+                    self.url,
+                    resp.status,
+                )
                 raise _RetryException
 
             return resp
@@ -61,7 +66,7 @@ class RetryingSession:
                     asyncio.create_task(self.on_retry())
 
                 if current_try < self.max_tries - 1:
-                    delay = self.DELAY_BASE ** current_try
+                    delay = self.DELAY_BASE**current_try
                     logger.info(
                         "Waiting %d seconds before retrying '%s'", delay, self.url
                     )
