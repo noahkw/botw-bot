@@ -16,7 +16,7 @@ def react_on_forbidden(coro):
     @wraps(coro)
     async def wrapped(self, ctx: commands.Context, *args, **kwargs):
         try:
-            await coro(self, ctx, *args, **kwargs)
+            return await coro(self, ctx, *args, **kwargs)
         except menus.CannotSendMessages:
             try:
                 await ctx.message.add_reaction(UNICODE_EMOJI["CROSS"])
