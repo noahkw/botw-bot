@@ -116,7 +116,7 @@ python-versions = "*"
 
 [[package]]
 name = "certifi"
-version = "2022.9.24"
+version = "2022.12.7"
 description = "Python package for providing Mozilla's CA Bundle."
 category = "main"
 optional = false
@@ -1049,8 +1049,8 @@ braceexpand = [
     {file = "braceexpand-0.1.7.tar.gz", hash = "sha256:e6e539bd20eaea53547472ff94f4fb5c3d3bf9d0a89388c4b56663aba765f705"},
 ]
 certifi = [
-    {file = "certifi-2022.9.24-py3-none-any.whl", hash = "sha256:90c1a32f1d68f940488354e36370f6cca89f0f106db09518524c88d6ed83f382"},
-    {file = "certifi-2022.9.24.tar.gz", hash = "sha256:0d9c601124e5a6ba9712dbc60d9c53c21e34f5f641fe83002317394311bdce14"},
+    {file = "certifi-2022.12.7-py3-none-any.whl", hash = "sha256:4ad3232f5e926d6718ec31cfc1fcadfde020920e278684144551c91769c7bc18"},
+    {file = "certifi-2022.12.7.tar.gz", hash = "sha256:35824b4c3a97115964b408844d64aa14db1cc518f6562e8d7261699d1350a9e3"},
 ]
 cfgv = [
     {file = "cfgv-3.3.1-py2.py3-none-any.whl", hash = "sha256:c6a0883f3917a037485059700b9e75da2464e6c27051014ad85ba6aaa5884426"},
@@ -1324,9 +1324,6 @@ importlib-metadata = [
 ]
 jishaku = [
     {file = "jishaku-2.5.1-py3-none-any.whl", hash = "sha256:f05380834662f572576984569f9b0bad83863afdf46d3566f9cc008dc95b70d2"},
-    {file = "jishaku-2.5.1-py3.10.egg", hash = "sha256:9ae8beaf907c1fd8b35d23bff8af4f8dd6a2cf58bce89878905fa815dfc506d0"},
-    {file = "jishaku-2.5.1-py3.8.egg", hash = "sha256:01c9ddcdb3c5a43806bf8c146d2d6ebd8818ad93f07e1713386db70690e7bd5d"},
-    {file = "jishaku-2.5.1-py3.9.egg", hash = "sha256:74ed2fda23beed4214a1df35132691c96bfee289f777685d6e3fd81344ecf7e0"},
     {file = "jishaku-2.5.1.tar.gz", hash = "sha256:7105310bb4e08d3e67c84a25c7bfb4619fa45ca3dbd134ae219f96f5fb4510db"},
 ]
 kiwisolver = [
