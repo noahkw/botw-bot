@@ -109,10 +109,7 @@ class EmojiUtils(commands.Cog):
         *,
         reaction_text: typing.Optional[commands.clean_content] = "",
     ):
-        emoji = reaction_attachment or reaction_text
-
-        if emoji is None or len(emoji) == 0:
-            raise commands.BadArgument("Attach an image file or a URL.")
+        emoji = reaction_attachment or reaction_text or name
 
         if type(emoji) is discord.Attachment:
             emoji_bytes = await emoji.read()
@@ -129,18 +126,17 @@ class EmojiUtils(commands.Cog):
                 )
                 raise commands.BadArgument("Download timed out.")
 
-            name = name or Path(emoji).stem
+            name = name if name != emoji else Path(emoji).stem
+        else:
+            raise commands.BadArgument("Attach an image file or a URL.")
 
         try:
             custom_emoji = await ctx.guild.create_custom_emoji(
                 name=name, image=emoji_bytes, reason=f"Added by {ctx.author}"
             )
-        except discord.HTTPException:
+        except discord.HTTPException as e:
             logger.exception("Emoji upload failed for URL %s", emoji)
-            raise commands.BadArgument(
-                "Bad request. Make sure that the file is < 256 KB and that "
-                "the emoji name contains no special characters."
-            )
+            raise commands.BadArgument("Error " + e.text.split("\n")[-1])
         except discord.InvalidArgument:
             raise commands.BadArgument(
                 "Bad image file. Must be either JPG, PNG, or GIF."
