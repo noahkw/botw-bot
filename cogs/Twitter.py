@@ -72,6 +72,7 @@ class Twitter(CustomCog, AinitMixin):
         self.feed = None
         self.stream_thing = None
         self.client = None
+        self.clientv2 = None
         self.stream_task = None
         self.restart_stream_task = None
         self.session = aiohttp.ClientSession()
@@ -82,6 +83,13 @@ class Twitter(CustomCog, AinitMixin):
 
     async def _ainit(self):
         self.client = PeonyClient(**self.keys, loop=self.bot.loop)
+        self.clientv2 = peony.BasePeonyClient(
+            **self.keys,
+            auth=peony.oauth.OAuth2Headers,
+            api_version="2",
+            suffix="",
+            loop=self.bot.loop,
+        )
         self.restart_stream_task = asyncio.create_task(self.restart_stream_sub())
 
     def cog_unload(self):
@@ -148,7 +156,9 @@ class Twitter(CustomCog, AinitMixin):
                 channels_list = await self.get_channels(
                     servers=server_list, tags=tags_list, session=session
                 )
-                tweet_txt, file_list = await self.create_post(tweet)
+                tweet_txt, file_list = await self.create_post(
+                    await self.get_tweet_v2(tweet.id)
+                )
                 await self.manage_post_tweet(tweet_txt, file_list, channels_list)
 
     async def get_account(self, ctx, account):
@@ -175,6 +185,27 @@ class Twitter(CustomCog, AinitMixin):
             )
         except (peony.exceptions.StatusNotFound, peony.exceptions.HTTPNotFound):
             await ctx.send("Tweet not found")
+            return None
+
+        return tweet
+
+    async def get_tweet_v2(
+        self,
+        tweet_id,
+        ctx=None,
+    ):
+        try:
+            tweet_req = {
+                "ids": [tweet_id],
+                "expansions": ["attachments.media_keys", "author_id"],
+                "media.fields": ["height", "type", "url", "width", "variants"],
+                "tweet.fields": ["created_at", "entities"],
+                "user.fields": ["username", "name"],
+            }
+            tweet = await self.clientv2.api.tweets.get(**tweet_req)
+        except (peony.exceptions.StatusNotFound, peony.exceptions.HTTPNotFound):
+            if ctx:
+                await ctx.send("Tweet not found")
             return None
 
         return tweet
@@ -222,72 +253,49 @@ class Twitter(CustomCog, AinitMixin):
         return channel_list
 
     async def create_post(self, tweet, is_stream=True, message=None):
-        tweet_date = datetime.strptime(tweet.created_at, "%a %b %d %H:%M:%S %z %Y")
+        tweet_date = datetime.strptime(
+            tweet["data"][0]["created_at"], "%Y-%m-%dT%H:%M:%S.000Z"
+        )
         tweet_date = (tweet_date + self.KR_UTC_OFFSET).strftime("%y%m%d")
 
-        event_date = re.search(self.EVENT_DATE_REGEX, tweet.text)
+        event_date = re.search(self.EVENT_DATE_REGEX, tweet["data"][0]["text"])
         date = event_date.group(2)[-6:] if event_date else tweet_date
-
-        username = tweet.user.screen_name
-        files = []
+        username = tweet.includes.users[0].username
 
         post_format = "`{0} - cr: @{1}`\n<https://twitter.com/{1}/status/{2}>\n"
         if is_stream:
-            post = post_format.format(date, username, tweet.id)
+            post = post_format.format(date, username, tweet["data"][0]["id"])
         else:
             post = ""
 
-        if "video_info" in tweet.extended_entities.media[0]:
-            variants = tweet.extended_entities.media[0]["video_info"]["variants"]
-            bitrate_and_urls = [
-                (variant["bitrate"], variant["url"])
-                for variant in variants
-                if "bitrate" in variant
-            ]
-            video_url = max(bitrate_and_urls, key=lambda x: x[0])[1]
-            video_filename = video_url.split("/")[-1].split("?")[0]
+        media_list = []
+        for media_obj in tweet.includes.media:
+            if media_obj.type == "photo":
+                media_url = media_obj.url + "?name=orig"
+                media_filename = media_obj.url.split("/")[-1]
 
-            try:
-                async with ReactingRetryingSession(
-                    self.MAX_RETRIES,
-                    self.session.get,
-                    video_url,
-                    message=message,
-                    emoji=self.bot.custom_emoji["RETRY"],
-                ) as response:
-                    video_bytes = BytesIO(await response.read())
-
-                    if video_bytes.getbuffer().nbytes < self.FILESIZE_MAX:
-                        files.append(File(video_bytes, filename=video_filename))
-                        post += f"\n<{video_url}>"
-                    else:
-                        post += f"\n{video_url}"
-            except ExceededMaximumRetries as e:
-                logger.info(
-                    "Unable to download video '%s' after %d retries", e.url, e.tries
-                )
-                post += f"\n{video_url}"
-
-        else:
-            download_results = await asyncio.gather(
-                *[
-                    self.download_pic(
-                        image.media_url.split("/")[-1],
-                        image.media_url + "?name=orig",
-                        message,
-                    )
-                    for image in tweet.extended_entities.media
+            elif media_obj.type == "video":
+                variants = media_obj.variants
+                bitrate_and_urls = [
+                    (variant["bit_rate"], variant["url"])
+                    for variant in variants
+                    if "bit_rate" in variant
                 ]
-            )
+                media_url = max(bitrate_and_urls, key=lambda x: x[0])[1]
+                media_filename = media_url.split("/")[-1].split("?")[0]
 
-            pic_files, pic_urls = zip(*download_results)
+            media_list.append(self.download_media(media_filename, media_url, message))
 
-            post += "\n".join(pic_urls)
-            files.extend(file for file in pic_files if file is not None)
+        download_results = await asyncio.gather(*media_list)
+        media_files, media_urls = zip(*download_results)
+
+        post += "\n".join(media_urls)
+        files = []
+        files.extend(file for file in media_files if file is not None)
 
         return post, files
 
-    async def download_pic(
+    async def download_media(
         self, filename: str, url: str, message=None
     ) -> tuple[typing.Optional[discord.File], str]:
         try:
@@ -298,10 +306,15 @@ class Twitter(CustomCog, AinitMixin):
                 message=message,
                 emoji=self.bot.custom_emoji["RETRY"],
             ) as response:
-                return File(BytesIO(await response.read()), filename), f"<{url}>"
+                media_bytes = BytesIO(await response.read())
+
+                if media_bytes.getbuffer().nbytes < self.FILESIZE_MAX:
+                    return File(media_bytes, filename), f"<{url}>"
+                else:
+                    return None, url
         except ExceededMaximumRetries as e:
             logger.info(
-                "Unable to download picture '%s' after %d retries", e.url, e.tries
+                "Unable to download media '%s' after %d retries", e.url, e.tries
             )
             return None, url
 
@@ -421,16 +434,22 @@ class Twitter(CustomCog, AinitMixin):
 
         if tweet_ids:
             for tweet_id in tweet_ids:
-                tweet = await self.get_tweet(ctx, tweet_id)
+                tweet = await self.get_tweet_v2(tweet_id, ctx)
                 if tweet:
                     logger.debug(
                         "Processing: @%s - %s in %s (%d)",
-                        tweet.user.screen_name,
-                        tweet.id_str,
+                        tweet.includes.users[0].username,
+                        tweet["data"][0]["id"],
                         ctx.guild.name,
                         ctx.guild.id,
                     )
-                    tags_list = [tag.text for tag in tweet.entities.hashtags]
+                    if "hashtags" in tweet["data"][0]["entities"]:
+                        tags_list = [
+                            tag_entry["tag"]
+                            for tag_entry in tweet["data"][0]["entities"]["hashtags"]
+                        ]
+                    else:
+                        tags_list = []
                     if channel:
                         channels_list = [channel]
                     else:
@@ -808,8 +827,8 @@ class Twitter(CustomCog, AinitMixin):
             if confirm:
                 async with ctx.typing():
                     for tweet_id in tweet_ids:
-                        tweet = await self.get_tweet(ctx, tweet_id)
-                        if tweet and "extended_entities" in tweet:
+                        tweet = await self.get_tweet_v2(tweet_id, ctx)
+                        if tweet and "media" in "includes" in tweet:
                             try:
                                 await ctx.message.edit(suppress=True)
                             except discord.Forbidden:
