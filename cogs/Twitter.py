@@ -828,7 +828,7 @@ class Twitter(CustomCog, AinitMixin):
                 async with ctx.typing():
                     for tweet_id in tweet_ids:
                         tweet = await self.get_tweet_v2(tweet_id, ctx)
-                        if tweet and "media" in "includes" in tweet:
+                        if tweet and "media" in tweet.includes:
                             try:
                                 await ctx.message.edit(suppress=True)
                             except discord.Forbidden:
