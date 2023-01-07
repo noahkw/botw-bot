@@ -914,7 +914,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.11"
-content-hash = "b242aea253da169163cf2e7514889905e595ed3b226b980cb906e9e036e6004e"
+content-hash = "1dab67961fb4c6d60668b827d47240d39b0e8591318f5c2bc47c49ff29de2dad"
 
 [metadata.files]
 aiohttp = [
@@ -1324,9 +1324,6 @@ importlib-metadata = [
 ]
 jishaku = [
     {file = "jishaku-2.5.1-py3-none-any.whl", hash = "sha256:f05380834662f572576984569f9b0bad83863afdf46d3566f9cc008dc95b70d2"},
-    {file = "jishaku-2.5.1-py3.10.egg", hash = "sha256:9ae8beaf907c1fd8b35d23bff8af4f8dd6a2cf58bce89878905fa815dfc506d0"},
-    {file = "jishaku-2.5.1-py3.8.egg", hash = "sha256:01c9ddcdb3c5a43806bf8c146d2d6ebd8818ad93f07e1713386db70690e7bd5d"},
-    {file = "jishaku-2.5.1-py3.9.egg", hash = "sha256:74ed2fda23beed4214a1df35132691c96bfee289f777685d6e3fd81344ecf7e0"},
     {file = "jishaku-2.5.1.tar.gz", hash = "sha256:7105310bb4e08d3e67c84a25c7bfb4619fa45ca3dbd134ae219f96f5fb4510db"},
 ]
 kiwisolver = [
