@@ -274,7 +274,7 @@ class Twitter(CustomCog, AinitMixin):
                 media_url = media_obj.url + "?name=orig"
                 media_filename = media_obj.url.split("/")[-1]
 
-            elif media_obj.type == "video":
+            elif media_obj.type == "video" or media_obj.type == "animated_gif":
                 variants = media_obj.variants
                 bitrate_and_urls = [
                     (variant["bit_rate"], variant["url"])
