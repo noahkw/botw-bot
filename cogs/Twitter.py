@@ -63,6 +63,7 @@ class Twitter(CustomCog, AinitMixin):
     TEST_TWEET_ID = 1230927030163628032
     KR_UTC_OFFSET = timedelta(hours=9)
     RESTART_STREAM_COOLDOWN = 2 * 60  # 2 minutes
+    GET_TWEET_COOLDOWN = 15
     MAX_RETRIES = 3
     TWITTER_REQ_SIZE = 100
 
@@ -70,7 +71,7 @@ class Twitter(CustomCog, AinitMixin):
         super().__init__(bot)
         self.bot = bot
         self.feed = None
-        self.stream_thing = None
+        # self.stream_thing = None
         self.client = None
         self.clientv2 = None
         self.stream_task = None
@@ -110,8 +111,7 @@ class Twitter(CustomCog, AinitMixin):
         self.feed = self.client.stream.statuses.filter.post(follow=self.gen_accounts)
 
         async with self.feed as stream:
-            self.stream_thing = stream
-            async for tweet in self.stream_thing:
+            async for tweet in stream:
                 if (
                     on_tweet_with_media(tweet)
                     and tweet.user.id_str in self.gen_accounts
@@ -123,7 +123,10 @@ class Twitter(CustomCog, AinitMixin):
                     )
                     async with self.bot.Session() as session:
                         try:
-                            await self.manage_twt(tweet, session)
+                            await asyncio.sleep(self.GET_TWEET_COOLDOWN)
+                            tweet_v2 = await self.get_tweet_v2(tweet.id)
+                            if tweet_v2:
+                                await self.manage_twt(tweet_v2, session)
                         except Exception:
                             logger.exception("Error processing tweet")
 
@@ -144,21 +147,21 @@ class Twitter(CustomCog, AinitMixin):
                 self.stream_task = asyncio.create_task(self.streaming())
 
     async def manage_twt(self, tweet, session):
-        tags_list = [tag.text for tag in tweet.entities.hashtags]
+        tags_list = [
+            tag_entry.tag for tag_entry in tweet["data"][0]["entities"]["hashtags"]
+        ]
         if tags_list:
             server_list_accs = await db.get_twitter_accounts(
-                session, account_id=tweet.user.id_str
+                session, account_id=tweet.includes.users[0].id
             )
             server_list_accs = [server._guild for server in server_list_accs]
-            tweet_text = tweet.full_text if "full_text" in tweet else tweet.text
+            tweet_text = tweet["data"][0]["text"]
             server_list = await self.get_servers(session, server_list_accs, tweet_text)
             if server_list:
                 channels_list = await self.get_channels(
                     servers=server_list, tags=tags_list, session=session
                 )
-                tweet_txt, file_list = await self.create_post(
-                    await self.get_tweet_v2(tweet.id)
-                )
+                tweet_txt, file_list = await self.create_post(tweet)
                 await self.manage_post_tweet(tweet_txt, file_list, channels_list)
 
     async def get_account(self, ctx, account):
@@ -194,18 +197,15 @@ class Twitter(CustomCog, AinitMixin):
         tweet_id,
         ctx=None,
     ):
-        try:
-            tweet_req = {
-                "ids": [tweet_id],
-                "expansions": ["attachments.media_keys", "author_id"],
-                "media.fields": ["height", "type", "url", "width", "variants"],
-                "tweet.fields": ["created_at", "entities"],
-                "user.fields": ["username", "name"],
-            }
-            tweet = await self.clientv2.api.tweets.get(**tweet_req)
-        except (peony.exceptions.StatusNotFound, peony.exceptions.HTTPNotFound):
-            if ctx:
-                await ctx.send("Tweet not found")
+        tweet_req = {
+            "ids": [tweet_id],
+            "expansions": ["attachments.media_keys", "author_id"],
+            "media.fields": ["height", "type", "url", "width", "variants"],
+            "tweet.fields": ["created_at", "entities"],
+            "user.fields": ["username", "name"],
+        }
+        tweet = await self.clientv2.api.tweets.get(**tweet_req)
+        if "data" not in tweet:
             return None
 
         return tweet
@@ -274,7 +274,7 @@ class Twitter(CustomCog, AinitMixin):
                 media_url = media_obj.url + "?name=orig"
                 media_filename = media_obj.url.split("/")[-1]
 
-            elif media_obj.type == "video" or media_obj.type == "animated_gif":
+            elif media_obj.type == "video":
                 variants = media_obj.variants
                 bitrate_and_urls = [
                     (variant["bit_rate"], variant["url"])
