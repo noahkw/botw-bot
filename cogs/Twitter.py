@@ -146,9 +146,7 @@ class Twitter(CustomCog, AinitMixin):
                 self.stream_task = asyncio.create_task(self.streaming())
 
     async def manage_twt(self, tweet, session):
-        tags_list = [
-            tag_entry.tag for tag_entry in tweet["data"][0]["entities"]["hashtags"]
-        ]
+        tags_list = await self.get_tweet_hashtags(tweet)
         if tags_list:
             server_list_accs = await db.get_twitter_accounts(
                 session, account_id=tweet.includes.users[0].id
@@ -162,6 +160,17 @@ class Twitter(CustomCog, AinitMixin):
                 )
                 tweet_txt, file_list = await self.create_post(tweet)
                 await self.manage_post_tweet(tweet_txt, file_list, channels_list)
+
+    async def get_tweet_hashtags(self, tweet):
+        if "hashtags" in tweet["data"][0]["entities"]:
+            tags_list = [
+                tag_entry["tag"]
+                for tag_entry in tweet["data"][0]["entities"]["hashtags"]
+            ]
+        else:
+            tags_list = []
+
+        return tags_list
 
     async def get_account(self, ctx, account):
         try:
@@ -442,13 +451,7 @@ class Twitter(CustomCog, AinitMixin):
                         ctx.guild.name,
                         ctx.guild.id,
                     )
-                    if "hashtags" in tweet["data"][0]["entities"]:
-                        tags_list = [
-                            tag_entry["tag"]
-                            for tag_entry in tweet["data"][0]["entities"]["hashtags"]
-                        ]
-                    else:
-                        tags_list = []
+                    tags_list = await self.get_tweet_hashtags(tweet)
                     if channel:
                         channels_list = [channel]
                     else:
