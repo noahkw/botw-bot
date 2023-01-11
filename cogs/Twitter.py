@@ -162,15 +162,11 @@ class Twitter(CustomCog, AinitMixin):
                 await self.manage_post_tweet(tweet_txt, file_list, channels_list)
 
     async def get_tweet_hashtags(self, tweet):
-        if "hashtags" in tweet["data"][0]["entities"]:
-            tags_list = [
-                tag_entry["tag"]
-                for tag_entry in tweet["data"][0]["entities"]["hashtags"]
-            ]
-        else:
-            tags_list = []
+        hashtags = tweet["data"][0]["entities"].get("hashtags", [])
 
-        return tags_list
+        return [
+            tag_entry["tag"] for tag_entry in hashtags
+        ]
 
     async def get_account(self, ctx, account):
         try:
