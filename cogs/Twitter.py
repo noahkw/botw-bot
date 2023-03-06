@@ -164,9 +164,7 @@ class Twitter(CustomCog, AinitMixin):
     async def get_tweet_hashtags(self, tweet):
         hashtags = tweet["data"][0]["entities"].get("hashtags", [])
 
-        return [
-            tag_entry["tag"] for tag_entry in hashtags
-        ]
+        return [tag_entry["tag"] for tag_entry in hashtags]
 
     async def get_account(self, ctx, account):
         try:
@@ -275,7 +273,9 @@ class Twitter(CustomCog, AinitMixin):
         media_list = []
         for media_obj in tweet.includes.media:
             if media_obj.type == "photo":
-                media_url = media_obj.url + "?name=orig"
+                media_url = (
+                    media_obj.url.split(".jpg")[0] + "?format=jpg&name=4096x4096"
+                )
                 media_filename = media_obj.url.split("/")[-1]
 
             elif media_obj.type == "video" or media_obj.type == "animated_gif":
