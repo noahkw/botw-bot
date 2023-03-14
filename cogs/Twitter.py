@@ -73,8 +73,8 @@ class Twitter(CustomCog, AinitMixin):
         self.feed = None
         self.client = None
         self.clientv2 = None
-        self.stream_task = None
-        self.restart_stream_task = None
+        # self.stream_task = None
+        # self.restart_stream_task = None
         self.session = aiohttp.ClientSession()
         self.keys = self.bot.config["cogs"]["twitter"]
         TwtSorting.inject_bot(self.bot)
@@ -90,14 +90,14 @@ class Twitter(CustomCog, AinitMixin):
             suffix="",
             loop=self.bot.loop,
         )
-        self.restart_stream_task = asyncio.create_task(self.restart_stream_sub())
+        # self.restart_stream_task = asyncio.create_task(self.restart_stream_sub())
 
     def cog_unload(self):
-        if self.stream_task:
-            self.stream_task.cancel()
+        # if self.stream_task:
+        #    self.stream_task.cancel()
 
-        if self.restart_stream_task:
-            self.restart_stream_task.cancel()
+        #if self.restart_stream_task:
+        #    self.restart_stream_task.cancel()
 
         asyncio.create_task(self.session.close())
 
@@ -627,7 +627,7 @@ class Twitter(CustomCog, AinitMixin):
 
         await ctx.send(embed=embed)
 
-        await self.restart_stream()
+        # await self.restart_stream()
 
     @twitter.group(
         name="remove",
@@ -699,7 +699,7 @@ class Twitter(CustomCog, AinitMixin):
                 account.id_str,
             )
             await session.commit()
-            await self.restart_stream()
+            # await self.restart_stream()
 
     @remove.command(
         name="filter",
