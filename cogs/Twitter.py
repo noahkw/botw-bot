@@ -96,7 +96,7 @@ class Twitter(CustomCog, AinitMixin):
         # if self.stream_task:
         #    self.stream_task.cancel()
 
-        #if self.restart_stream_task:
+        # if self.restart_stream_task:
         #    self.restart_stream_task.cancel()
 
         asyncio.create_task(self.session.close())
@@ -736,7 +736,8 @@ class Twitter(CustomCog, AinitMixin):
             await ctx.send_help(self.show)
 
     @show.command(name="accounts", brief="List all accounts followed by this server")
-    async def show_accounts(self, ctx):
+    @commands.has_permissions(manage_messages=True)
+    async def show_accounts(self, ctx, file=False):
         async with self.bot.Session() as session:
             accounts_followed = await db.get_twitter_accounts(
                 session, guild_id=ctx.guild.id
@@ -748,26 +749,40 @@ class Twitter(CustomCog, AinitMixin):
             )
 
         accounts_followed = [guild.account_id for guild in accounts_followed]
-        split_accounts_followed = [
-            accounts_followed[i : i + self.TWITTER_REQ_SIZE]
-            for i in range(0, len(accounts_followed), self.TWITTER_REQ_SIZE)
-        ]
 
-        twitter_tasks = []
-        for split in split_accounts_followed:
-            twitter_tasks.append(self.client.api.users.lookup.get(user_id=split))
-        split_user_list = await asyncio.gather(*twitter_tasks)
-        user_name_list = [account for split in split_user_list for account in split]
+        if not file:
+            split_accounts_followed = [
+                accounts_followed[i : i + self.TWITTER_REQ_SIZE]
+                for i in range(0, len(accounts_followed), self.TWITTER_REQ_SIZE)
+            ]
 
-        value_strings = [
-            f"@{account.screen_name} - {account.name}" for account in user_name_list
-        ]
-        accounts_pages = MenuPages(
-            source=TwitterListSource(value_strings, "Accounts Followed"),
-            clear_reactions_after=True,
-        )
+            twitter_tasks = []
+            for split in split_accounts_followed:
+                twitter_tasks.append(self.client.api.users.lookup.get(user_id=split))
+            split_user_list = await asyncio.gather(*twitter_tasks)
+            user_name_list = [account for split in split_user_list for account in split]
 
-        await accounts_pages.start(ctx)
+            value_strings = [
+                f"@{account.screen_name} - {account.name}" for account in user_name_list
+            ]
+            accounts_pages = MenuPages(
+                source=TwitterListSource(value_strings, "Accounts Followed"),
+                clear_reactions_after=True,
+            )
+
+            await accounts_pages.start(ctx)
+        else:
+            account_names = await self.client.api.users.lookup.get(
+                user_id=accounts_followed
+            )
+            file_contents = "\n".join([account.name for account in account_names])
+
+            file = discord.File(
+                BytesIO(file_contents.encode()),
+                f"{ctx.guild.name}_followed_twt_accounts.txt",
+            )
+
+            await ctx.reply("Here you go.", file=file)
 
     @show.command(
         name="hashtags", brief="List all hashtags and channels for this server"
