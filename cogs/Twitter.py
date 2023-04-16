@@ -771,7 +771,9 @@ class Twitter(CustomCog, AinitMixin):
 
             await accounts_pages.start(ctx)
         else:
-            file_contents = "\n".join([account.name for account in user_name_list])
+            file_contents = "\n".join(
+                [account.screen_name for account in user_name_list]
+            )
 
             file = discord.File(
                 BytesIO(file_contents.encode()),
