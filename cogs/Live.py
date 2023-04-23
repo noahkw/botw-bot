@@ -8,6 +8,7 @@ import aiohttp.client_exceptions
 import discord
 from aiohttp import ClientWebSocketResponse
 from discord.ext import commands
+from cachetools import TTLCache
 
 from botwbot import BotwBot
 from cogs import AinitMixin
@@ -181,18 +182,22 @@ class SyncStreamLiveWebSocket:
 class ChannelUpdater(Subscriber):
     def __init__(self, channel: discord.TextChannel):
         self.channel = channel
-        self.live_users: set[LiveUser] = set()
+        # TTL of 15 minutes
+        self.live_users: TTLCache = TTLCache(maxsize=128, ttl=15 * 60)
 
     async def notify(self, data: LiveUsers):
-        new_data = set(data.users)
-        newly_live = new_data - self.live_users
+        newly_live = []
+
+        for user in data.users:
+            if user not in self.live_users:
+                newly_live.append(user)
+
+            self.live_users[user] = True
 
         if len(newly_live) > 0:
             await self.channel.send(
                 f"Now live: {', '.join([new_live_user.userName for new_live_user in newly_live])}"
             )
-
-        self.live_users = new_data
 
 
 class Live(PrivilegedCog, AinitMixin):
