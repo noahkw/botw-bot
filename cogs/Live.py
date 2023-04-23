@@ -4,6 +4,7 @@ import json
 import logging
 
 import aiohttp
+import aiohttp.client_exceptions
 import discord
 from aiohttp import ClientWebSocketResponse
 from discord.ext import commands
@@ -59,6 +60,10 @@ CHANNEL_MAP = {
 }
 
 
+class WebSocketClosure(Exception):
+    pass
+
+
 class SyncStreamLiveWebSocket:
     def __init__(self, ws_url: str, token: str, session: aiohttp.ClientSession):
         self.ws_url = ws_url
@@ -67,6 +72,8 @@ class SyncStreamLiveWebSocket:
         self.token = token
         self._ready = asyncio.Event()
         self._subscribers: dict[str, list[Subscriber]] = {}
+        self._msg_timeout = 20  # 20s, keepalive from the server every 15s
+        self._reconnect_tries = 0
 
     def subscribe(self, channel: str, subscriber: Subscriber):
         subscribers = self._subscribers.setdefault(channel, [])
@@ -82,13 +89,6 @@ class SyncStreamLiveWebSocket:
         await self.ws.send_bytes(raw)
 
     async def authenticate(self):
-        await self._ready.wait()
-        await self.send(
-            {
-                "protocol": "json",
-                "version": 1,
-            }
-        )
         await self.send(
             {
                 "target": "AuthenticateBot",
@@ -97,34 +97,85 @@ class SyncStreamLiveWebSocket:
             }
         )
 
+    async def negotiate(self):
+        await self.send(
+            {
+                "protocol": "json",
+                "version": 1,
+            }
+        )
+
     async def start(self):
-        async with self.session.ws_connect(self.ws_url) as ws:
-            self.ws = ws
-            self._ready.set()
-            async for msg in ws:
-                try:
-                    chunks = [
-                        json.loads(chunk)
-                        for chunk in msg.data.split("\x1e")
-                        if len(chunk) > 0
-                    ]
-                except Exception:
-                    logger.exception("Error decoding ws msg", msg)
+        while True:
+            try:
+                await self.connect_ws()
+            except WebSocketClosure:
+                wait = self._msg_timeout * self._reconnect_tries
+                logger.info(
+                    "Reconnecting SyncStreamLiveWebSocket after closure in %d seconds (%d tries)",
+                    wait,
+                    self._reconnect_tries,
+                )
 
-                for data in chunks:
-                    if error := data.get("error"):
-                        logger.info("Error on ws '%s'", error)
+                self._reconnect_tries += 1
 
-                    channel = data.get("target")
-                    if channel is None:
-                        continue
+                await asyncio.sleep(wait)
 
-                    if channel_cls := CHANNEL_MAP.get(channel):
-                        args = data["arguments"][0]
-                        obj = channel_cls.parse(args)
+    async def connect_ws(self):
+        try:
+            async with self.session.ws_connect(self.ws_url) as ws:
+                self.ws = ws
+                self._ready.set()
+                self._reconnect_tries = 0
 
-                        for subscriber in self._subscribers.get(channel, []):
-                            asyncio.create_task(subscriber.notify(obj))
+                await self.negotiate()
+                await self.authenticate()
+
+                while True:
+                    try:
+                        msg = await ws.receive(timeout=self._msg_timeout)
+
+                        if msg.type is aiohttp.WSMsgType.ERROR:
+                            logger.exception("Received websocket error %s", msg)
+                        elif msg.type in (
+                            aiohttp.WSMsgType.BINARY,
+                            aiohttp.WSMsgType.TEXT,
+                        ):
+                            logger.debug("Received binary/text '%s', decoding", msg)
+                        elif msg.type in (
+                            aiohttp.WSMsgType.CLOSE,
+                            aiohttp.WSMsgType.CLOSED,
+                            aiohttp.WSMsgType.CLOSING,
+                        ):
+                            raise WebSocketClosure
+                    except (asyncio.TimeoutError, WebSocketClosure):
+                        raise WebSocketClosure
+
+                    try:
+                        chunks = [
+                            json.loads(chunk)
+                            for chunk in msg.data.split("\x1e")
+                            if len(chunk) > 0
+                        ]
+                    except Exception:
+                        logger.exception("Error decoding ws msg: '%s'", msg)
+
+                    for data in chunks:
+                        if error := data.get("error"):
+                            logger.info("Error on ws '%s'", error)
+
+                        channel = data.get("target")
+                        if channel is None:
+                            continue
+
+                        if channel_cls := CHANNEL_MAP.get(channel):
+                            args = data["arguments"][0]
+                            obj = channel_cls.parse(args)
+
+                            for subscriber in self._subscribers.get(channel, []):
+                                asyncio.create_task(subscriber.notify(obj))
+        except aiohttp.client_exceptions.ClientConnectionError:
+            raise WebSocketClosure
 
 
 class ChannelUpdater(Subscriber):
@@ -163,7 +214,6 @@ class Live(PrivilegedCog, AinitMixin):
 
     async def _ainit(self):
         asyncio.create_task(self.sync_stream_ws.start())
-        await self.sync_stream_ws.authenticate()
 
     @auto_help
     @commands.group(
