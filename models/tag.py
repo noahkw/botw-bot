@@ -15,7 +15,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from models.base import Base, PendulumDateTime
 from util import safe_mention
 
-IMAGE_URL_REGEX = r"https?:\/\/.*\.(jpe?g|png|gif)"
+IMAGE_URL_REGEX = r"https?:\/\/.*\.(jpe?g|png|gif)$"
 
 
 class Tag(Base):
