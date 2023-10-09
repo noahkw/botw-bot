@@ -60,3 +60,4 @@ cogs:
     sync_stream_ws: 'XXXXXXXXXXXXXXXXXXXXXX'
     sync_stream_token: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
     sync_stream_updates_channel: XXXXXXXXXXXXXXXXX
+    live_url: 'https://xxxxxxxx/live/'

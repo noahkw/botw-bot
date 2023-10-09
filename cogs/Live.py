@@ -180,10 +180,11 @@ class SyncStreamLiveWebSocket:
 
 
 class ChannelUpdater(Subscriber):
-    def __init__(self, channel: discord.TextChannel):
+    def __init__(self, channel: discord.TextChannel, live_url: str = ""):
         self.channel = channel
         # TTL of 15 minutes
         self.live_users: TTLCache = TTLCache(maxsize=128, ttl=15 * 60)
+        self.live_url = live_url
 
     async def notify(self, data: LiveUsers):
         newly_live = []
@@ -196,7 +197,7 @@ class ChannelUpdater(Subscriber):
 
         if len(newly_live) > 0:
             await self.channel.send(
-                f"Now live: {', '.join([new_live_user.userName for new_live_user in newly_live])}"
+                f"Now live: {', '.join([f'{self.live_url}{new_live_user.userName}' for new_live_user in newly_live])}"
             )
 
 
@@ -211,7 +212,8 @@ class Live(PrivilegedCog, AinitMixin):
             config["sync_stream_ws"], config["sync_stream_token"], self.session
         )
         self.channel_updater = ChannelUpdater(
-            bot.get_channel(config["sync_stream_updates_channel"])
+            bot.get_channel(config["sync_stream_updates_channel"]),
+            config["live_url"],
         )
         self.sync_stream_ws.subscribe("getliveusers", self.channel_updater)
 
