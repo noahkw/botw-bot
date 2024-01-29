@@ -23,6 +23,7 @@ async def setup(bot):
 
 class EmojiUtils(commands.Cog):
     SPLIT_MSG_AFTER = 15
+    SPLIT_STICKERS_AFTER = 3
     NEW_EMOTE_THRESHOLD = 60  # in minutes
     DELETE_LIMIT = 50
     UPDATE_FREQUENCY = 60  # in seconds
@@ -43,6 +44,13 @@ class EmojiUtils(commands.Cog):
         emoji_sorted = sorted(emojis, key=lambda e: e.name)
         for emoji_chunk in chunker(emoji_sorted, self.SPLIT_MSG_AFTER):
             await channel.send(" ".join(str(e) for e in emoji_chunk))
+
+    async def _send_sticker_list(self, channel: discord.TextChannel):
+        stickers = channel.guild.stickers
+        stickers_sorted = sorted(stickers, key=lambda s: s.name)
+
+        for sticker_chunk in chunker(stickers_sorted, self.SPLIT_STICKERS_AFTER):
+            await channel.send(stickers=sticker_chunk)
 
     async def _update_emoji_list(self, guild: discord.Guild):
         async with self.bot.Session() as session:
@@ -87,6 +95,20 @@ class EmojiUtils(commands.Cog):
                 raise commands.BadArgument("Could not fetch the given URL.")
 
             return await response.read()
+
+    @auto_help
+    @commands.group(
+        name="sticker",
+        brief="Sticker related convenience commands",
+    )
+    @commands.has_permissions(manage_emojis=True)
+    async def sticker(self, ctx):
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.sticker)
+
+    @sticker.command(name="list", brief="Sends a list of the guild's stickers")
+    async def sticker_list(self, ctx, channel: discord.TextChannel = None):
+        await self._send_sticker_list(channel or ctx.channel)
 
     @auto_help
     @commands.group(
