@@ -29,6 +29,7 @@ enabled_cogs:
   - 'cogs.Logging'
   - 'cogs.Main'
   - 'cogs.Live'
+  - 'cogs.CustomRoles'
 cogs:
   biasoftheweek:
     winner_role_name: 'BotW-Winner'

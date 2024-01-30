@@ -2,14 +2,38 @@ import asyncio
 import logging
 
 import discord
-from discord.ext import tasks
+from discord import Embed
+from discord.ext import tasks, commands
 
 import db
 from cogs import AinitMixin, CustomCog
 
 from models import CustomRole
+from views import RoleCreatorView
 
 logger = logging.getLogger(__name__)
+
+
+class NotBoosting(commands.CheckFailure):
+    def __init__(self):
+        super().__init__("You are not a server booster.")
+
+
+def is_booster():
+    def predicate(ctx: commands.Context):
+        if (
+            ctx.author.premium_since is None
+            and not ctx.author.guild_permissions.administrator
+        ):
+            raise NotBoosting
+
+        return True
+
+    return commands.check(predicate)
+
+
+async def setup(bot):
+    await bot.add_cog(CustomRoles(bot))
 
 
 class CustomRoles(CustomCog, AinitMixin):
@@ -17,6 +41,23 @@ class CustomRoles(CustomCog, AinitMixin):
         super().__init__(bot)
 
         CustomRole.inject_bot(bot)
+
+    @commands.group(aliases=["customrole", "cr"], brief="Custom roles")
+    async def custom_roles(self, ctx: commands.Context):
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(self.custom_roles)
+
+    @custom_roles.command(brief="Creates a custom role for you")
+    @is_booster()
+    async def create(self, ctx: commands.Context):
+        embed = Embed(
+            title="Create custom role",
+            description="Click below to create your own role.",
+        )
+        embed.set_author(name=ctx.guild.name, icon_url=ctx.guild.icon.url)
+
+        view = RoleCreatorView()
+        await ctx.send(view=view, embed=embed)
 
     async def _delete_custom_role(self, session, custom_role: CustomRole) -> None:
         try:
