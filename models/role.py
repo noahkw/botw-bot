@@ -6,14 +6,16 @@ from sqlalchemy.orm import relationship
 from models.base import Base, PendulumDateTime
 from models.guild_settings import GuildSettingsMixin
 
+from discord import Guild, Role
+
 
 class RoleMixin:
     @hybrid_property
-    def role(self):
+    def role(self) -> Role:
         return self.guild.get_role(self._role)
 
     @hybrid_property
-    def guild(self):
+    def guild(self) -> Guild:
         return self.bot.get_guild(self._guild)
 
     @classmethod

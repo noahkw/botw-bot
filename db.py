@@ -26,6 +26,7 @@ from models import (
     TwtFilter,
     RoleSettings,
     GuildCog,
+    CustomRole,
 )
 
 
@@ -351,6 +352,22 @@ async def get_role_settings(
 async def delete_role(session: AsyncSession, role_id: int) -> None:
     statement = delete(AssignableRole).where((AssignableRole._role == role_id))
     await session.execute(statement)
+
+
+async def delete_custom_role(
+    session: AsyncSession, guild_id: int, user_id: int
+) -> None:
+    statement = delete(CustomRole).where(
+        (CustomRole._guild == guild_id) & (CustomRole._user == user_id)
+    )
+    await session.execute(statement)
+
+
+async def get_custom_roles(session: AsyncSession) -> list[CustomRole]:
+    statement = select(CustomRole)
+    result = (await session.execute(statement)).all()
+
+    return [r for (r,) in result]
 
 
 async def get_greeter(session, guild_id, greeter_type):
