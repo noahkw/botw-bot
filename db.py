@@ -363,6 +363,17 @@ async def delete_custom_role(
     await session.execute(statement)
 
 
+async def get_user_custom_role_in_guild(
+    session: AsyncSession, user_id: int, guild_id: int
+) -> typing.Optional[CustomRole]:
+    statement = select(CustomRole).where(
+        (CustomRole._guild == guild_id) & (CustomRole._user == user_id)
+    )
+    result = (await session.execute(statement)).first()
+
+    return result[0] if result else None
+
+
 async def get_custom_roles(session: AsyncSession) -> list[CustomRole]:
     statement = select(CustomRole)
     result = (await session.execute(statement)).all()

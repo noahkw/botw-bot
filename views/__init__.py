@@ -1,4 +1,4 @@
-from .role_creator import RoleCreatorView
+from .role_creator import RoleCreatorView, RoleCreatorResult
 
 
-__all__ = ("RoleCreatorView",)
+__all__ = ("RoleCreatorView", "RoleCreatorResult")
