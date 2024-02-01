@@ -7,7 +7,7 @@ from discord.ext import tasks, commands
 
 import db
 from cogs import AinitMixin, CustomCog
-from models import CustomRole
+from models import CustomRole, CustomRoleSettings
 from views import RoleCreatorView, RoleCreatorResult, CustomRoleSetup
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,7 @@ class CustomRoles(CustomCog, AinitMixin):
         super().__init__(bot)
 
         CustomRole.inject_bot(bot)
+        CustomRoleSettings.inject_bot(bot)
 
         self._role_removal_loop.start()
 
@@ -110,6 +111,13 @@ class CustomRoles(CustomCog, AinitMixin):
                         name=result.name,
                         color=Color.from_str("#" + result.color),
                     )
+                    custom_role_settings = await db.get_custom_role_settings(
+                        session, ctx.guild.id
+                    )
+                    await ctx.guild.edit_role_positions(
+                        {role: custom_role_settings.role.position},
+                        reason=f"Moving new custom role above {custom_role_settings.role}",
+                    )
                     await member.add_roles(role, reason="Custom role added")
 
                     custom_role = CustomRole(
@@ -151,7 +159,7 @@ class CustomRoles(CustomCog, AinitMixin):
                 custom_role._user,
             )
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(hours=24)
     async def _role_removal_loop(self) -> None:
         logger.info("running role removal task")
         async with self.bot.Session() as session:

@@ -6,7 +6,7 @@ from models.guild_settings import GuildSettingsMixin
 from models.role import RoleMixin
 
 
-from discord import Member
+from discord import Member, Role
 
 
 class CustomRole(RoleMixin, Base):
@@ -26,3 +26,7 @@ class CustomRoleSettings(GuildSettingsMixin, Base):
 
     """The role that gets to create custom roles/is the insertion point"""
     _role = Column(BigInteger, nullable=False)
+
+    @hybrid_property
+    def role(self) -> Role:
+        return self.guild.get_role(self._role)
