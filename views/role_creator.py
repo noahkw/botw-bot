@@ -10,9 +10,9 @@ from models import CustomRoleSettings
 
 
 class RoleCreatorResult:
-    name: str | None
-    color: str | None
-    user_id: int | None
+    name: str
+    color: str
+    user_id: int
 
     def __init__(self):
         self.name = None
