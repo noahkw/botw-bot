@@ -7,27 +7,30 @@ from discord.ext import tasks, commands
 
 import db
 from cogs import AinitMixin, CustomCog
-
 from models import CustomRole
-from views import RoleCreatorView, RoleCreatorResult
+from views import RoleCreatorView, RoleCreatorResult, CustomRoleSetup
 
 logger = logging.getLogger(__name__)
 
 
-class NotBoosting(commands.CheckFailure):
+class MissingRole(commands.CheckFailure):
     def __init__(self):
-        super().__init__("You are not a server booster.")
+        super().__init__("You are missing a role to do this.")
 
 
-def is_booster():
-    def predicate(ctx: commands.Context):
-        if (
-            ctx.author.premium_since is None
-            and not ctx.author.guild_permissions.administrator
-        ):
-            raise NotBoosting
-
-        return True
+def has_guild_role():
+    async def predicate(ctx: commands.Context):
+        async with ctx.bot.Session() as session:
+            custom_role_settings = await db.get_custom_role_settings(
+                session, ctx.guild.id
+            )
+            if ctx.author.guild_permissions.administrator or (
+                custom_role_settings is not None
+                and custom_role_settings._role in [role.id for role in ctx.author.roles]
+            ):
+                return True
+            else:
+                raise MissingRole
 
     return commands.check(predicate)
 
@@ -42,13 +45,32 @@ class CustomRoles(CustomCog, AinitMixin):
 
         CustomRole.inject_bot(bot)
 
-    @commands.group(aliases=["customrole", "cr"], brief="Custom roles")
+        self._role_removal_loop.start()
+
+    def cog_unload(self):
+        self._role_removal_loop.stop()
+
+    @commands.group(
+        name="customroles", aliases=["customrole", "cr"], brief="Custom roles"
+    )
     async def custom_roles(self, ctx: commands.Context):
         if not ctx.invoked_subcommand:
             await ctx.send_help(self.custom_roles)
 
+    @custom_roles.command(brief="Set up custom roles")
+    @commands.has_permissions(administrator=True)
+    async def setup(self, ctx: commands.Context):
+        embed = Embed(
+            title="Set up custom roles",
+            description="Choose the role below that members need to have in order to be allowed to create"
+            " custom roles in the server, then hit confirm.",
+        )
+        embed.set_author(name=ctx.guild.name, icon_url=ctx.guild.icon.url)
+
+        await ctx.reply(view=CustomRoleSetup(), embed=embed, ephemeral=True)
+
     @custom_roles.command(brief="Removes your custom role")
-    @is_booster()
+    @has_guild_role()
     async def delete(self, ctx: commands.Context):
         async with self.bot.Session() as session:
             custom_role = await db.get_user_custom_role_in_guild(
@@ -68,7 +90,7 @@ class CustomRoles(CustomCog, AinitMixin):
             await ctx.reply(f"Your role '{role_name}' has been deleted.")
 
     @custom_roles.command(brief="Creates a custom role for you")
-    @is_booster()
+    @has_guild_role()
     async def create(self, ctx: commands.Context):
         embed = Embed(
             title="Create custom role",
@@ -110,13 +132,14 @@ class CustomRoles(CustomCog, AinitMixin):
         try:
             logger.info(
                 "removing custom role from %s (%d) in %s (%d)",
+                str(custom_role.member),
+                custom_role._user,
                 str(custom_role.guild),
                 custom_role._guild,
-                str(custom_role.member),
-                custom_role._member,
             )
             await custom_role.role.delete(
-                reason=f"Member {custom_role.member} ({custom_role.member.id}) removed their boost"
+                reason=f"Member {custom_role.member} ({custom_role._user}) no longer has required role,"
+                f" removing custom role"
             )
             await db.delete_custom_role(session, custom_role._guild, custom_role._user)
         except discord.Forbidden:
@@ -125,10 +148,10 @@ class CustomRoles(CustomCog, AinitMixin):
                 str(custom_role.guild),
                 custom_role._guild,
                 str(custom_role.member),
-                custom_role._member,
+                custom_role._user,
             )
 
-    @tasks.loop(hours=24.0)
+    @tasks.loop(minutes=1)
     async def _role_removal_loop(self) -> None:
         logger.info("running role removal task")
         async with self.bot.Session() as session:
@@ -137,10 +160,27 @@ class CustomRoles(CustomCog, AinitMixin):
             role_deletion_tasks = []
 
             for custom_role in custom_roles:
-                if custom_role.member.premium_since is None:
-                    # member is no longer boosting, add to deletion list
+                # TODO fix this N+1 issue
+                custom_role_settings = await db.get_custom_role_settings(
+                    session, custom_role._guild
+                )
+
+                has_guild_role = custom_role_settings._role in (
+                    member_role.id for member_role in custom_role.member.roles
+                )
+
+                if (
+                    not custom_role.member.guild_permissions.administrator
+                    and not has_guild_role
+                ):
+                    # member no longer has the guild's required role, add to deletion list
                     role_deletion_tasks.append(
                         self._delete_custom_role(session, custom_role)
                     )
 
-            await asyncio.gather(*custom_roles)
+            await asyncio.gather(*role_deletion_tasks)
+            await session.commit()
+
+    @_role_removal_loop.before_loop
+    async def loop_before(self):
+        await self.bot.wait_until_ready()

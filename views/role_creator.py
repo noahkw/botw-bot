@@ -2,9 +2,11 @@ import typing
 
 import discord
 from discord import Interaction, Button
-from discord.ui import View, TextInput, Modal
+from discord.ui import View, TextInput, Modal, RoleSelect
 
 import db
+
+from models import CustomRoleSettings
 
 
 class RoleCreatorResult:
@@ -28,6 +30,64 @@ class CallbackView:
         self.result = result
 
 
+class RolePicker(RoleSelect):
+    def __init__(self):
+        super().__init__(placeholder="Choose one role...")
+
+    async def callback(self, interaction: Interaction) -> typing.Any:
+        role = self.values[0]
+        client_member = interaction.guild.get_member(interaction.client.user.id)
+        if role.position >= client_member.top_role.position:
+            await interaction.response.send_message(
+                "Please choose a role the bot can manage, i.e., one that is below its own highest role.",
+                ephemeral=True,
+            )
+
+        await interaction.response.defer()
+
+
+class CustomRoleSetup(View):
+    def __init__(self):
+        super().__init__()
+
+        self.add_item(RolePicker())
+
+    async def interaction_check(self, interaction: Interaction, /) -> bool:
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message(
+                "You are not allowed to set up custom roles.", ephemeral=True
+            )
+            return False
+
+        return True
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.blurple, row=2)
+    async def confirm(self, interaction: Interaction, button: Button):
+        self.stop()
+
+        values = self.children[1].values
+
+        if len(values) != 1:
+            await interaction.response.send_message(
+                "Please try again and choose exactly one role!",
+                ephemeral=True,
+            )
+            return
+
+        role = values[0]
+
+        async with interaction.client.Session() as session:
+            custom_role_settings = CustomRoleSettings(
+                _role=role.id, _guild=interaction.guild_id
+            )
+            await session.merge(custom_role_settings)
+            await session.commit()
+
+            await interaction.response.send_message(
+                f"Members with the role {role.mention} will now be able to create custom roles!",
+            )
+
+
 class RoleCreatorView(CallbackView, View):
     @discord.ui.button(label="Click me to start", style=discord.ButtonStyle.blurple)
     async def create_role(self, interaction: Interaction, button: Button):
@@ -48,19 +108,22 @@ class RoleCreatorView(CallbackView, View):
                 )
                 return False
 
-        # FIXME remove me!
-        return True
+            custom_role_settings = await db.get_custom_role_settings(
+                session, interaction.guild_id
+            )
+            member = interaction.guild.get_member(interaction.user.id)
 
-        if (
-            interaction.user.premium_since is None
-            and not interaction.user.guild_permissions.administrator
-        ):
+            if member.guild_permissions.administrator or (
+                custom_role_settings is not None
+                and member is not None
+                and custom_role_settings._role in [role.id for role in member.roles]
+            ):
+                return True
+
             await interaction.response.send_message(
-                "You are not a server booster.", ephemeral=True
+                "You are missing a role to do this.", ephemeral=True
             )
             return False
-
-        return True
 
 
 class RoleCreatorNameConfirmationView(CallbackView, View):

@@ -2,6 +2,7 @@ from sqlalchemy import Column, BigInteger
 from sqlalchemy.ext.hybrid import hybrid_property
 
 from models.base import Base
+from models.guild_settings import GuildSettingsMixin
 from models.role import RoleMixin
 
 
@@ -18,3 +19,10 @@ class CustomRole(RoleMixin, Base):
     @hybrid_property
     def member(self) -> Member:
         return self.guild.get_member(self._user)
+
+
+class CustomRoleSettings(GuildSettingsMixin, Base):
+    __tablename__ = "custom_role_settings"
+
+    """The role that gets to create custom roles/is the insertion point"""
+    _role = Column(BigInteger, nullable=False)

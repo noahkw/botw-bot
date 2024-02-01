@@ -27,6 +27,7 @@ from models import (
     RoleSettings,
     GuildCog,
     CustomRole,
+    CustomRoleSettings,
 )
 
 
@@ -379,6 +380,15 @@ async def get_custom_roles(session: AsyncSession) -> list[CustomRole]:
     result = (await session.execute(statement)).all()
 
     return [r for (r,) in result]
+
+
+async def get_custom_role_settings(
+    session: AsyncSession, guild_id: int
+) -> typing.Optional[CustomRoleSettings]:
+    statement = select(CustomRoleSettings).where(CustomRoleSettings._guild == guild_id)
+    result = (await session.execute(statement)).first()
+
+    return result[0] if result else None
 
 
 async def get_greeter(session, guild_id, greeter_type):
