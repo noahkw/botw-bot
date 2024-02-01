@@ -145,10 +145,11 @@ class CustomRoles(CustomCog, AinitMixin):
                 str(custom_role.guild),
                 custom_role._guild,
             )
-            await custom_role.role.delete(
-                reason=f"Member {custom_role.member} ({custom_role._user}) no longer has required role,"
-                f" removing custom role"
-            )
+            if custom_role.roles is not None:
+                await custom_role.role.delete(
+                    reason=f"Member {custom_role.member} ({custom_role._user}) no longer has required role,"
+                    f" removing custom role"
+                )
             await db.delete_custom_role(session, custom_role._guild, custom_role._user)
         except discord.Forbidden:
             logger.info(
@@ -173,13 +174,15 @@ class CustomRoles(CustomCog, AinitMixin):
                     session, custom_role._guild
                 )
 
-                has_guild_role = custom_role_settings._role in (
-                    member_role.id for member_role in custom_role.member.roles
+                member_has_guild_role = (
+                    custom_role.member is not None
+                    and custom_role_settings._role
+                    in (member_role.id for member_role in custom_role.member.roles)
                 )
 
-                if (
-                    not custom_role.member.guild_permissions.administrator
-                    and not has_guild_role
+                if not member_has_guild_role and (
+                    custom_role.member is None
+                    or not custom_role.member.guild_permissions.administrator
                 ):
                     # member no longer has the guild's required role, add to deletion list
                     role_deletion_tasks.append(
