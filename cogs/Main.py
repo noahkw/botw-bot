@@ -53,7 +53,7 @@ async def guild_id_autocomplete(
 
 class Main(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: BotwBot = bot
         self.oauth_url = self.bot.config["discord"]["oauth_url"]
 
     @commands.command(brief="Sets the prefix for the current guild")
@@ -205,6 +205,7 @@ class Main(commands.Cog):
             await session.commit()
 
             self.bot.blocked_users.setdefault(ctx.guild.id, set()).add(member.id)
+            self.bot.dispatch("user_blocked", blocked_user)
 
     @commands.command(brief="Unblock a user from using the bot")
     @commands.has_permissions(administrator=True)

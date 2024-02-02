@@ -7,7 +7,7 @@ from discord.ext import tasks, commands
 
 import db
 from cogs import AinitMixin, CustomCog
-from models import CustomRole, CustomRoleSettings
+from models import CustomRole, CustomRoleSettings, BlockedUser
 from views import RoleCreatorView, RoleCreatorResult, CustomRoleSetup
 
 logger = logging.getLogger(__name__)
@@ -144,7 +144,19 @@ class CustomRoles(CustomCog, AinitMixin):
         view = RoleCreatorView(creation_callback, None)
         await ctx.send(view=view, embed=embed)
 
-    async def _delete_custom_role(self, session, custom_role: CustomRole) -> None:
+    @commands.Cog.listener()
+    async def on_user_blocked(self, blocked_user: BlockedUser):
+        async with self.bot.Session() as session:
+            custom_role = await db.get_user_custom_role_in_guild(
+                session, blocked_user._user, blocked_user._guild
+            )
+
+            if custom_role is None:
+                return
+
+            await self.delete_custom_role(session, custom_role)
+
+    async def delete_custom_role(self, session, custom_role: CustomRole) -> None:
         try:
             logger.info(
                 "removing custom role from %s (%d) in %s (%d)",
@@ -153,10 +165,10 @@ class CustomRoles(CustomCog, AinitMixin):
                 str(custom_role.guild),
                 custom_role._guild,
             )
-            if custom_role.roles is not None:
+            if custom_role.role is not None:
                 await custom_role.role.delete(
-                    reason=f"Member {custom_role.member} ({custom_role._user}) no longer has required role,"
-                    f" removing custom role"
+                    reason=f"Member {custom_role.member} ({custom_role._user}) no longer has required role"
+                    f" or was blocked, removing custom role"
                 )
             await db.delete_custom_role(session, custom_role._guild, custom_role._user)
         except discord.Forbidden:
@@ -194,7 +206,7 @@ class CustomRoles(CustomCog, AinitMixin):
                 ):
                     # member no longer has the guild's required role, add to deletion list
                     role_deletion_tasks.append(
-                        self._delete_custom_role(session, custom_role)
+                        self.delete_custom_role(session, custom_role)
                     )
 
             await asyncio.gather(*role_deletion_tasks)
