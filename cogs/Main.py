@@ -5,9 +5,10 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+import db
 from botwbot import BotwBot
 from menu import Confirm
-from models import GuildSettings, GuildCog
+from models import GuildSettings, GuildCog, BlockedUser
 from util import safe_send, safe_mention, detail_mention, ack
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ class Main(commands.Cog):
 
     @commands.command(brief="Sets the prefix for the current guild")
     @commands.has_permissions(administrator=True)
-    async def prefix(self, ctx, prefix=None):
+    async def prefix(self, ctx: commands.Context, prefix=None):
         if not prefix:
             await ctx.send(
                 f"The current prefix is `{self.bot.prefixes[ctx.guild.id]}`."
@@ -77,7 +78,7 @@ class Main(commands.Cog):
             )
 
     @commands.hybrid_command(brief="Request the bot for your guild")
-    async def invite(self, ctx, guild_id: int):
+    async def invite(self, ctx: commands.Context, guild_id: int):
         await self.bot.get_user(self.bot.CREATOR_ID).send(
             f"Request to whitelist guild `{guild_id}` from {detail_mention(ctx.author)}."
         )
@@ -118,7 +119,7 @@ class Main(commands.Cog):
 
     @commands.command(brief="Adds a guild to the whitelist")
     @commands.is_owner()
-    async def whitelist(self, ctx, guild_id: int, requester_id: int):
+    async def whitelist(self, ctx: commands.Context, guild_id: int, requester_id: int):
         requester = self.bot.get_user(requester_id)
 
         confirm = await Confirm(f"Whitelist guild `{guild_id}`?").prompt(ctx)
@@ -147,7 +148,7 @@ class Main(commands.Cog):
 
     @commands.command(brief="Removes a guild from the whitelist")
     @commands.is_owner()
-    async def unwhitelist(self, ctx, guild_id: int):
+    async def unwhitelist(self, ctx: commands.Context, guild_id: int):
         guild = self.bot.get_guild(guild_id)
 
         confirm = await Confirm(
@@ -178,7 +179,7 @@ class Main(commands.Cog):
     @commands.command(brief="Sets the bot's activity")
     @commands.is_owner()
     @ack
-    async def activity(self, ctx, type_, *, message):
+    async def activity(self, ctx: commands.Context, type_, *, message):
         try:
             activity_type = discord.ActivityType[type_.lower()]
         except KeyError:
@@ -190,6 +191,35 @@ class Main(commands.Cog):
         await self.bot.change_presence(
             activity=discord.Activity(type=activity_type, name=message)
         )
+
+    @commands.command(brief="Block a user from using the bot")
+    @commands.has_permissions(administrator=True)
+    @ack
+    async def block(self, ctx: commands.Context, member: discord.Member):
+        if member is None:
+            raise commands.BadArgument("Need a user.")
+
+        async with self.bot.Session() as session:
+            blocked_user = BlockedUser(_guild=ctx.guild.id, _user=member.id)
+            await session.merge(blocked_user)
+            await session.commit()
+
+            self.bot.blocked_users.setdefault(ctx.guild.id, set()).add(member.id)
+
+    @commands.command(brief="Unblock a user from using the bot")
+    @commands.has_permissions(administrator=True)
+    @ack
+    async def unblock(self, ctx: commands.Context, member: discord.Member):
+        if member is None:
+            raise commands.BadArgument("Need a user.")
+
+        async with self.bot.Session() as session:
+            await db.delete_blocked_user(session, ctx.guild.id, member.id)
+            await session.commit()
+
+            blocked_users_in_guild = self.bot.blocked_users.get(ctx.guild.id)
+            if blocked_users_in_guild is not None:
+                blocked_users_in_guild.remove(member.id)
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):

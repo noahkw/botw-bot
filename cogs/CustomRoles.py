@@ -102,7 +102,18 @@ class CustomRoles(CustomCog, AinitMixin):
         async def creation_callback(result: RoleCreatorResult):
             async with self.bot.Session() as session:
                 member = ctx.guild.get_member(result.user_id)
-                if not member:
+                if member is None:
+                    return
+
+                custom_role_settings = await db.get_custom_role_settings(
+                    session, ctx.guild.id
+                )
+                if custom_role_settings is None:
+                    logger.info(
+                        "creation callback in %s (%d) triggered but custom roles not set up",
+                        str(ctx.guild),
+                        ctx.guild.id,
+                    )
                     return
 
                 try:
@@ -110,9 +121,6 @@ class CustomRoles(CustomCog, AinitMixin):
                         reason=f"Custom role for {member} ({result.user_id})",
                         name=result.name,
                         color=Color.from_str("#" + result.color),
-                    )
-                    custom_role_settings = await db.get_custom_role_settings(
-                        session, ctx.guild.id
                     )
                     await ctx.guild.edit_role_positions(
                         {role: custom_role_settings.role.position},

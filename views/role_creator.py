@@ -2,11 +2,12 @@ import typing
 
 import discord
 from discord import Interaction, Button
-from discord.ui import View, TextInput, Modal, RoleSelect
+from discord.ui import TextInput, Modal, RoleSelect
 
 import db
 
 from models import CustomRoleSettings
+from views.base_view import BaseView
 
 
 class RoleCreatorResult:
@@ -46,7 +47,7 @@ class RolePicker(RoleSelect):
         await interaction.response.defer()
 
 
-class CustomRoleSetup(View):
+class CustomRoleSetup(BaseView):
     def __init__(self):
         super().__init__()
 
@@ -88,7 +89,7 @@ class CustomRoleSetup(View):
             )
 
 
-class RoleCreatorView(CallbackView, View):
+class RoleCreatorView(CallbackView, BaseView):
     @discord.ui.button(label="Click me to start", style=discord.ButtonStyle.blurple)
     async def create_role(self, interaction: Interaction, button: Button):
         self.result = RoleCreatorResult()
@@ -97,6 +98,9 @@ class RoleCreatorView(CallbackView, View):
         )
 
     async def interaction_check(self, interaction: Interaction, /) -> bool:
+        if not await super().interaction_check(interaction):
+            return False
+
         async with interaction.client.Session() as session:
             custom_role = await db.get_user_custom_role_in_guild(
                 session, interaction.user.id, interaction.guild_id
@@ -126,7 +130,7 @@ class RoleCreatorView(CallbackView, View):
             return False
 
 
-class RoleCreatorNameConfirmationView(CallbackView, View):
+class RoleCreatorNameConfirmationView(CallbackView, BaseView):
     @discord.ui.button(label="I confirm", style=discord.ButtonStyle.blurple)
     async def confirm(self, interaction: Interaction, button: Button):
         self.stop()
@@ -142,7 +146,9 @@ class RoleCreatorNameConfirmationView(CallbackView, View):
         )
 
 
-class RoleCreatorNameModal(CallbackView, Modal, title="Choose your role's name"):
+class RoleCreatorNameModal(
+    CallbackView, BaseView, Modal, title="Choose your role's name"
+):
     name = TextInput(
         label="Role name",
         placeholder="Your custom role name here...",
@@ -162,7 +168,7 @@ class RoleCreatorNameModal(CallbackView, Modal, title="Choose your role's name")
         )
 
 
-class RoleCreatorColorConfirmationView(CallbackView, View):
+class RoleCreatorColorConfirmationView(CallbackView, BaseView):
     @discord.ui.button(label="I confirm", style=discord.ButtonStyle.blurple)
     async def confirm(self, interaction: Interaction, button: Button):
         self.stop()
@@ -181,7 +187,9 @@ class RoleCreatorColorConfirmationView(CallbackView, View):
         )
 
 
-class RoleCreatorColorModal(CallbackView, Modal, title="Choose your role's color"):
+class RoleCreatorColorModal(
+    CallbackView, BaseView, Modal, title="Choose your role's color"
+):
     color = TextInput(
         label="Role color",
         placeholder="000000",

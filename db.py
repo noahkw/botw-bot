@@ -28,6 +28,7 @@ from models import (
     GuildCog,
     CustomRole,
     CustomRoleSettings,
+    BlockedUser,
 )
 
 
@@ -389,6 +390,23 @@ async def get_custom_role_settings(
     result = (await session.execute(statement)).first()
 
     return result[0] if result else None
+
+
+async def get_blocked_users(session: AsyncSession) -> list[BlockedUser]:
+    statement = select(BlockedUser)
+    result = (await session.execute(statement)).all()
+
+    return [r for (r,) in result]
+
+
+async def delete_blocked_user(
+    session: AsyncSession, guild_id: int, user_id: int
+) -> None:
+    statement = delete(BlockedUser).where(
+        (BlockedUser._guild == guild_id) & (BlockedUser._user == user_id)
+    )
+
+    await session.execute(statement)
 
 
 async def get_greeter(session, guild_id, greeter_type):

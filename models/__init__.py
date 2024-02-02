@@ -1,3 +1,4 @@
+from .blocked_users import BlockedUser
 from .botw import BotwState, BotwWinner, Nomination, Idol, BotwSettings
 from .channel_mirror import ChannelMirror
 from .custom_role import CustomRole, CustomRoleSettings
@@ -11,6 +12,7 @@ from .tag import Tag
 from .twitter import TwtSetting, TwtAccount, TwtSorting, TwtFilter
 
 __all__ = (
+    "BlockedUser",
     "BotwState",
     "BotwWinner",
     "ChannelMirror",

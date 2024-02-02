@@ -51,6 +51,7 @@ class BotwBot(commands.Bot):
         self.prefixes = {}  # guild.id -> prefix
         self.whitelist = set()  # guild.id
         self.custom_emoji = {}  # name -> Emoji instance
+        self.blocked_users = {}  # guild.id -> set(user.id)
 
         self.channel_locker = ChannelLocker()
 
@@ -71,6 +72,13 @@ class BotwBot(commands.Bot):
 
                     if guild_settings.whitelisted:
                         self.whitelist.add(guild_settings._guild)
+
+                blocked_users = await db.get_blocked_users(session)
+                for blocked_user in blocked_users:
+                    blocked_users_in_guild = self.blocked_users.setdefault(
+                        blocked_user._guild, set()
+                    )
+                    blocked_users_in_guild.add(blocked_user._user)
 
         for name, emoji_name in CUSTOM_EMOJI.items():
             emoji = discord.utils.find(lambda e: e.name == emoji_name, self.emojis)
@@ -211,10 +219,25 @@ class BotwBot(commands.Bot):
 
             return guild_objs
 
+    def is_author_blocked_in_guild(self, author: discord.Member, guild: discord.Guild):
+        blocked_users_in_guild = (
+            self.blocked_users.get(guild.id) if guild is not None else None
+        )
+
+        return (
+            blocked_users_in_guild is not None
+            and not author.guild_permissions.administrator
+            and author.id in blocked_users_in_guild
+        )
+
     async def process_commands(self, message):
         ctx = await self.get_context(message)
 
-        if ctx.command is None or message.author.id in self.blacklist:
+        if (
+            ctx.command is None
+            or message.author.id in self.blacklist
+            or self.is_author_blocked_in_guild(message.author, message.guild)
+        ):
             return
 
         # spam control
