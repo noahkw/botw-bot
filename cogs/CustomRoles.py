@@ -81,14 +81,17 @@ class CustomRoles(CustomCog, AinitMixin):
             if custom_role is None:
                 raise commands.BadArgument("You do not currently have a custom role.")
 
-            role_name = custom_role.role.name
-            await custom_role.role.delete(
-                reason=f"Custom role for {ctx.author} ({ctx.author.id}) removed manually"
-            )
-            await db.delete_custom_role(session, ctx.guild.id, ctx.author.id)
+            if custom_role.role:
+                role_name = custom_role.role.name
+                await custom_role.role.delete(
+                    reason=f"Custom role for {ctx.author} ({ctx.author.id}) removed manually"
+                )
+                await ctx.reply(f"Your role '{role_name}' has been deleted.")
+            else:
+                await ctx.reply("Your role has been deleted.")
 
+            await db.delete_custom_role(session, ctx.guild.id, ctx.author.id)
             await session.commit()
-            await ctx.reply(f"Your role '{role_name}' has been deleted.")
 
     @custom_roles.command(brief="Creates a custom role for you")
     @has_guild_role()
@@ -155,6 +158,7 @@ class CustomRoles(CustomCog, AinitMixin):
                 return
 
             await self.delete_custom_role(session, custom_role)
+            await session.commit()
 
     async def delete_custom_role(self, session, custom_role: CustomRole) -> None:
         try:
