@@ -8,7 +8,7 @@ from discord.ext import commands
 import db
 from botwbot import BotwBot
 from menu import Confirm
-from models import GuildSettings, GuildCog, BlockedUser
+from models import GuildSettings, GuildCog, BlockedUser, BannedWord
 from util import safe_send, safe_mention, detail_mention, ack
 
 logger = logging.getLogger(__name__)
@@ -221,6 +221,30 @@ class Main(commands.Cog):
             blocked_users_in_guild = self.bot.blocked_users.get(ctx.guild.id)
             if blocked_users_in_guild is not None:
                 blocked_users_in_guild.remove(member.id)
+
+    @commands.command(name="loadbannedwords", brief="Parses a file containing bad word")
+    @commands.is_owner()
+    async def load_banned_words(self, ctx: commands.Context):
+        try:
+            banned_words_attachment = ctx.message.attachments[0]
+        except IndexError:
+            raise commands.BadArgument("Attach a file.")
+
+        text = (await banned_words_attachment.read()).decode("UTF-8")
+        tokenized = [token.strip() for token in text.split(",")]
+
+        async with self.bot.Session() as session:
+            async with ctx.typing():
+                await db.delete_banned_words(session)
+
+                banned_words = [BannedWord(word=word.lower()) for word in tokenized]
+                session.add_all(banned_words)
+
+                await session.commit()
+
+        await ctx.reply(
+            f"Successfully loaded `{len(banned_words)}` banned words. Don't forget to `.reload`."
+        )
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):

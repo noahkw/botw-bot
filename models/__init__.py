@@ -1,3 +1,4 @@
+from .banned_words import BannedWord
 from .blocked_users import BlockedUser
 from .botw import BotwState, BotwWinner, Nomination, Idol, BotwSettings
 from .channel_mirror import ChannelMirror
@@ -12,6 +13,7 @@ from .tag import Tag
 from .twitter import TwtSetting, TwtAccount, TwtSorting, TwtFilter
 
 __all__ = (
+    "BannedWord",
     "BlockedUser",
     "BotwState",
     "BotwWinner",

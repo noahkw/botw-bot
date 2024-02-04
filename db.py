@@ -29,6 +29,7 @@ from models import (
     CustomRole,
     CustomRoleSettings,
     BlockedUser,
+    BannedWord,
 )
 
 
@@ -291,6 +292,18 @@ async def get_past_win(session, guild_id, idol, date):
 async def delete_idols(session):
     statement = delete(Idol)
     await session.execute(statement)
+
+
+async def delete_banned_words(session: AsyncSession) -> None:
+    statement = delete(BannedWord)
+    await session.execute(statement)
+
+
+async def get_banned_words(session: AsyncSession) -> list[BannedWord]:
+    statement = select(BannedWord)
+    result = (await session.execute(statement)).all()
+
+    return [r for (r,) in result]
 
 
 async def get_role_clears(session: AsyncSession) -> list[RoleClear]:

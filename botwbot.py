@@ -52,6 +52,7 @@ class BotwBot(commands.Bot):
         self.whitelist = set()  # guild.id
         self.custom_emoji = {}  # name -> Emoji instance
         self.blocked_users = {}  # guild.id -> set(user.id)
+        self.banned_words = set()  # banned_word (str)
 
         self.channel_locker = ChannelLocker()
 
@@ -79,6 +80,11 @@ class BotwBot(commands.Bot):
                         blocked_user._guild, set()
                     )
                     blocked_users_in_guild.add(blocked_user._user)
+
+                banned_words = await db.get_banned_words(session)
+                logger.info("Loaded %d banned words", len(banned_words))
+                for banned_word in banned_words:
+                    self.banned_words.add(banned_word.word)
 
         for name, emoji_name in CUSTOM_EMOJI.items():
             emoji = discord.utils.find(lambda e: e.name == emoji_name, self.emojis)
