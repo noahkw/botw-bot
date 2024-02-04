@@ -49,3 +49,11 @@ Most of the defaults should be fine, but make sure to enter your **discord token
 **Gfycat client id and secret**, **Twitter App and User Tokens**, and your **bit.ly access token**.
 
 Start the bot as a daemon: `docker-compose up -d`.
+
+## Development
+
+Auto-generate a migration script after making changes to database models:
+`alembic revision --autogenerate -m "description"`
+
+Migrate the database to the latest revision:
+`docker compose run botw-bot python launcher.py db migrate`
