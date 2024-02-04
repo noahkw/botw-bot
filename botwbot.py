@@ -12,7 +12,7 @@ from const import CUSTOM_EMOJI
 from help_command import EmbedHelpCommand
 from log import MessageableHandler
 from models import GuildCog
-from util import safe_send, ChannelLocker
+from util import safe_send, ChannelLocker, TrieNode
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +52,16 @@ class BotwBot(commands.Bot):
         self.whitelist = set()  # guild.id
         self.custom_emoji = {}  # name -> Emoji instance
         self.blocked_users = {}  # guild.id -> set(user.id)
-        self.banned_words = set()  # banned_word (str)
+        self.banned_words_trie = None
 
         self.channel_locker = ChannelLocker()
 
         GuildCog.inject_bot(self)
 
         self.privileged_cogs_cache: dict[str, set[int]] = {}
+
+    def contains_banned_word(self, message: str) -> bool:
+        return self.banned_words_trie.match_message(message)
 
     async def on_ready(self):
         await self.change_presence(activity=discord.Game("with Bini"))
@@ -82,9 +85,10 @@ class BotwBot(commands.Bot):
                     blocked_users_in_guild.add(blocked_user._user)
 
                 banned_words = await db.get_banned_words(session)
+                self.banned_words_trie = TrieNode.build(
+                    [banned_word.word for banned_word in banned_words]
+                )
                 logger.info("Loaded %d banned words", len(banned_words))
-                for banned_word in banned_words:
-                    self.banned_words.add(banned_word.word)
 
         for name, emoji_name in CUSTOM_EMOJI.items():
             emoji = discord.utils.find(lambda e: e.name == emoji_name, self.emojis)

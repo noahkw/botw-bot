@@ -133,16 +133,12 @@ class RoleCreatorView(CallbackView, BaseView):
 class RoleCreatorNameConfirmationView(CallbackView, BaseView):
     @discord.ui.button(label="I confirm", style=discord.ButtonStyle.blurple)
     async def confirm(self, interaction: Interaction, button: Button):
-        # TODO use a trie
-        tokens = self.result.name.split(" ")
-        tokens.append(self.result.name.strip().lower())
-
-        for token in tokens:
-            if token.strip().lower() in interaction.client.banned_words:
-                await interaction.response.send_message(
-                    "Your role name contains a banned word.", ephemeral=True
-                )
-                return
+        role_name = self.result.name.strip()
+        if interaction.client.contains_banned_word(role_name):
+            await interaction.response.send_message(
+                "Your role name contains a banned word.", ephemeral=True
+            )
+            return
 
         self.stop()
         await interaction.response.send_modal(

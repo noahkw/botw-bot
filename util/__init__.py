@@ -33,6 +33,7 @@ from .util import (
 )
 from .channel_locker import ChannelLocker
 from .cogs import PrivilegedCogNoPermissions, PrivilegedCog
+from .trie import TrieNode
 
 __all__ = (
     "BoolConverter",
@@ -68,4 +69,5 @@ __all__ = (
     "cmd_to_str",
     "PrivilegedCogNoPermissions",
     "PrivilegedCog",
+    "TrieNode",
 )
