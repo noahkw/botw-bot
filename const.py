@@ -50,3 +50,6 @@ WEEKDAY_TO_INT = {
     "fri": 5,
     "sat": 6,
 }
+
+# urls
+COLOR_PICKER_URL = "https://ekusu1.github.io/discord-color-picker/"

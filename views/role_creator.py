@@ -1,10 +1,11 @@
 import typing
 
 import discord
-from discord import Interaction, Button
+from discord import Interaction, Button, Color
 from discord.ui import TextInput, Modal, RoleSelect
 
 import db
+from const import COLOR_PICKER_URL
 
 from models import CustomRoleSettings
 from views.base_view import BaseView
@@ -168,10 +169,19 @@ class RoleCreatorNameModal(
         self.stop()
         self.result.name = self.name.value
         await interaction.response.send_message(
-            "Does your role name abide by the server rules? "
+            f"Does your role name `{self.result.name}` abide by the server rules? "
             "If so, continue to role color selection.",
             view=RoleCreatorNameConfirmationView(self.callback, self.result),
             ephemeral=True,
+        )
+
+
+class RoleCreatorRetryColorView(CallbackView, BaseView):
+    @discord.ui.button(label="Choose another color", style=discord.ButtonStyle.red)
+    async def retry(self, interaction: Interaction, button: Button):
+        self.stop()
+        await interaction.response.send_modal(
+            RoleCreatorColorModal(self.callback, self.result)
         )
 
 
@@ -206,6 +216,18 @@ class RoleCreatorColorModal(
 
     async def on_submit(self, interaction: Interaction) -> None:
         self.stop()
+
+        try:
+            Color.from_str("#" + self.color.value)
+        except ValueError:
+            await interaction.response.send_message(
+                "You entered an invalid color hex code. Please try again."
+                f" {COLOR_PICKER_URL} might help to find a valid color.",
+                view=RoleCreatorRetryColorView(self.callback, self.result),
+                ephemeral=True,
+            )
+            return
+
         self.result.color = self.color.value
         await interaction.response.send_message(
             "Is your role color legible?",
