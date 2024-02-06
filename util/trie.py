@@ -1,6 +1,10 @@
 import typing
 
 
+def get_words_in_message(message: str) -> list[str]:
+    return [word.strip() for word in message.split() if word.strip()]
+
+
 class TrieNode:
     children: dict[str, "TrieNode"]
 
@@ -15,8 +19,8 @@ class TrieNode:
         for word in words:
             node = root
 
-            for char in word:
-                node = node.children.setdefault(char, TrieNode())
+            for substr in get_words_in_message(word):
+                node = node.children.setdefault(substr, TrieNode())
 
             node.is_end_of_word = True
 
@@ -25,14 +29,13 @@ class TrieNode:
     def search(self, message: str) -> bool:
         node = self
 
-        for index, char in enumerate(message):
+        for index, char in enumerate(get_words_in_message(message)):
             node = node.children.get(char)
 
             if node is None:
                 node = self
             elif node.is_end_of_word:
-                if index + 1 == len(message) or not message[index + 1].isalpha():
-                    return True
+                return True
 
         return False
 
