@@ -1,3 +1,4 @@
+import asyncio
 import typing
 
 import discord
@@ -20,6 +21,26 @@ class RoleCreatorResult:
         self.name = None
         self.color = None
         self.user_id = None
+
+
+def role_setup_permission_check(cls):
+    async def interaction_check(self, interaction: Interaction, /) -> bool:
+        if hasattr(self, "member") and self.member.id != interaction.user.id:
+            await interaction.response.send_message(
+                "You are not allowed to interact with this message.", ephemeral=True
+            )
+            return False
+        elif not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message(
+                "You are not allowed to set up custom roles.", ephemeral=True
+            )
+            return False
+
+        return True
+
+    cls.interaction_check = interaction_check
+
+    return cls
 
 
 class CallbackView:
@@ -48,20 +69,43 @@ class RolePicker(RoleSelect):
         await interaction.response.defer()
 
 
+@role_setup_permission_check
+class CustomRoleDisable(BaseView):
+    def __init__(self, *args, member: discord.Member):
+        super().__init__()
+        self.member = member
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.blurple)
+    async def confirm(self, interaction: Interaction, button: Button):
+        self.stop()
+
+        async with interaction.client.Session() as session:
+            role_ids = await db.delete_custom_roles_in_guild(
+                session, interaction.guild_id
+            )
+
+            async def delete_custom_role(role_id):
+                role = interaction.guild.get_role(role_id)
+
+                if role is not None:
+                    await role.delete(reason="Disabled custom roles")
+
+            await asyncio.gather(*[delete_custom_role(role_id) for role_id in role_ids])
+
+            await db.delete_custom_role_settings(session, interaction.guild_id)
+
+            await session.commit()
+            await interaction.response.send_message(
+                f"Deleted `{len(role_ids)}` custom roles and disabled creation.",
+            )
+
+
+@role_setup_permission_check
 class CustomRoleSetup(BaseView):
     def __init__(self):
         super().__init__()
 
         self.add_item(RolePicker())
-
-    async def interaction_check(self, interaction: Interaction, /) -> bool:
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message(
-                "You are not allowed to set up custom roles.", ephemeral=True
-            )
-            return False
-
-        return True
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.blurple, row=2)
     async def confirm(self, interaction: Interaction, button: Button):

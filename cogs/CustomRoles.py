@@ -8,7 +8,7 @@ from discord.ext import tasks, commands
 import db
 from cogs import AinitMixin, CustomCog
 from models import CustomRole, CustomRoleSettings, BlockedUser
-from views import RoleCreatorView, RoleCreatorResult, CustomRoleSetup
+from views import RoleCreatorView, RoleCreatorResult, CustomRoleSetup, CustomRoleDisable
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +69,16 @@ class CustomRoles(CustomCog, AinitMixin):
         embed.set_author(name=ctx.guild.name, icon_url=ctx.guild.icon.url)
 
         await ctx.reply(view=CustomRoleSetup(), embed=embed, ephemeral=True)
+
+    @custom_roles.command(brief="Disable custom roles")
+    @commands.has_permissions(administrator=True)
+    async def disable(self, ctx: commands.Context):
+        await ctx.reply(
+            "Do you really want to disable custom roles in the server?"
+            " All custom roles currently assigned to members will be deleted.",
+            view=CustomRoleDisable(member=ctx.author),
+            ephemeral=True,
+        )
 
     @custom_roles.command(brief="Removes your custom role")
     @has_guild_role()

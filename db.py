@@ -370,12 +370,28 @@ async def delete_role(session: AsyncSession, role_id: int) -> None:
 
 
 async def delete_custom_role(
-    session: AsyncSession, guild_id: int, user_id: int
+    session: AsyncSession,
+    guild_id: int,
+    user_id: int,
 ) -> None:
     statement = delete(CustomRole).where(
         (CustomRole._guild == guild_id) & (CustomRole._user == user_id)
     )
     await session.execute(statement)
+
+
+async def delete_custom_roles_in_guild(
+    session: AsyncSession,
+    guild_id: int,
+) -> list[int]:
+    statement = (
+        delete(CustomRole)
+        .where((CustomRole._guild == guild_id))
+        .returning(CustomRole._role)
+    )
+    result = await session.execute(statement)
+
+    return [r for (r,) in result]
 
 
 async def get_user_custom_role_in_guild(
@@ -403,6 +419,11 @@ async def get_custom_role_settings(
     result = (await session.execute(statement)).first()
 
     return result[0] if result else None
+
+
+async def delete_custom_role_settings(session: AsyncSession, guild_id: int) -> None:
+    statement = delete(CustomRoleSettings).where(CustomRoleSettings._guild == guild_id)
+    await session.execute(statement)
 
 
 async def get_blocked_users(session: AsyncSession) -> list[BlockedUser]:
