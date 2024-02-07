@@ -6,7 +6,7 @@ from discord import Interaction, Button, Color, SelectOption, Emoji
 from discord.ui import TextInput, Modal, RoleSelect, Select
 
 import db
-from const import COLOR_PICKER_URL
+from const import COLOR_PICKER_URL, UNICODE_EMOJI
 
 from models import CustomRoleSettings
 from views.base_view import BaseView
@@ -81,10 +81,11 @@ class EmojiPicker(Select):
         options = [
             SelectOption(
                 label=emoji.name,
+                value=str(emoji.id),
                 description="Animated" if emoji.animated else "",
                 emoji=emoji,
             )
-            for emoji in emojis
+            for emoji in emojis[:25]
         ]
 
         super().__init__(
@@ -130,17 +131,75 @@ class CustomRoleDisable(BaseView):
 
 
 class RoleCreatorEmojiPickerView(CallbackView, BaseView):
-    def __init__(self, emojis: tuple[Emoji], callback, result):
+    def __init__(
+        self,
+        all_emojis: tuple[Emoji],
+        filtered_emojis: tuple[Emoji],
+        interaction: Interaction,
+        callback,
+        result,
+    ):
         super().__init__(callback, result)
+        self.interaction = interaction
+        self.filtered_emojis = filtered_emojis
+        self.all_emojis = all_emojis
+        self.add_item(EmojiPicker(self.filtered_emojis))
 
-        self.emojis = emojis
-        self.add_item(EmojiPicker(emojis))
+    @staticmethod
+    def filter_emoji(emoji, term):
+        if term is None:
+            return True
+        else:
+            return emoji.name.lower().startswith(term.lower())
+
+    @discord.ui.button(
+        label="Search",
+        emoji=UNICODE_EMOJI["INSPECT"],
+        style=discord.ButtonStyle.green,
+        row=2,
+    )
+    async def search(self, interaction: Interaction, button: Button):
+        modal = RoleCreatorEmojiSearchModal()
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+
+        filtered_emojis = tuple(
+            [
+                emoji
+                for emoji in self.filtered_emojis
+                if RoleCreatorEmojiPickerView.filter_emoji(emoji, modal.result)
+            ]
+        )
+
+        if len(filtered_emojis) == 0:
+            await self.interaction.edit_original_response(
+                content="Found no emoji matching your search term. Please try again.",
+                view=RoleCreatorEmojiPickerView(
+                    self.all_emojis,
+                    self.all_emojis,
+                    self.interaction,
+                    self.callback,
+                    self.result,
+                ),
+            )
+            return
+
+        await self.interaction.edit_original_response(
+            content=f"Please pick a role emoji from the following list. Found `{len(filtered_emojis)}`.",
+            view=RoleCreatorEmojiPickerView(
+                self.all_emojis,
+                filtered_emojis,
+                self.interaction,
+                self.callback,
+                self.result,
+            ),
+        )
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.blurple, row=2)
     async def confirm(self, interaction: Interaction, button: Button):
         self.stop()
 
-        values = self.children[2].values
+        values = self.children[3].values
 
         if len(values) != 1:
             await interaction.response.send_message(
@@ -150,8 +209,10 @@ class RoleCreatorEmojiPickerView(CallbackView, BaseView):
             )
             return
 
-        chosen_emoji_name = values[0]
-        emoji = next(emoji for emoji in self.emojis if emoji.name == chosen_emoji_name)
+        chosen_emoji_id = int(values[0])
+        emoji = next(
+            emoji for emoji in self.filtered_emojis if emoji.id == chosen_emoji_id
+        )
 
         await self.complete_creation(interaction, emoji=emoji)
 
@@ -276,6 +337,26 @@ class RoleCreatorNameConfirmationView(CallbackView, BaseView):
         )
 
 
+class RoleCreatorEmojiSearchModal(
+    Modal,
+    title="Search for emojis by name",
+):
+    name = TextInput(
+        label="Emoji name",
+        placeholder="Enter a search term, e.g., seulgi",
+        required=True,
+    )
+
+    def __init__(self):
+        super().__init__()
+        self.result = None
+
+    async def on_submit(self, interaction: Interaction) -> None:
+        self.result = self.name.value
+        self.stop()
+        await interaction.response.defer()
+
+
 class RoleCreatorNameModal(
     CallbackView, BaseView, Modal, title="Choose your role's name"
 ):
@@ -315,7 +396,11 @@ class RoleCreatorColorConfirmationView(CallbackView, BaseView):
         await interaction.response.send_message(
             "Please pick a role emoji from the following list.",
             view=RoleCreatorEmojiPickerView(
-                interaction.guild.emojis, self.callback, self.result
+                interaction.guild.emojis,
+                interaction.guild.emojis,
+                interaction,
+                self.callback,
+                self.result,
             ),
             ephemeral=True,
             delete_after=self.DELETE_RESPONSE_AFTER,
