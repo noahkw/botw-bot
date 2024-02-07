@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+import aiohttp
 import discord
 from discord import Embed, Color
 from discord.ext import tasks, commands
@@ -39,9 +40,14 @@ async def setup(bot):
     await bot.add_cog(CustomRoles(bot))
 
 
+ROLE_ICONS_FEATURE_NAME = "ROLE_ICONS"
+
+
 class CustomRoles(CustomCog, AinitMixin):
     def __init__(self, bot):
         super().__init__(bot)
+
+        self.session = aiohttp.ClientSession()
 
         CustomRole.inject_bot(bot)
         CustomRoleSettings.inject_bot(bot)
@@ -50,6 +56,14 @@ class CustomRoles(CustomCog, AinitMixin):
 
     def cog_unload(self):
         self._role_removal_loop.stop()
+        asyncio.create_task(self.session.close())
+
+    async def _download_emoji(self, emoji_url: str):
+        async with self.session.get(emoji_url) as response:
+            if response.status != 200:
+                raise commands.BadArgument("Could not fetch the given URL.")
+
+            return await response.read()
 
     @commands.group(
         name="customroles", aliases=["customrole", "cr"], brief="Custom roles"
@@ -96,7 +110,7 @@ class CustomRoles(CustomCog, AinitMixin):
                 await custom_role.role.delete(
                     reason=f"Custom role for {ctx.author} ({ctx.author.id}) removed manually"
                 )
-                await ctx.reply(f"Your role '{role_name}' has been deleted.")
+                await ctx.reply(f"Your role `{role_name}` has been deleted.")
             else:
                 await ctx.reply("Your role has been deleted.")
 
@@ -129,11 +143,18 @@ class CustomRoles(CustomCog, AinitMixin):
                     )
                     return
 
+                emoji_data = None
+                if result.emoji is not None:
+                    emoji_data = await self._download_emoji(result.emoji.url)
+
                 try:
                     role = await ctx.guild.create_role(
                         reason=f"Custom role for {member} ({result.user_id})",
                         name=result.name,
                         color=Color.from_str("#" + result.color),
+                        display_icon=emoji_data
+                        if emoji_data and ROLE_ICONS_FEATURE_NAME in ctx.guild.features
+                        else None,
                     )
                     await ctx.guild.edit_role_positions(
                         {role: custom_role_settings.role.position},

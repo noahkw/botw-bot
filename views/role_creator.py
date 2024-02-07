@@ -2,8 +2,8 @@ import asyncio
 import typing
 
 import discord
-from discord import Interaction, Button, Color
-from discord.ui import TextInput, Modal, RoleSelect
+from discord import Interaction, Button, Color, SelectOption, Emoji
+from discord.ui import TextInput, Modal, RoleSelect, Select
 
 import db
 from const import COLOR_PICKER_URL
@@ -16,11 +16,13 @@ class RoleCreatorResult:
     name: str
     color: str
     user_id: int
+    emoji: Emoji
 
     def __init__(self):
         self.name = None
         self.color = None
         self.user_id = None
+        self.emoji = None
 
 
 def role_setup_permission_check(cls):
@@ -61,7 +63,7 @@ class RolePicker(RoleSelect):
     def __init__(self):
         super().__init__(placeholder="Choose one role...")
 
-    async def callback(self, interaction: Interaction) -> typing.Any:
+    async def callback(self, interaction: Interaction) -> None:
         role = self.values[0]
         client_member = interaction.guild.get_member(interaction.client.user.id)
         if role.position >= client_member.top_role.position:
@@ -71,6 +73,28 @@ class RolePicker(RoleSelect):
                 delete_after=120.0,
             )
 
+        await interaction.response.defer()
+
+
+class EmojiPicker(Select):
+    def __init__(self, emojis: tuple[Emoji]):
+        options = [
+            SelectOption(
+                label=emoji.name,
+                description="Animated" if emoji.animated else "",
+                emoji=emoji,
+            )
+            for emoji in emojis
+        ]
+
+        super().__init__(
+            placeholder="Choose your role's emoji...",
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
+
+    async def callback(self, interaction: Interaction) -> None:
         await interaction.response.defer()
 
 
@@ -103,6 +127,48 @@ class CustomRoleDisable(BaseView):
             await interaction.response.send_message(
                 f"Deleted `{len(role_ids)}` custom roles and disabled creation.",
             )
+
+
+class RoleCreatorEmojiPickerView(CallbackView, BaseView):
+    def __init__(self, emojis: tuple[Emoji], callback, result):
+        super().__init__(callback, result)
+
+        self.emojis = emojis
+        self.add_item(EmojiPicker(emojis))
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.blurple, row=2)
+    async def confirm(self, interaction: Interaction, button: Button):
+        self.stop()
+
+        values = self.children[2].values
+
+        if len(values) != 1:
+            await interaction.response.send_message(
+                "Please try again and choose exactly one emoji!",
+                ephemeral=True,
+                delete_after=self.DELETE_RESPONSE_AFTER,
+            )
+            return
+
+        chosen_emoji_name = values[0]
+        emoji = next(emoji for emoji in self.emojis if emoji.name == chosen_emoji_name)
+
+        await self.complete_creation(interaction, emoji=emoji)
+
+    @discord.ui.button(label="Skip", style=discord.ButtonStyle.red, row=2)
+    async def skip(self, interaction: Interaction, button: Button):
+        self.stop()
+        await self.complete_creation(interaction, None)
+
+    async def complete_creation(self, interaction, emoji=None):
+        self.result.user_id = interaction.user.id
+        self.result.emoji = emoji
+        await self.callback(self.result)
+        await interaction.response.send_message(
+            "Your role has been created! <a:winterletsgo:1079552519971278959>",
+            ephemeral=True,
+            delete_after=self.DELETE_RESPONSE_AFTER,
+        )
 
 
 @role_setup_permission_check
@@ -246,10 +312,11 @@ class RoleCreatorColorConfirmationView(CallbackView, BaseView):
     @discord.ui.button(label="I confirm", style=discord.ButtonStyle.blurple)
     async def confirm(self, interaction: Interaction, button: Button):
         self.stop()
-        self.result.user_id = interaction.user.id
-        await self.callback(self.result)
         await interaction.response.send_message(
-            "Your role has been created! <a:winterletsgo:1079552519971278959>",
+            "Please pick a role emoji from the following list.",
+            view=RoleCreatorEmojiPickerView(
+                interaction.guild.emojis, self.callback, self.result
+            ),
             ephemeral=True,
             delete_after=self.DELETE_RESPONSE_AFTER,
         )
