@@ -166,7 +166,7 @@ class RoleCreatorEmojiPickerView(CallbackView, BaseView):
         filtered_emojis = tuple(
             [
                 emoji
-                for emoji in self.filtered_emojis
+                for emoji in self.all_emojis
                 if RoleCreatorEmojiPickerView.filter_emoji(emoji, modal.result)
             ]
         )
