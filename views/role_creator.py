@@ -27,12 +27,16 @@ def role_setup_permission_check(cls):
     async def interaction_check(self, interaction: Interaction, /) -> bool:
         if hasattr(self, "member") and self.member.id != interaction.user.id:
             await interaction.response.send_message(
-                "You are not allowed to interact with this message.", ephemeral=True
+                "You are not allowed to interact with this message.",
+                ephemeral=True,
+                delete_after=10.0,
             )
             return False
         elif not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
-                "You are not allowed to set up custom roles.", ephemeral=True
+                "You are not allowed to set up custom roles.",
+                ephemeral=True,
+                delete_after=10.0,
             )
             return False
 
@@ -64,6 +68,7 @@ class RolePicker(RoleSelect):
             await interaction.response.send_message(
                 "Please choose a role the bot can manage, i.e., one that is below its own highest role.",
                 ephemeral=True,
+                delete_after=120.0,
             )
 
         await interaction.response.defer()
@@ -117,6 +122,7 @@ class CustomRoleSetup(BaseView):
             await interaction.response.send_message(
                 "Please try again and choose exactly one role!",
                 ephemeral=True,
+                delete_after=self.DELETE_RESPONSE_AFTER,
             )
             return
 
@@ -153,7 +159,9 @@ class RoleCreatorView(CallbackView, BaseView):
 
             if custom_role is not None:
                 await interaction.response.send_message(
-                    "You already have a custom role.", ephemeral=True
+                    "You already have a custom role.",
+                    ephemeral=True,
+                    delete_after=self.DELETE_RESPONSE_AFTER,
                 )
                 return False
 
@@ -170,7 +178,9 @@ class RoleCreatorView(CallbackView, BaseView):
                 return True
 
             await interaction.response.send_message(
-                "You are missing a role to do this.", ephemeral=True
+                "You are missing a role to do this.",
+                ephemeral=True,
+                delete_after=self.DELETE_RESPONSE_AFTER,
             )
             return False
 
@@ -181,7 +191,9 @@ class RoleCreatorNameConfirmationView(CallbackView, BaseView):
         role_name = self.result.name.strip()
         if interaction.client.contains_banned_word(role_name):
             await interaction.response.send_message(
-                "Your role name contains a banned word.", ephemeral=True
+                "Your role name contains a banned word.",
+                ephemeral=True,
+                delete_after=self.DELETE_RESPONSE_AFTER,
             )
             return
 
@@ -205,7 +217,7 @@ class RoleCreatorNameModal(
         label="Role name",
         placeholder="Your custom role name here...",
         required=True,
-        min_length=3,
+        min_length=2,
         max_length=20,
     )
 
@@ -217,6 +229,7 @@ class RoleCreatorNameModal(
             "If so, continue to role color selection.",
             view=RoleCreatorNameConfirmationView(self.callback, self.result),
             ephemeral=True,
+            delete_after=self.DELETE_RESPONSE_AFTER,
         )
 
 
@@ -238,6 +251,7 @@ class RoleCreatorColorConfirmationView(CallbackView, BaseView):
         await interaction.response.send_message(
             "Your role has been created! <a:winterletsgo:1079552519971278959>",
             ephemeral=True,
+            delete_after=self.DELETE_RESPONSE_AFTER,
         )
 
     @discord.ui.button(label="Choose another color", style=discord.ButtonStyle.red)
@@ -269,6 +283,7 @@ class RoleCreatorColorModal(
                 f" {COLOR_PICKER_URL} might help to find a valid color.",
                 view=RoleCreatorRetryColorView(self.callback, self.result),
                 ephemeral=True,
+                delete_after=self.DELETE_RESPONSE_AFTER,
             )
             return
 
@@ -277,4 +292,5 @@ class RoleCreatorColorModal(
             "Is your role color legible?",
             view=RoleCreatorColorConfirmationView(self.callback, self.result),
             ephemeral=True,
+            delete_after=self.DELETE_RESPONSE_AFTER,
         )
