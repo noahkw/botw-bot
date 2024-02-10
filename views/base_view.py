@@ -3,11 +3,11 @@ from discord.ui import View
 
 
 class BaseView(View):
-    DELETE_RESPONSE_AFTER = 120.0
+    DELETE_RESPONSE_AFTER = 5 * 60.0
 
     def __init__(self):
         super().__init__()
-        self.timeout = 120.0
+        self.timeout = 5 * 60.0
 
     """
     Has to be called and checked by extending classes.
