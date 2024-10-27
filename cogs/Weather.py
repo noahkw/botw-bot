@@ -49,8 +49,8 @@ class OpenWeatherMapApiException(Exception):
 
 
 class Weather(commands.Cog):
-    CURRENT_WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
-    ONECALL_WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/onecall"
+    FIND_API_URL = "http://api.openweathermap.org/data/2.5/find"
+    ONECALL_WEATHER_API_URL = "https://api.openweathermap.org/data/3.0/onecall"
 
     MSG_REQUEST_FAILED = "The request to OpenWeatherMap's API failed."
 
@@ -74,10 +74,13 @@ class Weather(commands.Cog):
     async def _send_current_weather(self, session, ctx, location):
         response = await self._make_request(
             "get",
-            f"{Weather.CURRENT_WEATHER_API_URL}?appid={self.app_id}&q={location}&units=metric",
+            f"{Weather.FIND_API_URL}?appid={self.app_id}&q={location}",
         )
-        coords = response["coord"]
-        lon, lat = coords.values()
+
+        if len(response["list"]) == 0:
+            raise commands.BadArgument("Location not found")
+
+        lat, lon = response["list"][0]["coord"].values()
 
         response_onecall = await self._make_request(
             "get",
@@ -86,9 +89,9 @@ class Weather(commands.Cog):
         current = response_onecall["current"]
 
         content = {
-            "id": response["id"],
-            "city": response["name"],
-            "country": response["sys"]["country"],
+            "id": response["list"][0]["id"],
+            "city": response["list"][0]["name"],
+            "country": response["list"][0]["sys"]["country"],
             "main": current["weather"][0]["main"],
             "description": current["weather"][0]["description"],
             "pressure": current["pressure"],
@@ -166,6 +169,10 @@ class Weather(commands.Cog):
                     await self._send_current_weather(session, ctx, location)
                 else:
                     await ctx.send_help(self.weather)
+
+    @weather.error
+    async def _error(self, ctx, err):
+        logger.error(err)
 
     @weather.command()
     async def current(self, ctx, *, location):
