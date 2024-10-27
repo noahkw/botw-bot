@@ -170,10 +170,6 @@ class Weather(commands.Cog):
                 else:
                     await ctx.send_help(self.weather)
 
-    @weather.error
-    async def _error(self, ctx, err):
-        logger.error(err)
-
     @weather.command()
     async def current(self, ctx, *, location):
         async with self.bot.Session() as session:
