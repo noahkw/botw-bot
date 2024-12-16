@@ -75,6 +75,7 @@ class SyncStreamLiveWebSocket:
         self._subscribers: dict[str, list[Subscriber]] = {}
         self._msg_timeout = 20  # 20s, keepalive from the server every 15s
         self._reconnect_tries = 0
+        self._running = True
 
     def subscribe(self, channel: str, subscriber: Subscriber):
         subscribers = self._subscribers.setdefault(channel, [])
@@ -106,8 +107,14 @@ class SyncStreamLiveWebSocket:
             }
         )
 
+    def stop(self):
+        self._running = False
+        self.ws.close()
+
     async def start(self):
-        while True:
+        self._running = True
+
+        while self._running:
             try:
                 await self.connect_ws()
             except WebSocketClosure:
@@ -132,7 +139,7 @@ class SyncStreamLiveWebSocket:
                 await self.negotiate()
                 await self.authenticate()
 
-                while True:
+                while self._running:
                     try:
                         msg = await ws.receive(timeout=self._msg_timeout)
 
@@ -221,6 +228,9 @@ class Live(PrivilegedCog, AinitMixin):
 
     async def _ainit(self):
         asyncio.create_task(self.sync_stream_ws.start())
+
+    async def cog_unload(self):
+        self.sync_stream_ws.stop()
 
     @auto_help
     @commands.group(
