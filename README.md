@@ -3,20 +3,16 @@ Originally a Discord bot for organizing * of the week challenges, now more of a 
 
 Current modules:
 - Bias of the Week
-- Card game utilities
 - Emoji utilities
 - Fun
-- Gfycat
 - Greeters
-- Instagram
 - Main
 - Mirroring
 - Profiles
 - Reminders
-- Roles
+- (Custom) Roles
 - Tags
 - Trolling
-- Twitter
 - Url shortener
 - Utilities
 - Weather
