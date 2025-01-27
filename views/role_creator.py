@@ -3,12 +3,13 @@ import typing
 
 import discord
 from discord import Interaction, Button, Color, SelectOption, Emoji
+from discord.ext import commands
 from discord.ui import TextInput, Modal, RoleSelect, Select
 
 import db
 from const import COLOR_PICKER_URL, UNICODE_EMOJI
-
 from models import CustomRoleSettings
+from util import format_template
 from views.base_view import BaseView
 
 
@@ -264,7 +265,56 @@ class CustomRoleSetup(BaseView):
 
             await interaction.response.send_message(
                 f"Members with the role {role.mention} will now be able to create custom roles!",
+                view=CustomRoleAnnouncementSetup(),
             )
+
+
+@role_setup_permission_check
+class CustomRoleAnnouncementSetup(BaseView):
+    @discord.ui.button(
+        label="Set up an announcement message", style=discord.ButtonStyle.blurple
+    )
+    async def set_announcement_message(self, interaction: Interaction, button: Button):
+        await interaction.response.send_modal(CustomRoleAnnouncementTextModal())
+
+
+class CustomRoleAnnouncementTextModal(
+    BaseView, Modal, title="Set up an announcement message"
+):
+    msg = TextInput(
+        label="Announcement message",
+        placeholder="The announcement will be sent to the system channel.",
+        required=False,
+        min_length=0,
+        max_length=255,
+    )
+
+    async def on_submit(self, interaction: Interaction) -> None:
+        self.stop()
+
+        # check if used placeholders are valid
+        try:
+            format_template(self.msg.value, interaction.user)
+        except commands.BadArgument as e:
+            await interaction.response.send_message(e.args[0])
+            return
+
+        async with interaction.client.Session() as session:
+            custom_role_settings = CustomRoleSettings(
+                _guild=interaction.guild_id,
+                _announcement_message=self.msg.value
+                if len(self.msg.value) > 0
+                else None,
+            )
+            await session.merge(custom_role_settings)
+            await session.commit()
+
+        await interaction.response.send_message(
+            "Announcement message saved. Check the `placeholders` command for possible placeholders that will be "
+            "replaced in the announcement message.",
+            ephemeral=True,
+            delete_after=self.DELETE_RESPONSE_AFTER,
+        )
 
 
 class RoleCreatorView(CallbackView, BaseView):

@@ -117,6 +117,21 @@ class Main(commands.Cog):
             f"Consider reloading all cogs for the changes to apply."
         )
 
+    @commands.command(brief="Lists all placeholders")
+    async def placeholders(self, ctx: commands.Context):
+        await ctx.send(
+            """All possible placeholders that will be replaced in some messages the bot sends:
+
+```
+{mention}: Mentions the user
+{name}: The user's name
+{discriminator}: The user's discriminator
+{id}: The user's id
+{number}: The number of members in the server
+{guild}: The server's name```
+        """
+        )
+
     @commands.command(brief="Adds a guild to the whitelist")
     @commands.is_owner()
     async def whitelist(self, ctx: commands.Context, guild_id: int, requester_id: int):

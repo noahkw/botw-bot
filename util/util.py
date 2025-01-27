@@ -6,6 +6,7 @@ import typing
 from random import getrandbits
 
 import discord
+from discord.ext import commands
 from PIL import Image, ImageDraw
 
 logger = logging.getLogger(__name__)
@@ -187,3 +188,26 @@ def cmd_to_str(group=False):
         return f'**{cmd.name}**{newline}{help_ or "No description"}\n'
 
     return actual
+
+
+def format_template(template, member: discord.Member):
+    """
+    Formats given template string. Available placeholders that will be replaced:
+
+    {mention}: Mentions the user
+    {name}: The user's name
+    {id}: The user's id
+    {number}: The number of members in the server
+    {guild}: The server's name
+    """
+    try:
+        return template.format(
+            mention=member.mention,
+            id=member.id,
+            number=member.guild.member_count,
+            name=member.name,
+            discriminator=member.discriminator,
+            guild=member.guild.name,
+        )
+    except KeyError as e:
+        raise commands.BadArgument(f"The placeholder `{e}` is not supported.")

@@ -1,3 +1,5 @@
+from .channel_locker import ChannelLocker
+from .cogs import PrivilegedCogNoPermissions, PrivilegedCog
 from .converters import (
     BoolConverter,
     DayOfWeekConverter,
@@ -11,6 +13,7 @@ from .retrying_context_manager import (
     ExceededMaximumRetries,
     ReactingRetryingSession,
 )
+from .trie import TrieNode
 from .util import (
     chunker,
     ordered_sublists,
@@ -30,10 +33,8 @@ from .util import (
     format_emoji,
     detail_mention,
     cmd_to_str,
+    format_template,
 )
-from .channel_locker import ChannelLocker
-from .cogs import PrivilegedCogNoPermissions, PrivilegedCog
-from .trie import TrieNode
 
 __all__ = (
     "BoolConverter",
@@ -70,4 +71,5 @@ __all__ = (
     "PrivilegedCogNoPermissions",
     "PrivilegedCog",
     "TrieNode",
+    "format_template",
 )

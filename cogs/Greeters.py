@@ -5,27 +5,13 @@ from discord.ext import commands
 
 import db
 from models import Greeter, GreeterType
-from util import auto_help, GreeterTypeConverter
+from util import auto_help, GreeterTypeConverter, format_template
 
 logger = logging.getLogger(__name__)
 
 
 async def setup(bot):
     await bot.add_cog(Greeters(bot))
-
-
-def format_template(template, member: discord.Member):
-    try:
-        return template.format(
-            mention=member.mention,
-            id=member.id,
-            number=member.guild.member_count,
-            name=member.name,
-            discriminator=member.discriminator,
-            guild=member.guild.name,
-        )
-    except KeyError as e:
-        raise commands.BadArgument(f"The placeholder `{e}` is not supported.")
 
 
 class Greeters(commands.Cog):
@@ -93,7 +79,6 @@ class Greeters(commands.Cog):
         Available placeholders for the message:
         `{{mention}}`: Mentions the user
         `{{name}}`: The user's name
-        `{{discriminator}}`: The user's discriminator
         `{{id}}`: The user's id
         `{{number}}`: The number of members in the server
         `{{guild}}`: The server's name
@@ -115,7 +100,6 @@ class Greeters(commands.Cog):
         Available placeholders for the message:
         `{{mention}}`: Mentions the user (not recommended here)
         `{{name}}`: The user's name
-        `{{discriminator}}`: The user's discriminator
         `{{id}}`: The user's id
         `{{number}}`: The number of members in the server
         `{{guild}}`: The server's name

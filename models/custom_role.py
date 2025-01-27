@@ -1,12 +1,10 @@
-from sqlalchemy import Column, BigInteger
+from discord import Member, Role
+from sqlalchemy import Column, BigInteger, String
 from sqlalchemy.ext.hybrid import hybrid_property
 
 from models.base import Base
 from models.guild_settings import GuildSettingsMixin
 from models.role import RoleMixin
-
-
-from discord import Member, Role
 
 
 class CustomRole(RoleMixin, Base):
@@ -26,6 +24,9 @@ class CustomRoleSettings(GuildSettingsMixin, Base):
 
     """The role that gets to create custom roles/is the insertion point"""
     _role = Column(BigInteger, nullable=False)
+    """The message that is sent to the system messages channel whenever a user is assigned the role that is allowed to
+    create custom roles."""
+    _announcement_message = Column(String, nullable=True)
 
     @hybrid_property
     def role(self) -> Role:

@@ -3,12 +3,13 @@ import logging
 
 import aiohttp
 import discord
-from discord import Embed, Color
+from discord import Embed, Color, Member
 from discord.ext import tasks, commands
 
 import db
 from cogs import AinitMixin, CustomCog
 from models import CustomRole, CustomRoleSettings, BlockedUser
+from util import format_template
 from views import RoleCreatorView, RoleCreatorResult, CustomRoleSetup, CustomRoleDisable
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,58 @@ class CustomRoles(CustomCog, AinitMixin):
             await db.delete_custom_role(session, ctx.guild.id, ctx.author.id)
             await session.commit()
 
+    def _make_role_creation_view(self, guild: discord.Guild):
+        async def creation_callback(result: RoleCreatorResult):
+            async with self.bot.Session() as session:
+                member = guild.get_member(result.user_id)
+                if member is None:
+                    return
+
+                custom_role_settings = await db.get_custom_role_settings(
+                    session, guild.id
+                )
+                if custom_role_settings is None:
+                    logger.info(
+                        "creation callback in %s (%d) triggered but custom roles not set up",
+                        str(guild),
+                        guild.id,
+                    )
+                    return
+
+                emoji_data = None
+                if result.emoji is not None:
+                    emoji_data = await self._download_emoji(result.emoji.url)
+
+                try:
+                    role = await guild.create_role(
+                        reason=f"Custom role for {member} ({result.user_id})",
+                        name=result.name,
+                        color=Color.from_str("#" + result.color),
+                        display_icon=emoji_data
+                        if emoji_data and ROLE_ICONS_FEATURE_NAME in guild.features
+                        else None,
+                    )
+                    await guild.edit_role_positions(
+                        {role: custom_role_settings.role.position},
+                        reason=f"Moving new custom role above {custom_role_settings.role}",
+                    )
+                    await member.add_roles(role, reason="Custom role added")
+
+                    custom_role = CustomRole(
+                        _role=role.id, _guild=guild.id, _user=result.user_id
+                    )
+                    session.add(custom_role)
+                    await session.commit()
+                except discord.Forbidden:
+                    logger.info(
+                        "no permissions to create custom roles in %s (%d)",
+                        guild,
+                        guild.id,
+                    )
+                    return
+
+        return RoleCreatorView(creation_callback, None)
+
     @custom_roles.command(brief="Creates a custom role for you")
     @has_guild_role()
     async def create(self, ctx: commands.Context):
@@ -126,57 +179,7 @@ class CustomRoles(CustomCog, AinitMixin):
         )
         embed.set_author(name=ctx.guild.name, icon_url=ctx.guild.icon.url)
 
-        async def creation_callback(result: RoleCreatorResult):
-            async with self.bot.Session() as session:
-                member = ctx.guild.get_member(result.user_id)
-                if member is None:
-                    return
-
-                custom_role_settings = await db.get_custom_role_settings(
-                    session, ctx.guild.id
-                )
-                if custom_role_settings is None:
-                    logger.info(
-                        "creation callback in %s (%d) triggered but custom roles not set up",
-                        str(ctx.guild),
-                        ctx.guild.id,
-                    )
-                    return
-
-                emoji_data = None
-                if result.emoji is not None:
-                    emoji_data = await self._download_emoji(result.emoji.url)
-
-                try:
-                    role = await ctx.guild.create_role(
-                        reason=f"Custom role for {member} ({result.user_id})",
-                        name=result.name,
-                        color=Color.from_str("#" + result.color),
-                        display_icon=emoji_data
-                        if emoji_data and ROLE_ICONS_FEATURE_NAME in ctx.guild.features
-                        else None,
-                    )
-                    await ctx.guild.edit_role_positions(
-                        {role: custom_role_settings.role.position},
-                        reason=f"Moving new custom role above {custom_role_settings.role}",
-                    )
-                    await member.add_roles(role, reason="Custom role added")
-
-                    custom_role = CustomRole(
-                        _role=role.id, _guild=ctx.guild.id, _user=result.user_id
-                    )
-                    session.add(custom_role)
-                    await session.commit()
-                except discord.Forbidden:
-                    logger.info(
-                        "no permissions to create custom roles in %s (%d)",
-                        ctx.guild,
-                        ctx.guild.id,
-                    )
-                    return
-
-        view = RoleCreatorView(creation_callback, None)
-        await ctx.send(view=view, embed=embed)
+        await ctx.send(view=self._make_role_creation_view(ctx.guild), embed=embed)
 
     @commands.Cog.listener()
     async def on_user_blocked(self, blocked_user: BlockedUser):
@@ -190,6 +193,32 @@ class CustomRoles(CustomCog, AinitMixin):
 
             await self.delete_custom_role(session, custom_role)
             await session.commit()
+
+    @commands.Cog.listener()
+    async def on_member_update(self, before: Member, after: Member):
+        """
+        Listens for member role updates and sends the custom announcement to the guild's system messages channel.
+        """
+        async with self.bot.Session() as session:
+            custom_role_settings = await db.get_custom_role_settings(
+                session, after.guild.id
+            )
+
+            if (
+                custom_role_settings._announcement_message is None
+                or len(custom_role_settings._announcement_message) == 0
+            ):
+                return
+
+            had_role_before = custom_role_settings.role in before.roles
+            has_role_now = custom_role_settings.role in after.roles
+
+            if not had_role_before and has_role_now:
+                # member got the role just now, send announcement
+                await after.guild.system_channel.send(
+                    format_template(custom_role_settings._announcement_message, after),
+                    view=self._make_role_creation_view(after.guild),
+                )
 
     async def delete_custom_role(self, session, custom_role: CustomRole) -> None:
         try:
