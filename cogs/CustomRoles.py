@@ -205,7 +205,8 @@ class CustomRoles(CustomCog, AinitMixin):
             )
 
             if (
-                custom_role_settings._announcement_message is None
+                custom_role_settings is None
+                or custom_role_settings._announcement_message is None
                 or len(custom_role_settings._announcement_message) == 0
             ):
                 return
