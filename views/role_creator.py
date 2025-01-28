@@ -294,7 +294,7 @@ class CustomRoleAnnouncementTextModal(
 
         # check if used placeholders are valid
         try:
-            format_template(self.msg.value, interaction.user)
+            announcement_msg = format_template(self.msg.value, interaction.user)
         except commands.BadArgument as e:
             await interaction.response.send_message(e.args[0])
             return
@@ -311,7 +311,7 @@ class CustomRoleAnnouncementTextModal(
 
         await interaction.response.send_message(
             "Announcement message saved. Check the `placeholders` command for possible placeholders that will be "
-            "replaced in the announcement message.",
+            f"replaced in the announcement message. This is what the announcement will look like:\n{announcement_msg}",
             ephemeral=True,
             delete_after=self.DELETE_RESPONSE_AFTER,
         )
