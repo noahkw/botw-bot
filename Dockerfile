@@ -1,8 +1,22 @@
-FROM gorialis/discord.py:3.9-slim-buster-master-minimal
+FROM python:3.12-bullseye
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY pyproject.toml poetry.lock ./
-RUN pip install poetry && poetry config virtualenvs.create false && poetry install
+# fix for Git's new 'detected dubious ownership in repository at '/app''
+RUN git config --global --add safe.directory '*'
 
-CMD ["python", "launcher.py"]
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libffi-dev \
+    libnacl-dev \
+    libsodium-dev
+
+COPY pyproject.toml ./
+RUN pip install uv && uv sync
+
+CMD ["uv", "run", "launcher.py"]
