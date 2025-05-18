@@ -1,7 +1,7 @@
 version: "2.1"
 services:
   botw-bot:
-    image: docker.pkg.github.com/noahkw/botw-bot/botw-bot:latest
+    image: ghcr.io/noahkw/botw-bot/botw-bot:latest
     volumes:
       - ${BOTW_BOT_CLONE_DIR}:/app
     restart: always
