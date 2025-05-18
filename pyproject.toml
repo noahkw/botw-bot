@@ -29,3 +29,8 @@ dependencies = [
 [tool.uv.sources]
 aioscheduler = { git = "https://github.com/noahkw/aioscheduler" }
 discord-ext-menus = { git = "https://github.com/Rapptz/discord-ext-menus" }
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+]
