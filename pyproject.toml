@@ -2,8 +2,10 @@
 name = "botw-bot"
 version = "0.1.0"
 description = ""
-authors = ["Noah <noah@dreckbu.de>"]
-requires_python = ">=3.9,<3.13"
+authors = [
+    {name = "Noah", email = "noah@dreckbu.de"}
+]
+requires-python = ">=3.9,<3.13"
 dependencies = [
     "alembic>=1.6.5",
     "asyncpg>=0.29.0",
@@ -21,6 +23,7 @@ dependencies = [
     "pandas>=1.3.1",
     "scipy>=1.7.3",
     "discord-py>=2.3.2",
+    "discord-py @ git+https://github.com/Rapptz/discord.py.git@a00510988a204517f4777f1231407de3db726ae5",
     "cachetools>=5.3.0",
     "aioscheduler @ git+https://github.com/noahkw/aioscheduler",
     "discord-ext-menus @ git+https://github.com/Rapptz/discord-ext-menus",

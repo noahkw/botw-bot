@@ -33,7 +33,8 @@ repos:
       - id: detect-private-key
         exclude: ^examples/
   - repo: 'https://github.com/pycqa/flake8'
-    rev: 3.8.4
+    rev: 5.0.4
     hooks:
       - id: flake8
         exclude: ^docs/
+        args: ["--ignore=W604,E231,E225,W503"]

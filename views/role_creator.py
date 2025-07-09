@@ -15,15 +15,17 @@ from views.base_view import BaseView
 
 class RoleCreatorResult:
     name: str
-    color: str
+    colors: list[typing.Optional[str]]
     user_id: int
     emoji: Emoji
+    current_color_idx: int
 
     def __init__(self):
         self.name = None
-        self.color = None
+        self.colors = [None, None, None]
         self.user_id = None
         self.emoji = None
+        self.current_color_idx = 0
 
 
 def role_setup_permission_check(cls):
@@ -440,6 +442,10 @@ class RoleCreatorRetryColorView(CallbackView, BaseView):
 
 
 class RoleCreatorColorConfirmationView(CallbackView, BaseView):
+    def __init__(self, interaction, callback, result):
+        super().__init__(callback, result)
+        self.interaction = interaction
+
     @discord.ui.button(label="I confirm", style=discord.ButtonStyle.blurple)
     async def confirm(self, interaction: Interaction, button: Button):
         self.stop()
@@ -462,6 +468,33 @@ class RoleCreatorColorConfirmationView(CallbackView, BaseView):
         await interaction.response.send_modal(
             RoleCreatorColorModal(self.callback, self.result)
         )
+
+    @discord.ui.button(
+        label="Add another gradient color", style=discord.ButtonStyle.green
+    )
+    async def add_color(self, interaction: Interaction, button: Button):
+        if self.result.current_color_idx == 2:
+            await self.interaction.edit_original_response(
+                content="Is your role color legible? You've already added 3 colors:"
+                f" {format_colors(self.result.colors)}",
+                view=RoleCreatorColorConfirmationView(
+                    self.interaction, self.callback, self.result
+                ),
+            )
+            self.stop()
+            return
+
+        self.result.current_color_idx += 1
+
+        await interaction.response.send_modal(
+            RoleCreatorColorModal(self.callback, self.result)
+        )
+
+
+def format_colors(colors: list[str]) -> str:
+    colors_str = [f"#{c}" for c in colors if c is not None]
+
+    return ", ".join(colors_str)
 
 
 class RoleCreatorColorModal(
@@ -489,10 +522,13 @@ class RoleCreatorColorModal(
             )
             return
 
-        self.result.color = self.color.value
+        self.result.colors[self.result.current_color_idx] = self.color.value
+
         await interaction.response.send_message(
-            "Is your role color legible?",
-            view=RoleCreatorColorConfirmationView(self.callback, self.result),
+            f"Is your role color legible? Currently chosen colors: {format_colors(self.result.colors)}",
+            view=RoleCreatorColorConfirmationView(
+                interaction, self.callback, self.result
+            ),
             ephemeral=True,
             delete_after=self.DELETE_RESPONSE_AFTER,
         )

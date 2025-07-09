@@ -118,7 +118,9 @@ class CustomRoles(CustomCog, AinitMixin):
             await db.delete_custom_role(session, ctx.guild.id, ctx.author.id)
             await session.commit()
 
-    def _make_role_creation_view(self, guild: discord.Guild):
+    def _make_role_creation_view(
+        self, guild: discord.Guild, ctx: commands.Context = None
+    ):
         async def creation_callback(result: RoleCreatorResult):
             async with self.bot.Session() as session:
                 member = guild.get_member(result.user_id)
@@ -144,7 +146,15 @@ class CustomRoles(CustomCog, AinitMixin):
                     role = await guild.create_role(
                         reason=f"Custom role for {member} ({result.user_id})",
                         name=result.name,
-                        color=Color.from_str("#" + result.color),
+                        color=Color.from_str("#" + result.colors[0])
+                        if result.colors[0] is not None
+                        else None,
+                        secondary_color=Color.from_str("#" + result.colors[1])
+                        if result.colors[1] is not None
+                        else None,
+                        tertiary_color=Color.from_str("#" + result.colors[2])
+                        if result.colors[2] is not None
+                        else None,
                         display_icon=emoji_data
                         if emoji_data and ROLE_ICONS_FEATURE_NAME in guild.features
                         else None,
@@ -166,6 +176,13 @@ class CustomRoles(CustomCog, AinitMixin):
                         guild,
                         guild.id,
                     )
+
+                    if ctx is not None:
+                        await ctx.reply(
+                            "Sorry, I do not have the correct permissions to create your role."
+                            " Please contact a staff member."
+                        )
+
                     return
 
         return RoleCreatorView(creation_callback, None)
@@ -179,7 +196,9 @@ class CustomRoles(CustomCog, AinitMixin):
         )
         embed.set_author(name=ctx.guild.name, icon_url=ctx.guild.icon.url)
 
-        await ctx.send(view=self._make_role_creation_view(ctx.guild), embed=embed)
+        await ctx.send(
+            view=self._make_role_creation_view(ctx.guild, ctx=ctx), embed=embed
+        )
 
     @commands.Cog.listener()
     async def on_user_blocked(self, blocked_user: BlockedUser):
