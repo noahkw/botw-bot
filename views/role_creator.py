@@ -18,14 +18,12 @@ class RoleCreatorResult:
     colors: list[typing.Optional[str]]
     user_id: int
     emoji: Emoji
-    current_color_idx: int
 
     def __init__(self):
         self.name = None
         self.colors = [None, None, None]
         self.user_id = None
         self.emoji = None
-        self.current_color_idx = 0
 
 
 def role_setup_permission_check(cls):
@@ -376,16 +374,48 @@ class RoleCreatorNameConfirmationView(CallbackView, BaseView):
             )
             return
 
-        self.stop()
-        await interaction.response.send_modal(
-            RoleCreatorColorModal(self.callback, self.result)
+        await interaction.response.send_message(
+            "What kind of role color do you want?",
+            view=RoleCreatorColorTypeView(self.callback, self.result),
+            ephemeral=True,
+            delete_after=self.DELETE_RESPONSE_AFTER,
         )
 
     @discord.ui.button(label="Choose another name", style=discord.ButtonStyle.red)
     async def retry(self, interaction: Interaction, button: Button):
-        self.stop()
         await interaction.response.send_modal(
             RoleCreatorNameModal(self.callback, self.result)
+        )
+
+
+class RoleCreatorColorTypeView(CallbackView, BaseView):
+    @discord.ui.button(label="Solid", style=discord.ButtonStyle.blurple)
+    async def solid_color(self, interaction: Interaction, button: Button):
+        await interaction.response.send_modal(
+            RoleCreatorColorModal(1, self.callback, self.result)
+        )
+
+    @discord.ui.button(label="Gradient", style=discord.ButtonStyle.green)
+    async def gradient_color(self, interaction: Interaction, button: Button):
+        await interaction.response.send_modal(
+            RoleCreatorColorModal(2, self.callback, self.result)
+        )
+
+    @discord.ui.button(label="Holographic", style=discord.ButtonStyle.gray)
+    async def holographic_color(self, interaction: Interaction, button: Button):
+        self.result.colors = ["A9C9FF", "FFBBEC", "FFC3A0"]
+
+        await interaction.response.send_message(
+            "Please pick a role emoji from the following list.",
+            view=RoleCreatorEmojiPickerView(
+                interaction.guild.emojis,
+                interaction.guild.emojis,
+                interaction,
+                self.callback,
+                self.result,
+            ),
+            ephemeral=True,
+            delete_after=self.DELETE_RESPONSE_AFTER,
         )
 
 
@@ -421,7 +451,6 @@ class RoleCreatorNameModal(
     )
 
     async def on_submit(self, interaction: Interaction) -> None:
-        self.stop()
         self.result.name = self.name.value
         await interaction.response.send_message(
             f"Does your role name `{self.result.name}` abide by the server rules? "
@@ -435,9 +464,11 @@ class RoleCreatorNameModal(
 class RoleCreatorRetryColorView(CallbackView, BaseView):
     @discord.ui.button(label="Choose another color", style=discord.ButtonStyle.red)
     async def retry(self, interaction: Interaction, button: Button):
-        self.stop()
-        await interaction.response.send_modal(
-            RoleCreatorColorModal(self.callback, self.result)
+        await interaction.response.send_message(
+            "What kind of role color do you want?",
+            view=RoleCreatorColorTypeView(self.callback, self.result),
+            ephemeral=True,
+            delete_after=self.DELETE_RESPONSE_AFTER,
         )
 
 
@@ -448,7 +479,6 @@ class RoleCreatorColorConfirmationView(CallbackView, BaseView):
 
     @discord.ui.button(label="I confirm", style=discord.ButtonStyle.blurple)
     async def confirm(self, interaction: Interaction, button: Button):
-        self.stop()
         await interaction.response.send_message(
             "Please pick a role emoji from the following list.",
             view=RoleCreatorEmojiPickerView(
@@ -464,30 +494,11 @@ class RoleCreatorColorConfirmationView(CallbackView, BaseView):
 
     @discord.ui.button(label="Choose another color", style=discord.ButtonStyle.red)
     async def retry(self, interaction: Interaction, button: Button):
-        self.stop()
-        await interaction.response.send_modal(
-            RoleCreatorColorModal(self.callback, self.result)
-        )
-
-    @discord.ui.button(
-        label="Add another gradient color", style=discord.ButtonStyle.green
-    )
-    async def add_color(self, interaction: Interaction, button: Button):
-        if self.result.current_color_idx == 2:
-            await self.interaction.edit_original_response(
-                content="Is your role color legible? You've already added 3 colors:"
-                f" {format_colors(self.result.colors)}",
-                view=RoleCreatorColorConfirmationView(
-                    self.interaction, self.callback, self.result
-                ),
-            )
-            self.stop()
-            return
-
-        self.result.current_color_idx += 1
-
-        await interaction.response.send_modal(
-            RoleCreatorColorModal(self.callback, self.result)
+        await interaction.response.send_message(
+            "What kind of role color do you want?",
+            view=RoleCreatorColorTypeView(self.callback, self.result),
+            ephemeral=True,
+            delete_after=self.DELETE_RESPONSE_AFTER,
         )
 
 
@@ -500,18 +511,27 @@ def format_colors(colors: list[str]) -> str:
 class RoleCreatorColorModal(
     CallbackView, BaseView, Modal, title="Choose your role's color"
 ):
-    color = TextInput(
-        label="Role color",
-        placeholder="000000",
-        min_length=6,
-        max_length=6,
-    )
+    def __init__(self, num_colors, callback, result):
+        super().__init__(callback, result)
+        self.num_colors = num_colors
+        self.colors_inputs = []
+
+        for idx in range(num_colors):
+            color_input = TextInput(
+                label=f"Role color {idx + 1}",
+                placeholder="000000",
+                min_length=6,
+                max_length=6,
+            )
+            self.colors_inputs.append(color_input)
+            self.add_item(color_input)
 
     async def on_submit(self, interaction: Interaction) -> None:
         self.stop()
 
         try:
-            Color.from_str("#" + self.color.value)
+            for color_input in self.colors_inputs:
+                Color.from_str("#" + color_input.value)
         except ValueError:
             await interaction.response.send_message(
                 "You entered an invalid color hex code. Please try again."
@@ -522,7 +542,7 @@ class RoleCreatorColorModal(
             )
             return
 
-        self.result.colors[self.result.current_color_idx] = self.color.value
+        self.result.colors = [c.value for c in self.colors_inputs]
 
         await interaction.response.send_message(
             f"Is your role color legible? Currently chosen colors: {format_colors(self.result.colors)}",

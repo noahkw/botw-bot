@@ -147,13 +147,13 @@ class CustomRoles(CustomCog, AinitMixin):
                         reason=f"Custom role for {member} ({result.user_id})",
                         name=result.name,
                         color=Color.from_str("#" + result.colors[0])
-                        if result.colors[0] is not None
+                        if len(result.colors) >= 1
                         else None,
                         secondary_color=Color.from_str("#" + result.colors[1])
-                        if result.colors[1] is not None
+                        if len(result.colors) >= 2
                         else None,
                         tertiary_color=Color.from_str("#" + result.colors[2])
-                        if result.colors[2] is not None
+                        if len(result.colors) >= 3
                         else None,
                         display_icon=emoji_data
                         if emoji_data and ROLE_ICONS_FEATURE_NAME in guild.features
